@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ทางสองเรา</title>
+<meta name="description" content="เกมผจญภัยสองคน ต้องช่วยกันถึงจะผ่านด่าน เล่นเครื่องเดียวกันหรือออนไลน์คนละเครื่อง">
+<meta name="theme-color" content="#15122b">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chonburi&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+img{max-width:100%}
+/* Layout: one-screen game. A thin HUD on top, the level canvas scaled to fit below it, menus as panels over the canvas, touch pads in the bottom corners. Dusk over sandstone temple ruins. */
+:root{
+  --night:#15122b;
+  --panel:#211b44;
+  --panel-2:#2b2456;
+  --line:#40377a;
+  --paper:#f5edff;
+  --muted:#b3a8d9;
+  --gold:#ffcf5a;
+  --gold-deep:#b98a1f;
+  --pink:#ff6f9c;
+  --mint:#4fe0bf;
+  --ink:#1a1530;
+  --scrim:rgba(13,10,30,.64);
+  --f-display:'Chonburi','Leelawadee UI','Thonburi',serif;
+  --f-ui:'IBM Plex Sans Thai','Leelawadee UI','Thonburi','Noto Sans Thai',system-ui,sans-serif;
+  color-scheme:dark;
+}
+html{height:100%;box-sizing:border-box}
+*,*::before,*::after{box-sizing:inherit}
+body{height:100%;margin:0;background:var(--night);color:var(--paper);font-family:var(--f-ui);font-size:15px;line-height:1.5;overflow:hidden}
+button{font-family:inherit}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+.app{
+  height:100%;display:flex;flex-direction:column;gap:8px;
+  padding-block:8px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+}
+.app.playing{-webkit-user-select:none;user-select:none}
+
+.hud{display:flex;align-items:center;gap:12px;min-height:36px;min-width:0}
+.app.menu .hud{visibility:hidden}
+.hud .lv-no{font:400 18px/1.2 var(--f-display);color:var(--gold);white-space:nowrap}
+.hud .lv-name{font-weight:600;white-space:nowrap}
+.hud .hint{flex:1;min-width:0;margin:0;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hud .hearts{font-weight:600;color:var(--gold);font-variant-numeric:tabular-nums;white-space:nowrap}
+.hbtn{font:500 13px/1 var(--f-ui);padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--paper);cursor:pointer;white-space:nowrap}
+.hbtn:hover{border-color:var(--muted)}
+@media (max-width:680px){
+  .hud{gap:8px}
+  .hud .hint{display:none}
+  .hud .lv-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+}
+
+.stage{flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center}
+@media (orientation:portrait){.stage{align-items:flex-start}}
+#cv{display:block;border-radius:14px;box-shadow:0 0 0 1px var(--line), 0 18px 44px rgba(0,0,0,.5);touch-action:none;max-width:100%}
+
+.screen{position:absolute;inset:0;z-index:6;display:flex;padding:12px;overflow:auto;background:var(--scrim);border-radius:14px}
+.panel{margin:auto;width:min(100%, 660px);background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:22px 22px 20px;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+.panel.sm{width:min(100%, 440px);text-align:center}
+.eyebrow{margin:0;font-size:12px;letter-spacing:.08em;color:var(--muted)}
+.title{font:400 clamp(38px, 6.4vw, 58px)/1.35 var(--f-display);color:var(--gold);margin:2px 0 0;text-wrap:balance}
+.panel h2{font:400 clamp(26px, 4.4vw, 36px)/1.35 var(--f-display);color:var(--gold);margin:4px 0 6px;text-wrap:balance}
+.tag{margin:6px 0 16px;color:var(--paper);opacity:.86;max-width:52ch;text-wrap:pretty}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:460px){.duo{grid-template-columns:1fr}}
+.who{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:2px 12px;padding:10px 12px;border-radius:14px;background:var(--panel-2);border:1.5px solid var(--pink);min-width:0}
+.who.mint{border-color:var(--mint)}
+.chip{grid-row:1 / span 2;width:30px;height:34px;border-radius:13px 13px 10px 10px;background:var(--pink);position:relative}
+.who.mint .chip{background:var(--mint)}
+.chip::before,.chip::after{content:"";position:absolute;top:12px;width:7px;height:8px;border-radius:50%;background:#fff;box-shadow:inset 1px 3px 0 0 var(--ink)}
+.chip::before{left:6px}
+.chip::after{right:6px}
+.who .role{font-size:12px;color:var(--muted);min-width:0}
+.who .role b{color:var(--paper);font-weight:600;letter-spacing:.05em}
+.who input{font:600 18px/1.35 var(--f-ui);color:var(--pink);background:transparent;border:0;border-bottom:1.5px dashed var(--line);padding:2px 0;width:100%;min-width:0}
+.who.mint input{color:var(--mint)}
+.who input:focus{outline:none;border-bottom-style:solid;border-bottom-color:currentColor}
+.keys{margin:12px 0 0;font-size:13px;color:var(--muted)}
+kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;color:var(--paper)}
+.app:not(.touch) [data-tc]{display:none}
+.app.touch [data-kb]{display:none}
+.lv-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:18px 0 8px}
+.lv-head h3{margin:0;font:400 19px/1.3 var(--f-display)}
+.note{font-size:13px;color:var(--muted)}
+.levels{display:grid;grid-template-columns:repeat(auto-fill, minmax(168px, 1fr));gap:8px}
+.lv{display:grid;grid-template-columns:auto 1fr;column-gap:10px;align-items:center;text-align:left;padding:9px 12px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--paper);cursor:pointer;min-width:0}
+.lv:hover:not(:disabled){border-color:var(--gold)}
+.lv .n{grid-row:1 / span 2;font:400 26px/1 var(--f-display);color:var(--gold);min-width:1.1em;text-align:center}
+.lv .nm{font-weight:600;font-size:14px;line-height:1.35}
+.lv .hs{font-size:12px;color:var(--muted)}
+.lv.done .hs{color:var(--gold)}
+.lv:disabled{cursor:not-allowed;opacity:.4}
+.actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:18px}
+.panel.sm .actions{justify-content:center}
+.cta{font:600 17px/1 var(--f-ui);padding:14px 26px;border-radius:999px;border:0;background:var(--gold);color:var(--ink);cursor:pointer;box-shadow:0 4px 0 var(--gold-deep)}
+.cta:active{transform:translateY(3px);box-shadow:0 1px 0 var(--gold-deep)}
+.ghost{font:500 15px/1 var(--f-ui);padding:12px 18px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--paper);cursor:pointer}
+.ghost:hover{border-color:var(--muted)}
+.toggle{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:14px;margin-left:auto;cursor:pointer}
+.toggle input{accent-color:var(--gold);width:16px;height:16px;margin:0}
+.stats{display:flex;justify-content:center;flex-wrap:wrap;gap:6px 18px;margin:10px 0 0;font-variant-numeric:tabular-nums}
+.stats span{color:var(--muted);font-size:14px}
+.stats b{color:var(--paper);font-weight:600}
+.phint{margin:8px auto 0;color:var(--muted);max-width:36ch;text-wrap:pretty}
+.ch-note{margin:-4px 0 8px;font-size:13px;color:var(--muted)}
+.tips{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:8px;text-align:left}
+.tips li{padding:10px 12px;border-radius:12px;background:var(--panel-2);border:1px solid var(--line);font-size:14px;line-height:1.55}
+.tips b{display:block;color:var(--gold);font-weight:600;font-size:12px;letter-spacing:.04em}
+.tipbtn{border-color:var(--gold);color:var(--gold)}
+.online-btn{border-color:var(--mint);color:var(--mint)}
+.netbadge{font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;border:1px solid var(--mint);color:var(--mint);white-space:nowrap}
+.netbadge.wait{border-color:var(--gold);color:var(--gold)}
+.panel.online{width:min(100%, 620px)}
+.field{display:block;font-size:13px;color:var(--muted);margin-top:4px}
+.field-in{font:600 18px/1.3 var(--f-ui);color:var(--paper);background:var(--panel-2);border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;width:100%;min-width:0}
+.field-in:focus{outline:none;border-color:var(--gold)}
+.o-two{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+@media (max-width:520px){.o-two{grid-template-columns:1fr}}
+.o-card{display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:14px;border:1px solid var(--line);background:var(--panel-2);min-width:0}
+.o-h{margin:0;font:400 18px/1.35 var(--f-display);color:var(--gold)}
+.o-p{margin:0;font-size:14px;color:var(--muted);flex:1}
+.c-pink{color:var(--pink);font-weight:600}
+.c-mint{color:var(--mint);font-weight:600}
+.o-join{display:flex;gap:8px}
+.code-in{letter-spacing:.3em;text-align:center;font-variant-numeric:tabular-nums}
+.code-show{display:flex;align-items:baseline;justify-content:center;gap:12px;margin:6px 0 0}
+.code-show span{color:var(--muted);font-size:14px}
+.code-show b{font:400 44px/1.2 var(--f-display);color:var(--gold);letter-spacing:.12em;font-variant-numeric:tabular-nums}
+.o-status{text-align:center;margin:6px 0 0;color:var(--paper)}
+.app.solo .cluster.pink [data-k="jump"],.app.solo .cluster.mint [data-k="left"],.app.solo .cluster.mint [data-k="right"]{display:none}
+.app.solo .cluster{--pc:var(--local, var(--pink))}
+.app.solo .pad button{width:clamp(60px, 16vmin, 88px);height:clamp(60px, 16vmin, 88px)}
+
+.pad{position:absolute;left:0;right:0;bottom:0;z-index:4;display:none;justify-content:space-between;align-items:flex-end;padding:6px 0;pointer-events:none}
+.app.touch.playing .pad{display:flex}
+.cluster{display:grid;grid-template-columns:repeat(2, auto);gap:8px;pointer-events:auto}
+.cluster [data-k="jump"]{grid-column:1 / span 2;justify-self:center}
+.app.touch .stage{align-items:flex-start}
+.cluster.pink{--pc:var(--pink)}
+.cluster.mint{--pc:var(--mint)}
+.pad button{
+  width:clamp(44px, 12vmin, 68px);height:clamp(44px, 12vmin, 68px);border-radius:50%;padding:0;
+  border:2px solid var(--pc);background:rgba(21,18,43,.42);color:var(--pc);
+  display:grid;place-items:center;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+}
+.pad button.on{background:var(--pc);color:var(--ink)}
+.pad svg{width:46%;height:46%}
+.rotate{display:none;position:absolute;left:0;right:0;bottom:150px;margin:0;text-align:center;font-size:13px;color:var(--muted)}
+@media (orientation:portrait){.app.touch.playing .rotate{display:block}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="app menu" id="app">
+  <header class="hud">
+    <span class="lv-no" id="hNo">ด่าน ๑</span>
+    <span class="lv-name" id="hName"></span>
+    <p class="hint" id="hHint"></p>
+    <span class="netbadge" id="hNet" hidden></span>
+    <span class="hearts" id="hHearts" aria-label="หัวใจที่เก็บได้"></span>
+    <button class="hbtn" id="bRestart" type="button">เริ่มด่านใหม่</button>
+    <button class="hbtn" id="bMenu" type="button">พัก</button>
+  </header>
+
+  <main class="stage" id="stage">
+    <canvas id="cv" aria-label="ฉากเกม"></canvas>
+
+    <section class="screen" id="sTitle">
+      <div class="panel">
+        <p class="eyebrow">เกมผจญภัยสำหรับสองคน เล่นเครื่องเดียวกัน</p>
+        <h1 class="title">ทางสองเรา</h1>
+        <p class="tag">ทุกด่านคนเดียวผ่านไม่ได้ ต้องเหยียบหัวกัน ยืนกดเปิดทางให้กัน ช่วยกันเข็นหิน และคิดลำดับให้ดี จนเดินเข้าประตูหัวใจได้พร้อมกันทั้งคู่</p>
+        <div class="duo">
+          <label class="who pink"><span class="chip" aria-hidden="true"></span><span class="role">ตัวชมพู · <b data-kb>W A D</b><b data-tc>ปุ่มฝั่งซ้าย</b></span><input id="nPink" maxlength="10" value="เค้า" autocomplete="off"></label>
+          <label class="who mint"><span class="chip" aria-hidden="true"></span><span class="role">ตัวมิ้นต์ · <b data-kb>↑ ← →</b><b data-tc>ปุ่มฝั่งขวา</b></span><input id="nMint" maxlength="10" value="ตัวเอง" autocomplete="off"></label>
+        </div>
+        <p class="keys" data-kb>ชมพูกด <kbd>W</kbd> กระโดด มิ้นต์กด <kbd>↑</kbd> กระโดด · <kbd>R</kbd> เริ่มด่านใหม่ · <kbd>Esc</kbd> พักเกม · ใครพลาดต้องเริ่มด่านใหม่ทั้งคู่</p>
+        <p class="keys" data-tc>หมุนเครื่องเป็นแนวนอน ถือกันคนละฝั่ง ปุ่มซ้ายของจอเป็นของชมพู ปุ่มขวาเป็นของมิ้นต์ · ใครพลาดต้องเริ่มด่านใหม่ทั้งคู่</p>
+        <div class="lv-head"><h3>บทที่ ๑ · ฝึกมือ</h3><span class="note" id="tHearts1"></span></div>
+        <p class="ch-note">ด่านละหนึ่งกลไก ไว้ทำความรู้จักของในเกม</p>
+        <div class="levels" id="levels1"></div>
+        <div class="lv-head"><h3>บทที่ ๒ · ใช้หัว</h3><span class="note" id="tHearts2"></span></div>
+        <p class="ch-note">ปริศนาที่ต้องวางแผนลำดับก่อนลงมือ ถ้าติดกดพักแล้วขอคำใบ้ได้ทีละข้อ</p>
+        <div class="levels" id="levels2"></div>
+        <div class="actions">
+          <button class="cta" id="bGo" type="button">ออกเดินทาง</button>
+          <button class="ghost" id="bCh2" type="button">ข้ามไปบทที่ ๒</button>
+          <button class="ghost online-btn" id="bOnline" type="button">เล่นออนไลน์ คนละเครื่อง</button>
+          <label class="toggle"><input type="checkbox" id="snd" checked> เสียง</label>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen" id="sPause" hidden>
+      <div class="panel sm">
+        <p class="eyebrow" id="pNo"></p>
+        <h2 id="pName">พักก่อน</h2>
+        <p class="phint" id="pHint"></p>
+        <ol class="tips" id="pTips" hidden></ol>
+        <div class="actions">
+          <button class="ghost tipbtn" id="bTip" type="button">ขอคำใบ้</button>
+          <button class="cta" id="bResume" type="button">เล่นต่อ</button>
+          <button class="ghost" id="bRestart2" type="button">เริ่มด่านใหม่</button>
+          <button class="ghost" id="bLevels" type="button">เลือกด่าน</button>
+          <button class="ghost" id="bLeave" type="button" hidden>ออกจากห้อง</button>
+        </div>
+        <p class="phint" id="pNet" hidden>เล่นออนไลน์อยู่ ฉากยังเดินต่อในเครื่องของอีกคน</p>
+      </div>
+    </section>
+
+    <section class="screen" id="sClear" hidden>
+      <div class="panel sm">
+        <p class="eyebrow" id="cNo"></p>
+        <h2 id="cName"></h2>
+        <p class="phint" id="cMsg"></p>
+        <p class="stats" id="cStats"></p>
+        <div class="actions">
+          <button class="cta" id="bNext" type="button">ด่านต่อไป</button>
+          <button class="ghost" id="bAgain" type="button">เล่นด่านนี้อีกครั้ง</button>
+          <button class="ghost" id="bLevels2" type="button">เลือกด่าน</button>
+          <button class="ghost" id="bLeave2" type="button" hidden>ออกจากห้อง</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen" id="sOnline" hidden>
+      <div class="panel online">
+        <p class="eyebrow">เล่นออนไลน์ คนละเครื่อง</p>
+        <h2 id="oTitle">ห้องของเราสองคน</h2>
+        <p class="phint" id="oMsg"></p>
+        <div id="oPick">
+          <label class="field" for="oName">ชื่อของคุณ</label>
+          <input class="field-in" id="oName" maxlength="10" autocomplete="off">
+          <div class="o-two">
+            <div class="o-card">
+              <p class="o-h">เปิดห้องใหม่</p>
+              <p class="o-p">คุณจะเป็น<b class="c-pink">ตัวชมพู</b> และเป็นคนเลือกด่าน</p>
+              <button class="cta" id="oCreate" type="button">เปิดห้อง</button>
+            </div>
+            <div class="o-card">
+              <p class="o-h">เข้าห้องของแฟน</p>
+              <p class="o-p">คุณจะเป็น<b class="c-mint">ตัวมิ้นต์</b> ใส่รหัส ๔ ตัวที่แฟนบอก</p>
+              <div class="o-join"><input class="field-in code-in" id="oCode" inputmode="numeric" maxlength="4" placeholder="รหัส" autocomplete="off"><button class="cta" id="oJoin" type="button">เข้าห้อง</button></div>
+            </div>
+          </div>
+        </div>
+        <div id="oRoom" hidden>
+          <p class="code-show"><span>รหัสห้อง</span><b id="oCodeShow"></b></p>
+          <p class="o-status" id="oStatus"></p>
+          <div id="oLevelsWrap" hidden>
+            <div class="lv-head"><h3>บทที่ ๑ · ฝึกมือ</h3></div>
+            <div class="levels" id="oLevels1"></div>
+            <div class="lv-head"><h3>บทที่ ๒ · ใช้หัว</h3></div>
+            <div class="levels" id="oLevels2"></div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="ghost" id="oBack" type="button">กลับหน้าแรก</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="pad" id="pad">
+      <div class="cluster pink">
+        <button type="button" data-p="pink" data-k="jump" aria-label="ชมพูกระโดด"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 15l7-7 7 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button type="button" data-p="pink" data-k="left" aria-label="ชมพูไปซ้าย"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button type="button" data-p="pink" data-k="right" aria-label="ชมพูไปขวา"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </div>
+      <div class="cluster mint">
+        <button type="button" data-p="mint" data-k="jump" aria-label="มิ้นต์กระโดด"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 15l7-7 7 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button type="button" data-p="mint" data-k="left" aria-label="มิ้นต์ไปซ้าย"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button type="button" data-p="mint" data-k="right" aria-label="มิ้นต์ไปขวา"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </div>
+    </div>
+    <p class="rotate">หมุนจอเป็นแนวนอนจะเห็นฉากชัดกว่า</p>
+  </main>
+</div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" onerror="var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';document.head.appendChild(s)"></script>
+<script src="js/physics.js"></script>
+<script src="js/net.js"></script>
+<script src="js/levels.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>

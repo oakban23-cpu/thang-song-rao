@@ -1,0 +1,9 @@
+{
+  "name": "thang-song-rao",
+  "version": "1.0.0",
+  "private": true,
+  "description": "เกมผจญภัยสองคน ต้องช่วยกันถึงจะผ่านด่าน",
+  "scripts": {
+    "test": "node tests/test.js && node tests/bot.js && node tests/cheese.js && node tests/nettest.js"
+  }
+}
