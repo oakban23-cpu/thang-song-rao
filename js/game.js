@@ -18,8 +18,10 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem('thangsongrao:' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem('thangsongrao:' + k, JSON.stringify(v)); } catch (e) {} }
 };
-const ALL = LEVELS.map((l, i) => Object.assign({ ch: 1, n: i + 1 }, l)).concat(LEVELS2.map((l, i) => Object.assign({ ch: 2, n: i + 1 }, l)));
-const CH_NAME = { 1: 'ฝึกมือ', 2: 'ใช้หัว' };
+const ALL = [LEVELS, LEVELS2, LEVELS3].flatMap((set, c) => set.map((l, i) => Object.assign({ ch: c + 1, n: i + 1 }, l)));
+const CHAPTERS = [1, 2, 3];
+const CH_NAME = { 1: 'ฝึกมือ', 2: 'ใช้หัว', 3: 'โลกแปลก' };
+const CH_NEXT = { 1: 'บทที่ ๒ แต่ละด่านมีทางผ่านทางเดียว ต้องวางแผนลำดับก่อนลงมือ', 2: 'บทที่ ๓ โลกเริ่มแปลก มีด้ายแดงผูกกันไว้ เงาย้อนเวลา และหินสลับร่าง' };
 let prog = store.get('prog2', null);
 if (!prog || !prog.u) {
   prog = { u: { 1: 0, 2: 0 }, h: {} };
@@ -72,7 +74,10 @@ const sfx = {
   door() { tone(120, .2, 'sawtooth', .04, 80); },
   heart() { tone(880, .08, 'triangle', .07); tone(1320, .12, 'triangle', .07, 0, .07); },
   die() { tone(440, .4, 'sawtooth', .06, 90); },
-  win() { [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, .2, 'triangle', .07, 0, i * .09)); }
+  win() { [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, .2, 'triangle', .07, 0, i * .09)); },
+  bell() { tone(1318, .9, 'sine', .07); tone(1975, .6, 'sine', .03, 0, .01); tone(659, 1.1, 'sine', .04); },
+  ghost() { tone(880, .5, 'sine', .05, 330); tone(1320, .4, 'triangle', .02, 440, .05); },
+  swap() { tone(300, .18, 'sawtooth', .05, 900); tone(900, .18, 'sawtooth', .04, 300, .12); }
 };
 
 /* ---------- Helpers ---------- */
@@ -365,6 +370,119 @@ function drawBoxes(g, L) {
     }
   }
 }
+function drawBells(g, L, t) {
+  for (const b of L.bells) {
+    const cx = b.x * T + T / 2, by = (b.y + 1) * T, sw = Math.sin(t * 18) * 0.35 * b.ring;
+    g.fillStyle = '#6b4a2a'; g.fillRect(cx - 12, by - 30, 24, 3); g.fillRect(cx - 11, by - 30, 2, 30); g.fillRect(cx + 9, by - 30, 2, 30);
+    g.save(); g.translate(cx, by - 27); g.rotate(sw);
+    if (b.ring > 0) { g.globalAlpha = b.ring * .5; g.strokeStyle = C.gold; g.lineWidth = 1.5; for (const r of [14, 20]) { g.beginPath(); g.arc(0, 12, r * (1.4 - b.ring * .4), -2.4, -0.7); g.stroke(); } g.globalAlpha = 1; }
+    g.beginPath(); g.moveTo(-3, 2); g.quadraticCurveTo(-4, 6, -7, 16); g.lineTo(7, 16); g.quadraticCurveTo(4, 6, 3, 2); g.closePath();
+    g.fillStyle = C.gold; g.fill(); g.strokeStyle = '#8a5d10'; g.lineWidth = 1.2; g.stroke();
+    g.fillStyle = '#8a5d10'; g.beginPath(); g.arc(0, 17.5, 2, 0, Math.PI * 2); g.fill();
+    g.restore();
+  }
+}
+function drawSwaps(g, L, t) {
+  for (const s of L.swaps) {
+    const cx = s.x * T + T / 2, by = (s.y + 1) * T, a = s.armed ? 1 : .45;
+    if (s.flash > 0) {
+      const gl = g.createRadialGradient(cx, by - 12, 2, cx, by - 12, 40);
+      gl.addColorStop(0, `rgba(255,255,255,${s.flash * .7})`); gl.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = gl; g.fillRect(cx - 40, by - 52, 80, 80);
+    }
+    g.globalAlpha = a;
+    rr(g, cx - 12, by - 9, 24, 9, 3); g.fillStyle = '#5b5480'; g.fill();
+    rr(g, cx - 9, by - 22, 18, 14, 6); g.fillStyle = '#8a83b3'; g.fill();
+    const rot = t * (s.armed ? 2.2 : .6);
+    g.lineWidth = 2.4; g.lineCap = 'round';
+    for (const [col, off] of [[C.pink, 0], [C.mint, Math.PI]]) {
+      g.strokeStyle = col; g.beginPath(); g.arc(cx, by - 15, 11, rot + off, rot + off + 2.2); g.stroke();
+      const ex = cx + Math.cos(rot + off + 2.2) * 11, ey = by - 15 + Math.sin(rot + off + 2.2) * 11;
+      g.fillStyle = col; g.beginPath(); g.arc(ex, ey, 2.4, 0, Math.PI * 2); g.fill();
+    }
+    g.lineCap = 'butt'; g.globalAlpha = 1;
+  }
+}
+function drawThread(g, W) {
+  const L = W.L;
+  if (!L.thread || S.mode === 'dying') return;
+  const a = W.pink, b = W.mint;
+  const ax = a.x + a.w / 2, ay = a.y + a.h * .62, bx = b.x + b.w / 2, by = b.y + b.h * .62;
+  const d = Math.hypot(bx - ax, by - ay), sag = Math.max(0, L.thread - d) * .55;
+  const mx = (ax + bx) / 2, my = (ay + by) / 2 + sag;
+  const taut = d > L.thread - 6;
+  g.lineCap = 'round';
+  g.strokeStyle = taut ? 'rgba(255,90,110,.35)' : 'rgba(255,60,90,.18)'; g.lineWidth = taut ? 6 : 4;
+  g.beginPath(); g.moveTo(ax, ay); g.quadraticCurveTo(mx, my, bx, by); g.stroke();
+  g.strokeStyle = taut ? '#ff5468' : '#e8364c'; g.lineWidth = 2;
+  g.beginPath(); g.moveTo(ax, ay); g.quadraticCurveTo(mx, my, bx, by); g.stroke();
+  g.lineCap = 'butt';
+  for (const [x, y] of [[ax, ay], [bx, by]]) { g.fillStyle = '#e8364c'; g.beginPath(); g.arc(x, y, 2.6, 0, Math.PI * 2); g.fill(); }
+}
+function drawGhost(g, gh, t) {
+  const pink = gh.who === 'pink', col = pink ? C.pink : C.mint, pale = pink ? '#ffc4d6' : '#bdf5e8';
+  const cx = gh.x + gh.w / 2, by = gh.y + gh.h, w = 24, h = 29, moving = Math.abs(gh.dx) + Math.abs(gh.dy) > .05;
+  const flick = .62 + .1 * Math.sin(t * 6 + (pink ? 0 : 2)), bob = Math.sin(t * 3 + (pink ? 0 : 1)) * 1.2;
+  g.save(); g.translate(cx, by + bob);
+  g.shadowColor = col; g.shadowBlur = 14;
+  g.globalAlpha = flick;
+  rr(g, -w / 2, -h, w, h, 10); g.fillStyle = pale; g.fill();
+  g.shadowBlur = 0;
+  g.globalAlpha = .9; g.setLineDash([3, 3]); g.lineWidth = 1.6; g.strokeStyle = col;
+  rr(g, -w / 2, -h, w, h, 10); g.stroke(); g.setLineDash([]);
+  const fx = gh.face * 2.5, ey = -h + 12;
+  g.fillStyle = 'rgba(21,18,43,.8)';
+  for (const s of [-1, 1]) { g.beginPath(); g.ellipse(s * 5 + fx, ey, 2.4, 3.2, 0, 0, Math.PI * 2); g.fill(); }
+  if (!moving) {
+    g.globalAlpha = .9; g.font = `600 10px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+    g.lineWidth = 3; g.strokeStyle = 'rgba(21,18,43,.85)'; g.strokeText('เงา', 0, -h - 5); g.fillStyle = pale; g.fillText('เงา', 0, -h - 5);
+  }
+  g.restore(); g.globalAlpha = 1;
+}
+function recProgress(L, k) {
+  if (L.rec && L.rec[k]) return Math.min(1, L.rec[k].t / L.echoT);
+  if (L.recP && L.recP[k] >= 0) return L.recP[k] / 100;
+  return -1;
+}
+function drawRecording(g, W, t) {
+  const L = W.L;
+  for (const k of ['pink', 'mint']) {
+    const pr = recProgress(L, k);
+    if (pr < 0) continue;
+    const p = W[k], cx = p.x + p.w / 2, cy = p.y + p.h / 2, col = k === 'pink' ? C.pink : C.mint;
+    g.strokeStyle = 'rgba(255,255,255,.18)'; g.lineWidth = 3; g.beginPath(); g.arc(cx, cy, 24, 0, Math.PI * 2); g.stroke();
+    g.strokeStyle = col; g.lineWidth = 3; g.beginPath(); g.arc(cx, cy, 24, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - pr)); g.stroke();
+    const left = Math.max(0, Math.ceil(L.echoT * (1 - pr)));
+    g.fillStyle = '#ff4d5e'; g.beginPath(); g.arc(cx - 7, p.y - 31, 3 + Math.sin(t * 10) * .6, 0, Math.PI * 2); g.fill();
+    g.font = `600 12px ${FONT}`; g.textAlign = 'left'; g.textBaseline = 'middle'; g.lineWidth = 3; g.strokeStyle = 'rgba(21,18,43,.85)';
+    g.strokeText(th(left), cx - 1, p.y - 30); g.fillStyle = C.paper; g.fillText(th(left), cx - 1, p.y - 30);
+  }
+  g.textBaseline = 'alphabetic';
+}
+const shade = document.createElement('canvas');
+function drawDark(W, t) {
+  const L = W.L;
+  if (!L.dark) return;
+  if (shade.width !== cv.width || shade.height !== cv.height) { shade.width = cv.width; shade.height = cv.height; }
+  const s = shade.getContext('2d');
+  s.setTransform(1, 0, 0, 1, 0, 0); s.globalCompositeOperation = 'source-over'; s.clearRect(0, 0, shade.width, shade.height);
+  s.setTransform(scale, 0, 0, scale, 0, 0);
+  s.fillStyle = 'rgba(6,4,16,.95)'; s.fillRect(0, 0, VW, VH);
+  s.globalCompositeOperation = 'destination-out';
+  const hole = (x, y, r, a = 1) => { const gr = s.createRadialGradient(x, y, r * .25, x, y, r); gr.addColorStop(0, `rgba(0,0,0,${a})`); gr.addColorStop(1, 'rgba(0,0,0,0)'); s.fillStyle = gr; s.fillRect(x - r, y - r, r * 2, r * 2); };
+  const flick = 1 + Math.sin(t * 7) * .03;
+  for (const p of [W.pink, W.mint]) if (!(S.mode === 'dying' && S.deadId === p.id)) hole(p.x + p.w / 2, p.y + p.h / 2, 118 * flick);
+  for (const k of ['pink', 'mint']) { const gh = L.ghost[k]; if (gh) hole(gh.x + gh.w / 2, gh.y + gh.h / 2, 46, .7); }
+  if (L.exit) hole(L.exit.x + T, L.exit.y + T, 62, .85);
+  for (const h of L.hearts) if (!h.got) hole(h.x, h.y, 22, .8);
+  for (const o of L.plates) hole(o.x * T + T / 2, (o.y + 1) * T - 6, 26, .55);
+  for (const o of L.toggles) hole(o.x * T + T / 2, (o.y + 1) * T - 12, 26, .55);
+  for (const o of L.swaps) hole(o.x * T + T / 2, (o.y + 1) * T - 14, 30, .7);
+  for (const o of L.bells) hole(o.x * T + T / 2, (o.y + 1) * T - 14, 26, .6);
+  s.globalCompositeOperation = 'source-over';
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(shade, 0, 0);
+}
 function drawPlayer(g, p, t) {
   if (S.mode === 'dying' && S.deadId === p.id) return;
   const pink = p.id === 'pink', col = pink ? C.pink : C.mint, dark = pink ? C.pinkD : C.mintD;
@@ -457,20 +575,30 @@ function render() {
   drawBridges(g, L);
   drawPlates(g, L);
   drawToggles(g, L);
+  drawBells(g, L, t);
+  drawSwaps(g, L, t);
   drawLifts(g, L);
   drawExit(g, W, t);
   drawHearts(g, L, t);
   drawBoxes(g, L);
+  for (const k of ['mint', 'pink']) if (L.ghost[k]) drawGhost(g, L.ghost[k], t);
+  drawThread(g, W);
   const order = W.pink.ground && W.pink.ground.ref === W.mint ? [W.mint, W.pink] : [W.pink, W.mint];
   for (const p of order) drawPlayer(g, p, t);
+  drawRecording(g, W, t);
   drawLink(g, W);
   drawParts(g);
+  drawDark(W, t);
   g.setTransform(scale, 0, 0, scale, 0, 0);
   drawBanner(g);
   if (O.role && S.mode !== 'menu') drawNetNote(g);
   if (S.flash > 0) { g.fillStyle = `rgba(255,80,110,${S.flash * .28})`; g.fillRect(0, 0, VW, VH); }
 }
 
+function swapFx() {
+  sfx.swap();
+  for (const p of [S.W.pink, S.W.mint]) burst(p.x + p.w / 2, p.y + p.h / 2, 14, p.id === 'pink' ? C.pink : C.mint, { speed: 120, life: .5, size: 3, g: 0 });
+}
 /* ---------- Particles ---------- */
 function burst(x, y, n, col, opts = {}) {
   for (let i = 0; i < n; i++) {
@@ -561,10 +689,10 @@ function showClear() {
   const total = chList.reduce((s, l) => s + (l.map.join('').match(/\*/g) || []).length, 0);
   const got = chList.reduce((s, l) => s + (prog.h[l.name] || 0), 0);
   $('#cNo').textContent = endCh ? `จบบทที่ ${th(lv.ch)} · ${CH_NAME[lv.ch]}` : `ผ่าน${lvLabel(S.li)}`;
-  $('#cName').textContent = endAll ? 'ถึงบ้านแล้ว' : endCh ? 'บทต่อไปต้องคิดหนักขึ้น' : lv.name;
+  $('#cName').textContent = endAll ? 'ถึงบ้านแล้ว' : endCh ? (lv.ch === 1 ? 'บทต่อไปต้องคิดหนักขึ้น' : 'บทต่อไปแปลกกว่าเดิม') : lv.name;
   $('#cMsg').textContent = endAll
     ? `${S.names.pink} กับ ${S.names.mint} ไขปริศนาครบทุกด่านด้วยกัน เก็บหัวใจบทนี้ได้ ${th(got)} จาก ${th(total)} ดวง`
-    : endCh ? `${S.names.pink} กับ ${S.names.mint} ผ่านด่านฝึกครบแล้ว บทที่ ${th(lv.ch + 1)} แต่ละด่านมีทางผ่านทางเดียว ต้องวางแผนลำดับก่อนลงมือ`
+    : endCh ? `${S.names.pink} กับ ${S.names.mint} ผ่านบทที่ ${th(lv.ch)} ครบแล้ว ${CH_NEXT[lv.ch] || ''}`
     : S.deaths === 0 ? 'ผ่านรอบเดียวไม่พลาดเลย เข้าขากันดีมาก' : 'ช่วยกันคิดจนผ่านมาได้';
   $('#cStats').innerHTML = `<span>หัวใจ <b>${th(S.W.heartsGot)}/${th(S.W.heartsTotal)}</b></span><span>เวลา <b>${th(fmt(S.elapsed))}</b></span><span>พลาด <b>${th(S.deaths)}</b> ครั้ง</span>`;
   $('#bNext').textContent = endAll ? 'กลับหน้าแรก' : endCh ? `ไปบทที่ ${th(lv.ch + 1)}` : 'ด่านต่อไป';
@@ -581,7 +709,7 @@ function next() {
 }
 
 function renderLevels() {
-  for (const ch of [1, 2]) {
+  for (const ch of CHAPTERS) {
     const idx = ALL.map((l, i) => i).filter(i => ALL[i].ch === ch);
     const total = idx.reduce((s, i) => s + heartsIn(i), 0), got = idx.reduce((s, i) => s + (prog.h[ALL[i].name] || 0), 0);
     $('#tHearts' + ch).textContent = `หัวใจ ${th(got)}/${th(total)}`;
@@ -592,11 +720,11 @@ function renderLevels() {
     }).join('');
   }
   let cont = ALL.findIndex((l, i) => isOpen(i) && prog.h[l.name] == null);
-  if (cont < 0) cont = firstOf(2);
+  if (cont < 0) cont = firstOf(3);
   const started = Object.keys(prog.h).length > 0;
   $('#bGo').textContent = !started ? 'ออกเดินทาง' : `เล่นต่อ ${lvLabel(cont)}`;
   $('#bGo').dataset.i = cont;
-  $('#bCh2').dataset.i = firstOf(2);
+  $('#bCh2').dataset.i = firstOf(3);
 }
 /* ---------- Main loop ---------- */
 let last = performance.now(), acc = 0;
@@ -619,6 +747,9 @@ function tick() {
     if (k === 'jump') sfx.jump(id);
     else if (k === 'land') { sfx.land(); const p = S.W[id]; burst(p.x + p.w / 2, p.y + p.h, 5, 'rgba(230,220,250,.7)', { speed: 50, up: 30, life: .35, size: 2.5, g: 200 }); }
     else if (k === 'plate') sfx.plate();
+    else if (k === 'bell') sfx.bell();
+    else if (k === 'ghost') { sfx.ghost(); const gh = S.W.L.ghost[id]; if (gh) burst(gh.x + gh.w / 2, gh.y + gh.h / 2, 12, id === 'pink' ? C.pink : C.mint, { speed: 70, life: .6, size: 2.5, g: -60 }); }
+    else if (k === 'swap') swapFx();
     else if (k === 'open' || k === 'close') sfx.door();
     else if (k === 'heart') { sfx.heart(); updateHud(); for (const h of S.W.L.hearts) if (h.got && !h.fx) { h.fx = 1; burst(h.x, h.y, 10, C.gold, { speed: 90, life: .5, size: 2.5, g: 100 }); } }
   }
@@ -699,8 +830,8 @@ window.addEventListener('pointerup', endTouch);
 window.addEventListener('pointercancel', endTouch);
 pad.addEventListener('contextmenu', e => e.preventDefault());
 
-for (const ch of [1, 2]) $('#levels' + ch).addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (b && !b.disabled) startLevel(+b.dataset.i); });
-$('#bCh2').addEventListener('click', () => startLevel(firstOf(2)));
+for (const ch of CHAPTERS) $('#levels' + ch).addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (b && !b.disabled) startLevel(+b.dataset.i); });
+$('#bCh2').addEventListener('click', () => startLevel(firstOf(3)));
 $('#bTip').addEventListener('click', () => { const n = ALL[S.li].name; tipsShown[n] = (tipsShown[n] || 0) + 1; renderTips(); });
 $('#bGo').addEventListener('click', () => startLevel(+$('#bGo').dataset.i || 0));
 $('#bRestart').addEventListener('click', () => { if (S.mode === 'play' || S.mode === 'dying') restart(); });
@@ -717,7 +848,7 @@ snd.addEventListener('change', () => { S.sound = snd.checked; store.set('sound',
 
 /* ---------- Online (two phones, one character each) ---------- */
 const O = { api: null, apiP: null, room: null, lobby: false, code: '', role: null, local: null, partner: null, partnerPeer: null, partnerName: '', partnerAt: 0,
-  ep: 0, lv: -1, st: 'lobby', loadedEp: -1, dead: 0, rq: 0, seenDead: 0, seenRq: 0, firstSeen: false, lastInp: null, unsub: [], lastD: '', lastH: 0, wonEp: -1, deathEp: -1 };
+  ep: 0, lv: -1, st: 'lobby', loadedEp: -1, lastRec: { pink: -1, mint: -1 }, dead: 0, rq: 0, seenDead: 0, seenRq: 0, firstSeen: false, lastInp: null, unsub: [], lastD: '', lastH: 0, wonEp: -1, deathEp: -1 };
 function roomApi() {
   if (!O.apiP) O.apiP = (window.claude && typeof window.claude.use === 'function') ? Promise.resolve(window.claude.use('room')).catch(() => null) : Promise.resolve(null);
   return O.apiP;
@@ -844,7 +975,7 @@ function renderOnlineRoom() {
   $('#oStatus').textContent = here ? `${O.partnerName || 'อีกคน'} อยู่ในห้องแล้ว` + (O.role === 'host' ? ' · เลือกด่านได้เลย' : '') : (O.role === 'host' ? 'รออีกคนเข้าห้อง…' : 'กำลังหาห้องนี้… ถ้านานเกินไป ลองเช็กรหัสอีกครั้ง');
   const show = O.role === 'host' && here;
   $('#oLevelsWrap').hidden = !show;
-  if (show) for (const ch of [1, 2]) {
+  if (show) for (const ch of CHAPTERS) {
     $('#oLevels' + ch).innerHTML = ALL.map((l, i) => i).filter(i => ALL[i].ch === ch).map(i => {
       const lv = ALL[i], locked = !isOpen(i);
       return `<button type="button" class="lv${prog.h[lv.name] != null ? ' done' : ''}" data-i="${i}"${locked ? ' disabled' : ''}><span class="n">${th(lv.n)}</span><span class="nm">${lv.name}</span><span class="hs">${locked ? 'ยังล็อกอยู่' : prog.h[lv.name] != null ? 'ผ่านแล้ว' : 'ยังไม่เคยผ่าน'}</span></button>`;
@@ -918,6 +1049,14 @@ function guestHears(pr) {
     Net.applyWorld(S.W, pr.w);
     if (typeof pr.w.d === 'string' && O.lastD && pr.w.d !== O.lastD) sfx.door();
     O.lastD = pr.w.d || '';
+    if (S.W.swapFx) { S.W.swapFx = false; swapFx(); }
+    for (const k of ['pink', 'mint']) {
+      const gh = S.W.L.ghost[k];
+      if (gh && gh.fresh) { gh.fresh = false; sfx.ghost(); }
+      const rp = S.W.L.recP ? S.W.L.recP[k] : -1;
+      if (rp >= 0 && !(O.lastRec[k] >= 0)) sfx.bell();
+      O.lastRec[k] = rp;
+    }
     if (S.W.heartsGot > O.lastH) { sfx.heart(); for (const h of S.W.L.hearts) if (h.got && !h.fx) { h.fx = 1; burst(h.x, h.y, 10, C.gold, { speed: 90, life: .5, size: 2.5, g: 100 }); } }
     if (S.W.heartsGot !== O.lastH) { O.lastH = S.W.heartsGot; updateHud(); }
   }
@@ -955,7 +1094,7 @@ $('#oJoin').addEventListener('click', () => {
   if (v.length !== 4) { setOnlineMsg('รหัสห้องมี ๔ ตัวเลข ลองดูที่จอของอีกคนอีกที'); return; }
   enterRoom(v, 'guest');
 });
-for (const ch of [1, 2]) $('#oLevels' + ch).addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (b && !b.disabled) onlineStart(+b.dataset.i); });
+for (const ch of CHAPTERS) $('#oLevels' + ch).addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (b && !b.disabled) onlineStart(+b.dataset.i); });
 $('#bLeave').addEventListener('click', toTitle);
 $('#bLeave2').addEventListener('click', toTitle);
 

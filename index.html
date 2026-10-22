@@ -112,6 +112,7 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
 .stats b{color:var(--paper);font-weight:600}
 .phint{margin:8px auto 0;color:var(--muted);max-width:36ch;text-wrap:pretty}
 .ch-note{margin:-4px 0 8px;font-size:13px;color:var(--muted)}
+.new{display:inline-block;vertical-align:middle;margin-left:6px;padding:1px 8px;border-radius:999px;background:var(--pink);color:var(--ink);font:600 11px/1.6 var(--f-ui);letter-spacing:.04em}
 .tips{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:8px;text-align:left}
 .tips li{padding:10px 12px;border-radius:12px;background:var(--panel-2);border:1px solid var(--line);font-size:14px;line-height:1.55}
 .tips b{display:block;color:var(--gold);font-weight:600;font-size:12px;letter-spacing:.04em}
@@ -191,9 +192,12 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
         <div class="lv-head"><h3>บทที่ ๒ · ใช้หัว</h3><span class="note" id="tHearts2"></span></div>
         <p class="ch-note">ปริศนาที่ต้องวางแผนลำดับก่อนลงมือ ถ้าติดกดพักแล้วขอคำใบ้ได้ทีละข้อ</p>
         <div class="levels" id="levels2"></div>
+        <div class="lv-head"><h3>บทที่ ๓ · โลกแปลก <span class="new">ใหม่</span></h3><span class="note" id="tHearts3"></span></div>
+        <p class="ch-note">ด้ายแดงผูกสองคนไว้ด้วยกัน ระฆังที่ปลุกเงาย้อนเวลา หินที่สลับร่างกัน และถ้ำที่มืดจนเห็นแค่รอบตัว</p>
+        <div class="levels" id="levels3"></div>
         <div class="actions">
           <button class="cta" id="bGo" type="button">ออกเดินทาง</button>
-          <button class="ghost" id="bCh2" type="button">ข้ามไปบทที่ ๒</button>
+          <button class="ghost" id="bCh2" type="button">ไปบทใหม่ · โลกแปลก</button>
           <button class="ghost online-btn" id="bOnline" type="button">เล่นออนไลน์ คนละเครื่อง</button>
           <label class="toggle"><input type="checkbox" id="snd" checked> เสียง</label>
         </div>
@@ -261,6 +265,8 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
             <div class="levels" id="oLevels1"></div>
             <div class="lv-head"><h3>บทที่ ๒ · ใช้หัว</h3></div>
             <div class="levels" id="oLevels2"></div>
+            <div class="lv-head"><h3>บทที่ ๓ · โลกแปลก</h3></div>
+            <div class="levels" id="oLevels3"></div>
           </div>
         </div>
         <div class="actions">
