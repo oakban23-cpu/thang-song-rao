@@ -794,6 +794,7 @@ document.addEventListener('keydown', e => {
     return;
   }
   if (e.repeat) return;
+  if (e.code === 'KeyF') { toggleFull(); return; }
   if (e.code === 'KeyR' && (S.mode === 'play' || S.mode === 'dying')) restart();
   else if (e.code === 'Escape' || e.code === 'KeyP') { if (S.mode === 'play') pause(); else if (S.mode === 'paused') resume(); }
   else if (e.key === 'Enter' && S.mode === 'paused') { e.preventDefault(); resume(); }
@@ -1098,6 +1099,49 @@ for (const ch of CHAPTERS) $('#oLevels' + ch).addEventListener('click', e => { c
 $('#bLeave').addEventListener('click', toTitle);
 $('#bLeave2').addEventListener('click', toTitle);
 
+/* ---------- Fullscreen ---------- */
+const isIPhone = /iPhone|iPod/.test(navigator.userAgent);
+const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement || null;
+const standalone = () => { if (fsEl()) return false; try { return window.matchMedia('(display-mode: fullscreen)').matches || window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch (e) { return false; } };
+const ICON_IN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const ICON_OUT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+let toastT = null;
+function toast(html, ms = 4000) {
+  const el = $('#toast');
+  el.innerHTML = html; el.hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(() => { el.hidden = true; }, ms);
+}
+$('#toast').addEventListener('click', () => { $('#toast').hidden = true; });
+function syncFull() {
+  const on = !!fsEl();
+  $('#bFull').innerHTML = on ? ICON_OUT : ICON_IN;
+  $('#bFull').setAttribute('aria-label', on ? 'ออกจากเต็มจอ' : 'เต็มจอ');
+  $('#bFull').title = on ? 'ออกจากเต็มจอ (F)' : 'เต็มจอ (F)';
+  $('#bFull2').innerHTML = (on ? ICON_OUT : ICON_IN) + `<span>${on ? 'ออกจากเต็มจอ' : 'เต็มจอ'}</span>`;
+  app.classList.toggle('standalone', standalone());
+}
+function fullHelp() {
+  if (isIPhone && !inClaude()) toast('iPhone ยังไม่ให้เว็บเปิดเต็มจอเอง<br>กดปุ่ม <b>แชร์</b> ของ Safari แล้วเลือก <b>เพิ่มไปยังหน้าจอโฮม</b><br>เปิดเกมจากไอคอนนั้นจะเต็มจอ', 10000);
+  else if (inClaude()) toast('หน้านี้ไม่อนุญาตให้เปิดเต็มจอ ลองหมุนจอเป็นแนวนอนแทน', 5000);
+  else toast('เบราว์เซอร์นี้ไม่ให้เปิดเต็มจอ ลองหมุนจอเป็นแนวนอนแทน', 5000);
+}
+async function toggleFull() {
+  try {
+    if (fsEl()) {
+      const ex = document.exitFullscreen || document.webkitExitFullscreen;
+      if (ex) await Promise.resolve(ex.call(document));
+      return;
+    }
+    const el = document.documentElement;
+    if (!(document.fullscreenEnabled || document.webkitFullscreenEnabled) || !(el.requestFullscreen || el.webkitRequestFullscreen)) { fullHelp(); return; }
+    await Promise.resolve(el.requestFullscreen ? el.requestFullscreen({ navigationUI: 'hide' }) : el.webkitRequestFullscreen());
+    if (isTouch) { try { const o = screen.orientation; if (o && o.lock) await o.lock('landscape'); } catch (e) {} }
+  } catch (e) { if (!fsEl()) fullHelp(); }
+}
+for (const id of ['#bFull', '#bFull2']) $(id).addEventListener('click', e => { e.currentTarget.blur(); toggleFull(); });
+document.addEventListener('fullscreenchange', syncFull);
+document.addEventListener('webkitfullscreenchange', syncFull);
+
 /* ---------- Boot ---------- */
 function boot(data) {
   data = data || {};
@@ -1110,6 +1154,7 @@ function boot(data) {
   loadLevel(Math.max(0, Math.min(ALL.length - 1, li)), true);
   S.banner = 0;
   renderLevels(); showScreen('title'); setMode('menu');
+  syncFull();
   fit();
   if (window.ResizeObserver) new ResizeObserver(fit).observe(stage); else window.addEventListener('resize', fit);
   if (document.fonts && document.fonts.load) Promise.all([document.fonts.load(`600 12px ${FONT}`), document.fonts.load(`400 20px ${FONT_D}`)]).catch(() => {});

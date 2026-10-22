@@ -6,6 +6,13 @@
 <title>ทางสองเรา</title>
 <meta name="description" content="เกมผจญภัยสองคน ต้องช่วยกันถึงจะผ่านด่าน เล่นเครื่องเดียวกันหรือออนไลน์คนละเครื่อง">
 <meta name="theme-color" content="#15122b">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ทางสองเรา">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chonburi&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
@@ -53,6 +60,13 @@ button{font-family:inherit}
 .hud .hearts{font-weight:600;color:var(--gold);font-variant-numeric:tabular-nums;white-space:nowrap}
 .hbtn{font:500 13px/1 var(--f-ui);padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--paper);cursor:pointer;white-space:nowrap}
 .hbtn:hover{border-color:var(--muted)}
+.hbtn.icon{padding:6px 9px;display:inline-grid;place-items:center}
+.hbtn.icon svg{width:17px;height:17px}
+.full-btn{display:inline-flex;align-items:center;gap:8px}
+.full-btn svg{width:16px;height:16px}
+.app.standalone [data-full]{display:none}
+.toast{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:9;width:max-content;max-width:min(92%, 520px);padding:12px 18px;border-radius:14px;background:var(--panel);border:1px solid var(--gold);color:var(--paper);font-size:14px;line-height:1.6;text-align:center;box-shadow:0 16px 40px rgba(0,0,0,.5);cursor:pointer;text-wrap:pretty}
+.toast b{color:var(--gold);font-weight:600}
 @media (max-width:680px){
   .hud{gap:8px}
   .hud .hint{display:none}
@@ -170,6 +184,7 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
     <span class="hearts" id="hHearts" aria-label="หัวใจที่เก็บได้"></span>
     <button class="hbtn" id="bRestart" type="button">เริ่มด่านใหม่</button>
     <button class="hbtn" id="bMenu" type="button">พัก</button>
+    <button class="hbtn icon" id="bFull" type="button" data-full aria-label="เต็มจอ" title="เต็มจอ (F)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
   </header>
 
   <main class="stage" id="stage">
@@ -184,7 +199,7 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
           <label class="who pink"><span class="chip" aria-hidden="true"></span><span class="role">ตัวชมพู · <b data-kb>W A D</b><b data-tc>ปุ่มฝั่งซ้าย</b></span><input id="nPink" maxlength="10" value="เค้า" autocomplete="off"></label>
           <label class="who mint"><span class="chip" aria-hidden="true"></span><span class="role">ตัวมิ้นต์ · <b data-kb>↑ ← →</b><b data-tc>ปุ่มฝั่งขวา</b></span><input id="nMint" maxlength="10" value="ตัวเอง" autocomplete="off"></label>
         </div>
-        <p class="keys" data-kb>ชมพูกด <kbd>W</kbd> กระโดด มิ้นต์กด <kbd>↑</kbd> กระโดด · <kbd>R</kbd> เริ่มด่านใหม่ · <kbd>Esc</kbd> พักเกม · ใครพลาดต้องเริ่มด่านใหม่ทั้งคู่</p>
+        <p class="keys" data-kb>ชมพูกด <kbd>W</kbd> กระโดด มิ้นต์กด <kbd>↑</kbd> กระโดด · <kbd>R</kbd> เริ่มด่านใหม่ · <kbd>Esc</kbd> พักเกม · <kbd>F</kbd> เต็มจอ · ใครพลาดต้องเริ่มด่านใหม่ทั้งคู่</p>
         <p class="keys" data-tc>หมุนเครื่องเป็นแนวนอน ถือกันคนละฝั่ง ปุ่มซ้ายของจอเป็นของชมพู ปุ่มขวาเป็นของมิ้นต์ · ใครพลาดต้องเริ่มด่านใหม่ทั้งคู่</p>
         <div class="lv-head"><h3>บทที่ ๑ · ฝึกมือ</h3><span class="note" id="tHearts1"></span></div>
         <p class="ch-note">ด่านละหนึ่งกลไก ไว้ทำความรู้จักของในเกม</p>
@@ -199,6 +214,7 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
           <button class="cta" id="bGo" type="button">ออกเดินทาง</button>
           <button class="ghost" id="bCh2" type="button">ไปบทใหม่ · โลกแปลก</button>
           <button class="ghost online-btn" id="bOnline" type="button">เล่นออนไลน์ คนละเครื่อง</button>
+          <button class="ghost full-btn" id="bFull2" type="button" data-full><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span>เต็มจอ</span></button>
           <label class="toggle"><input type="checkbox" id="snd" checked> เสียง</label>
         </div>
       </div>
@@ -274,6 +290,8 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
         </div>
       </div>
     </section>
+
+    <div class="toast" id="toast" role="status" hidden></div>
 
     <div class="pad" id="pad">
       <div class="cluster pink">
