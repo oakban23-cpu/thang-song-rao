@@ -35,9 +35,9 @@ const heartsIn = i => (ALL[i].map.join('').match(/\*/g) || []).length;
 const isOpen = i => ALL[i].n - 1 <= (prog.u[ALL[i].ch] || 0);
 const lvLabel = i => `ด่าน ${th(ALL[i].ch)}-${th(ALL[i].n)}`;
 const firstOf = ch => ALL.findIndex(l => l.ch === ch);
-const curLevel = () => (S.kind === 'kit' ? KLEVELS[KS.li] : S.kind === 'def' ? DLEVELS[DS.li] : ALL[S.li]);
-const curLabel = () => (S.kind === 'kit' ? kLabel(KS.li) : S.kind === 'def' ? NIGHT(DS.li) : lvLabel(S.li));
-const topDown = () => S.kind === 'kit' || S.kind === 'def';
+const curLevel = () => (S.kind === 'kit' ? KLEVELS[KS.li] : S.kind === 'def' ? DLEVELS[DS.li] : S.kind === 'drv' ? RLEVELS[RS.li] : ALL[S.li]);
+const curLabel = () => (S.kind === 'kit' ? kLabel(KS.li) : S.kind === 'def' ? NIGHT(DS.li) : S.kind === 'drv' ? ROUTE(RS.li) : lvLabel(S.li));
+const topDown = () => S.kind === 'kit' || S.kind === 'def' || S.kind === 'drv';
 
 /* ---------- DOM ---------- */
 const app = $('#app'), stage = $('#stage'), cv = $('#cv'), ctx = cv.getContext('2d');
@@ -115,6 +115,7 @@ function fit() {
   buildBg();
   if (S.kind === 'kit') buildKitBg();
   if (S.kind === 'def') buildDefBg();
+  if (S.kind === 'drv') buildDrvBg();
 }
 
 /* ---------- Background + static tiles ---------- */
@@ -637,7 +638,7 @@ function readNames() {
 }
 function releaseAll() { for (const id of ['pink', 'mint']) for (const k of ['left', 'right', 'jump']) { KB[id][k] = false; TC[id][k] = false; } JP.pink = JP.mint = false; document.querySelectorAll('.pad button.on').forEach(b => b.classList.remove('on')); touches.clear(); }
 function loadLevel(i, fresh) {
-  S.kind = 'adv'; app.classList.remove('kit', 'def');
+  S.kind = 'adv'; app.classList.remove('kit', 'def', 'drv');
   S.li = i; S.W = Phys.load(ALL[i]); S.parts = []; S.deadId = null; S.flash = 0; S.shake = 0;
   if (fresh) { S.deaths = 0; S.elapsed = 0; S.banner = 4.2; }
   buildBg(); updateHud();
@@ -650,6 +651,7 @@ function startLevel(i) {
 function restart() {
   if (S.kind === 'kit') { kitRestart(); return; }
   if (S.kind === 'def') { defRestart(); return; }
+  if (S.kind === 'drv') { drvRestart(); return; }
   if (!S.W) return;
   if (O.role) { onlineRestart(); return; }
   S.deaths++; loadLevel(S.li, false); showScreen(null); setMode('play');
@@ -670,6 +672,8 @@ function pause() {
   $('#pNo').textContent = curLabel() + ' · ' + lv.name;
   $('#pHint').textContent = lv.hint;
   $('#bLevels').hidden = !!O.role; $('#bLeave').hidden = !O.role; $('#pNet').hidden = !O.role;
+  $('#bSwap').hidden = !(S.kind === 'drv' && O.role !== 'guest');
+  if (S.kind === 'drv') renderSwapNote();
   renderTips(); showScreen('pause');
 }
 function resume() { if (S.mode !== 'paused') return; showScreen(null); setMode('play'); }
@@ -715,6 +719,7 @@ function showClear() {
 function next() {
   if (S.kind === 'kit') { kitNext(); return; }
   if (S.kind === 'def') { defNext(); return; }
+  if (S.kind === 'drv') { drvNext(); return; }
   if (O.role === 'host') { if (S.li < ALL.length - 1) onlineStart(S.li + 1); return; }
   if (S.li >= ALL.length - 1) toTitle(); else startLevel(S.li + 1);
 }
@@ -738,8 +743,9 @@ function renderLevels() {
   $('#bCh2').dataset.i = firstOf(3);
   renderKitLevels();
   renderDefLevels();
+  renderDrvLevels();
 }
-function goFromTitle() { if (S.tab === 'kit') startKitchen(+$('#bGo').dataset.k || 0); else if (S.tab === 'def') startDefense(+$('#bGo').dataset.d || 0); else startLevel(+$('#bGo').dataset.i || 0); }
+function goFromTitle() { if (S.tab === 'kit') startKitchen(+$('#bGo').dataset.k || 0); else if (S.tab === 'def') startDefense(+$('#bGo').dataset.d || 0); else if (S.tab === 'drv') startDrive(+$('#bGo').dataset.r || 0); else startLevel(+$('#bGo').dataset.i || 0); }
 /* ---------- Main loop ---------- */
 let last = performance.now(), acc = 0;
 function tick() {
@@ -775,6 +781,8 @@ function frame(now) {
   S.time += dt;
   if (S.kind === 'kit') { kitFrame(dt, now); requestAnimationFrame(frame); return; }
   if (S.kind === 'def') { defFrame(dt, now); requestAnimationFrame(frame); return; }
+  if (S.kind === 'drv') { drvFrame(dt, now); requestAnimationFrame(frame); return; }
+  if (eng) engine(false, 0);
   if (S.mode === 'play') {
     acc += dt;
     while (acc >= DT) { tick(); acc -= DT; if (S.mode !== 'play') { acc = 0; break; } }
@@ -859,7 +867,7 @@ $('#bRestart2').addEventListener('click', restart);
 $('#bLevels').addEventListener('click', toTitle);
 $('#bLevels2').addEventListener('click', toTitle);
 $('#bNext').addEventListener('click', next);
-$('#bAgain').addEventListener('click', () => { if (O.role === 'host') openOnlineRoom(); else if (S.kind === 'kit') startKitchen(KS.li); else if (S.kind === 'def') startDefense(DS.li); else startLevel(S.li); });
+$('#bAgain').addEventListener('click', () => { if (O.role === 'host') openOnlineRoom(); else if (S.kind === 'kit') startKitchen(KS.li); else if (S.kind === 'def') startDefense(DS.li); else if (S.kind === 'drv') startDrive(RS.li); else startLevel(S.li); });
 [nPink, nMint].forEach(i => i.addEventListener('input', readNames));
 snd.addEventListener('change', () => { S.sound = snd.checked; store.set('sound', S.sound); });
 
@@ -999,7 +1007,7 @@ function renderOnlineRoom() {
       return `<button type="button" class="lv${prog.h[lv.name] != null ? ' done' : ''}" data-i="${i}"${locked ? ' disabled' : ''}><span class="n">${th(lv.n)}</span><span class="nm">${lv.name}</span><span class="hs">${locked ? 'ยังล็อกอยู่' : prog.h[lv.name] != null ? 'ผ่านแล้ว' : 'ยังไม่เคยผ่าน'}</span></button>`;
     }).join('');
   }
-  if (show) { renderOnlineKit(); renderOnlineDef(); }
+  if (show) { renderOnlineKit(); renderOnlineDef(); renderOnlineDrv(); }
 }
 function onlineStart(i) {
   if (O.role !== 'host') return;
@@ -1013,6 +1021,13 @@ function onlineRestart() {
 function loadOnlineLevel(fresh) {
   audio();
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  if (O.md === 'r') {
+    const keepBanner = RS.G && RS.li === O.lv && !fresh;
+    loadDrive(O.lv, { role: O.role, local: O.local });
+    if (keepBanner) S.banner = 0;
+    O.loadedEp = O.ep; showScreen(null); setMode('play');
+    return;
+  }
   if (O.md === 'd') {
     const keepBanner = DS.G && DS.li === O.lv && !fresh;
     loadDefense(O.lv, { role: O.role, local: O.local });
@@ -1027,7 +1042,7 @@ function loadOnlineLevel(fresh) {
     O.loadedEp = O.ep; showScreen(null); setMode('play');
     return;
   }
-  S.kind = 'adv'; app.classList.remove('kit', 'def');
+  S.kind = 'adv'; app.classList.remove('kit', 'def', 'drv');
   const changed = S.li !== O.lv || fresh;
   S.li = O.lv; S.W = Phys.load(ALL[O.lv]);
   S.W.net = { role: O.role, local: O.local };
@@ -1046,6 +1061,7 @@ function leaveOnline() {
   if (S.W) S.W.net = null;
   if (KS.G) KS.G.net = null;
   if (DS.G) DS.G.net = null;
+  if (RS.G) RS.G.net = null;
   app.classList.remove('solo');
   $('#hNet').hidden = true;
 }
@@ -1075,16 +1091,18 @@ function hostHears(pr) {
   }
   if (S.kind === 'kit') { if (O.md === 'k') kHostHears(pr); return; }
   if (S.kind === 'def') { if (O.md === 'd') dHostHears(pr); return; }
+  if (S.kind === 'drv') { if (O.md === 'r') rHostHears(pr); return; }
   if (S.W && pr.ep === O.ep && pr.p && S.W.net) Net.applyPlayer(S.W, 'mint', pr.p, performance.now());
 }
 function guestHears(pr) {
   const lv = pr.lv | 0, ep = pr.ep | 0;
   if (pr.st === 'lobby') { if (S.mode !== 'menu' || scr.online.hidden) openOnlineRoom(); else renderOnlineRoom(); return; }
-  const md = pr.md === 'k' || pr.md === 'd' ? pr.md : 'a';
-  const nLv = md === 'k' ? KLEVELS.length : md === 'd' ? DLEVELS.length : ALL.length, kind = md === 'k' ? 'kit' : md === 'd' ? 'def' : 'adv', cur = md === 'k' ? KS.li : md === 'd' ? DS.li : S.li;
+  const md = pr.md === 'k' || pr.md === 'd' || pr.md === 'r' ? pr.md : 'a';
+  const nLv = md === 'k' ? KLEVELS.length : md === 'd' ? DLEVELS.length : md === 'r' ? RLEVELS.length : ALL.length, kind = md === 'k' ? 'kit' : md === 'd' ? 'def' : md === 'r' ? 'drv' : 'adv', cur = md === 'k' ? KS.li : md === 'd' ? DS.li : md === 'r' ? RS.li : S.li;
   if (lv >= 0 && lv < nLv && (ep !== O.loadedEp)) { const ch = md !== O.md || lv !== cur || S.kind !== kind; O.ep = ep; O.lv = lv; O.md = md; loadOnlineLevel(ch); }
   if (md === 'k') { if (S.kind === 'kit' && ep === O.loadedEp) kGuestHears(pr); return; }
   if (md === 'd') { if (S.kind === 'def' && ep === O.loadedEp) dGuestHears(pr); return; }
+  if (md === 'r') { if (S.kind === 'drv' && ep === O.loadedEp) rGuestHears(pr); return; }
   if (!S.W || !S.W.net || ep !== O.loadedEp) return;
   if (pr.p) Net.applyPlayer(S.W, 'pink', pr.p, performance.now());
   if (pr.w) {
@@ -1118,6 +1136,11 @@ function pumpOnline(now) {
     if (DS.G && DS.G.net && live) {
       o.p = Def.encodePlayer(DS.G, O.local, DS.lastInp || {}, DS.act);
       if (O.role === 'host') o.dw = Def.encode(DS.G);
+    }
+  } else if (S.kind === 'drv') {
+    if (RS.G && RS.G.net && live) {
+      o.p = rEncodePlayer();
+      if (O.role === 'host') o.rw = Object.assign(Drv.encode(RS.G), { ro: RS.roles.steer === 'mint' ? 'm' : 'p' });
     }
   } else if (S.W && S.W.net && O.loadedEp === O.ep && (S.mode === 'play' || S.mode === 'dying' || S.mode === 'won' || S.mode === 'paused' || S.mode === 'clear')) {
     o.p = Net.encodePlayer(S.W, O.local, O.lastInp || { left: false, right: false, jump: false });
@@ -1248,7 +1271,7 @@ function kSnap(G) { return { money: G.money, failed: G.failed, orders: G.orders.
 function loadKitchen(i, net) {
   KS.li = i; KS.G = Kit.load(KLEVELS[i]); KS.G.net = net || null;
   KS.acc = 0; KS.floats = []; KS.act = { n: KS.act.n, ref: null, uref: null }; KS.seenKa = -1; KS.remote = { act: false, ref: null, use: false, uref: null }; KS.endT = 0; KS.prev = kSnap(KS.G);
-  S.kind = 'kit'; app.classList.add('kit'); app.classList.remove('def'); setPadLabels('kit');
+  S.kind = 'kit'; app.classList.add('kit'); app.classList.remove('def', 'drv'); setPadLabels('kit');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
   releaseK(); buildKitBg(); kHud();
 }
@@ -1670,16 +1693,17 @@ function renderKitchen() {
 }
 
 /* ---------- title tabs + level list ---------- */
-S.tab = ['adv', 'kit', 'def'].includes(store.get('tab', 'adv')) ? store.get('tab', 'adv') : 'adv';
+S.tab = ['adv', 'kit', 'def', 'drv'].includes(store.get('tab', 'adv')) ? store.get('tab', 'adv') : 'adv';
 function setTab(t) {
   S.tab = t; store.set('tab', t);
-  for (const k of ['adv', 'kit', 'def']) app.classList.toggle('tab-' + k, t === k);
+  for (const k of ['adv', 'kit', 'def', 'drv']) app.classList.toggle('tab-' + k, t === k);
   document.querySelectorAll('.tab').forEach(b => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
   renderLevels();
   if (S.mode === 'menu' && !O.role) {
     if (t === 'kit') { loadKitchen(+$('#bGo').dataset.k || 0); S.banner = 0; }
     else if (t === 'def') { loadDefense(+$('#bGo').dataset.d || 0); S.banner = 0; }
-    else if (S.kind !== 'adv') { S.kind = 'adv'; app.classList.remove('kit', 'def'); buildBg(); }
+    else if (t === 'drv') { loadDrive(+$('#bGo').dataset.r || 0); S.banner = 0; }
+    else if (S.kind !== 'adv') { S.kind = 'adv'; app.classList.remove('kit', 'def', 'drv'); buildBg(); }
   }
 }
 document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
@@ -1777,7 +1801,7 @@ function dSnap(G) { return { coins: G.coins, ph: G.ph, wi: G.wi, sn: [G.pink.snR
 function loadDefense(i, net) {
   DS.li = i; DS.G = Def.load(DLEVELS[i]); DS.G.net = net || null;
   DS.acc = 0; DS.floats = []; DS.rings = []; DS.act = { n: DS.act.n, uref: null }; DS.seenKa = -1; DS.remote = { act: false, use: false, uref: null }; DS.endT = 0; DS.prev = null;
-  S.kind = 'def'; app.classList.add('def'); app.classList.remove('kit');
+  S.kind = 'def'; app.classList.add('def'); app.classList.remove('kit', 'drv');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
   setPadLabels('def'); releaseK(); buildDefBg(); dHud(true);
 }
@@ -2345,6 +2369,557 @@ function dGuestHears(pr) {
   }
 }
 
+/* ---------- Driving mode ---------- */
+const RK = Drv.K, RY0 = 96, RZ = 0.7, RVW = 960, RVH = VH - RY0;
+const RS = { G: null, li: 0, acc: 0, floats: [], act: { n: 0 }, lastInp: {}, seenKa: -1, remote: { s: 0, p: 0, act: false }, endT: 0, prev: null, roles: { steer: 'pink', pedal: 'mint' }, cam: { x: 0, y: 0 }, bellT: 0, puffT: 0 };
+const ROUTE = i => 'เส้นทาง ' + th(i + 1);
+const TCOL = ['#ffcf5a', '#ff6f9c', '#4fe0bf', '#8fb8ff', '#ffa25c', '#c59bff'];
+const ocol = o => TCOL[o.id % TCOL.length];
+if (!prog.r) prog.r = {};
+const rBest = i => prog.r[RLEVELS[i].name] || null;
+const rOpen = i => i === 0 || !!(rBest(i - 1) && rBest(i - 1).s >= 1);
+const roleOf = id => (RS.roles.steer === id ? 'steer' : 'pedal');
+Object.assign(sfx, {
+  honk() { tone(440, .16, 'square', .045); tone(554, .16, 'square', .035); },
+  turboS() { tone(200, .5, 'sawtooth', .05, 900); },
+  crash() { tone(90, .25, 'square', .07, 40); tone(160, .12, 'sawtooth', .05, 60, .03); },
+  cluck() { tone(900, .05, 'square', .04, 1300); tone(1100, .07, 'square', .035, 700, .07); },
+  bell() { tone(1568, .12, 'triangle', .04); },
+  trainHorn() { tone(233, .9, 'sawtooth', .05); tone(277, .9, 'sawtooth', .035); },
+  pickup() { tone(784, .08, 'triangle', .05); tone(1175, .12, 'triangle', .05, 0, .07); },
+  cash() { [1047, 1319, 1568, 2093].forEach((f, i) => tone(f, .12, 'triangle', .05, 0, i * .06)); }
+});
+// engine hum follows the truck's speed
+let eng = null;
+function engine(on, v) {
+  const a = on ? audio() : ac;
+  if (!a) return;
+  try {
+    if (!eng && on) {
+      const o = a.createOscillator(), f = a.createBiquadFilter(), g = a.createGain();
+      o.type = 'sawtooth'; f.type = 'lowpass'; f.frequency.value = 420; g.gain.value = 0;
+      o.connect(f).connect(g).connect(a.destination); o.start();
+      eng = { o, g };
+    }
+    if (!eng) return;
+    const t = a.currentTime;
+    eng.o.frequency.setTargetAtTime(48 + v * 26, t, 0.08);
+    eng.g.gain.setTargetAtTime(on && S.sound ? 0.022 + Math.min(0.02, v * 0.003) : 0, t, 0.08);
+  } catch (e) {}
+}
+function setDrvPadLabels() {
+  document.querySelectorAll('.kpad .kb.act').forEach(b => {
+    const id = b.dataset.p === 'local' ? (O.local || 'pink') : b.dataset.p;
+    b.innerHTML = roleOf(id) === 'steer' ? 'แตร' : 'เทอร์โบ';
+  });
+  const st = RS.roles.steer === 'pink';
+  const set = (sel, v) => { const el = $(sel); if (el) el.textContent = v; };
+  set('#rolePinkK', st ? 'A D เลี้ยว' : 'W S คันเร่ง เบรก'); set('#rolePinkT', st ? 'พวงมาลัย' : 'คันเร่ง');
+  set('#roleMintK', st ? '↑ ↓ คันเร่ง เบรก' : '← → เลี้ยว'); set('#roleMintT', st ? 'คันเร่ง' : 'พวงมาลัย');
+}
+function swapRoles() {
+  if (O.role === 'guest') return;
+  RS.roles = { steer: RS.roles.pedal, pedal: RS.roles.steer };
+  store.set('roles', RS.roles.steer);
+  setDrvPadLabels(); renderSwapNote();
+}
+function renderSwapNote() {
+  const n = S.names, r = RS.roles;
+  $('#bSwap').textContent = `สลับหน้าที่ (ตอนนี้ ${n[r.steer]} คุมพวงมาลัย)`;
+}
+RS.roles = store.get('roles', 'pink') === 'mint' ? { steer: 'mint', pedal: 'pink' } : { steer: 'pink', pedal: 'mint' };
+$('#bSwap').addEventListener('click', () => { swapRoles(); });
+
+/* ---------- flow ---------- */
+function rSnap(G) { const e = G.evR || G.ev; return Object.assign({ money: G.money, orders: G.orders.length, ids: G.orders.map(o => o.id).join() }, e); }
+function loadDrive(i, net) {
+  RS.li = i; RS.G = Drv.load(RLEVELS[i]); RS.G.net = net || null;
+  RS.acc = 0; RS.floats = []; RS.act = { n: RS.act.n }; RS.seenKa = -1; RS.remote = { s: 0, p: 0, act: false }; RS.endT = 0; RS.prev = null;
+  RS.cam.x = RS.G.car.x; RS.cam.y = RS.G.car.y;
+  S.kind = 'drv'; app.classList.add('drv'); app.classList.remove('kit', 'def');
+  S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
+  releaseK(); setDrvPadLabels(); buildDrvBg(); rHud(true);
+}
+function startDrive(i) {
+  readNames(); audio();
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  loadDrive(i); showScreen(null); setMode('play');
+}
+function drvRestart() { if (O.role) { onlineRestart(); return; } loadDrive(RS.li); showScreen(null); setMode('play'); }
+function drvNext() {
+  if (O.role === 'host') { if (RS.li < RLEVELS.length - 1) onlineStartDrv(RS.li + 1); return; }
+  if (RS.li < RLEVELS.length - 1 && rOpen(RS.li + 1)) startDrive(RS.li + 1); else toTitle();
+}
+let rHudKey = '';
+function rHud(force) {
+  const k = String(RS.li);
+  if (!force && k === rHudKey) return;
+  rHudKey = k;
+  const lv = RLEVELS[RS.li];
+  $('#hNo').textContent = ROUTE(RS.li); $('#hName').textContent = lv.name; $('#hHint').textContent = lv.hint; $('#hHearts').textContent = '';
+}
+function rResults() {
+  const G = RS.G, lv = RLEVELS[RS.li], st = Drv.stars(G);
+  const b = prog.r[lv.name] || { s: 0, m: 0 };
+  const best = G.money > b.m;
+  prog.r[lv.name] = { s: Math.max(b.s, st), m: Math.max(b.m, G.money) };
+  store.set('prog2', prog);
+  setMode('clear'); releaseAll(); releaseK(); engine(false, 0);
+  $('#cNo').textContent = `${ROUTE(RS.li)} · หมดเวลาส่งของ`;
+  $('#cName').textContent = lv.name;
+  $('#cStars').hidden = false;
+  $('#cStars').innerHTML = [0, 1, 2].map(i => `<span class="${i < st ? '' : 'off'}">★</span>`).join('');
+  const msg = st === 3 ? 'ขับเข้าขากันสุดๆ ลูกค้าให้ห้าดาวทุกบ้าน' : st === 2 ? 'ส่งได้ดี อีกนิดเดียวได้สามดาว ลองบอกกันให้เร็วขึ้นตอนจะเลี้ยว' : st === 1 ? 'ส่งรอดแล้ว เส้นทางถัดไปเปิดให้เล่นแล้ว' : `ยังไม่ถึงดาวแรก ต้องได้ ฿${th(lv.stars[0])} ลองตกลงกันก่อนว่าใครพูดอะไร`;
+  $('#cMsg').textContent = msg + (best && G.money > 0 && b.m ? ' · สถิติใหม่' : '');
+  $('#cStats').innerHTML = `<span>รายได้ <b>฿${th(G.money)}</b></span><span>ส่งสำเร็จ <b>${th(G.served)}</b></span><span>ลูกค้ารอไม่ไหว <b>${th(G.failed)}</b></span><span>ชน <b>${th(G.crashes)}</b> ครั้ง</span>`;
+  const last = RS.li >= RLEVELS.length - 1, guest = O.role === 'guest';
+  $('#bNext').textContent = 'เส้นทางถัดไป';
+  $('#bNext').hidden = guest || last || !rOpen(RS.li + 1);
+  $('#bAgain').hidden = guest;
+  $('#bAgain').textContent = O.role === 'host' ? 'เลือกด่านอื่น' : 'ขับเส้นนี้อีกรอบ';
+  $('#bLevels2').hidden = !!O.role; $('#bLeave2').hidden = !O.role;
+  if (guest) $('#cMsg').textContent += ` · รอ${O.partnerName || 'อีกคน'}เลือกต่อ`;
+  showScreen('clear');
+}
+
+/* ---------- tick ---------- */
+function rFloat(text, x, y, col) { RS.floats.push({ text, x, y, col, life: 1.6 }); }
+function rFx(kind, G) {
+  const c = G.car, sx = c.x, sy = c.y;
+  if (kind === 'crash') { sfx.crash(); S.shake = 0.6; rBurst(sx, sy, 10, '#d8d2e8', 140); }
+  else if (kind === 'chicken') { sfx.cluck(); const p = G.lastChick || { x: sx, y: sy }; rBurst(p.x, p.y, 16, '#ffffff', 150); rFloat(`−฿${th(5)}`, p.x, p.y - 20, '#ff8a8a'); }
+  else if (kind === 'train') { sfx.crash(); sfx.trainHorn(); S.shake = 1.2; S.flash = 0.6; rFloat(`−฿${th(10)}`, sx, sy - 30, '#ff8a8a'); }
+  else if (kind === 'honk') sfx.honk();
+  else if (kind === 'turbo') { sfx.turboS(); rBurst(sx - Math.cos(c.a) * 30, sy - Math.sin(c.a) * 30, 12, '#ffb347', 120); }
+  else if (kind === 'pick') { sfx.pickup(); rFloat('รับของแล้ว', sx, sy - 34, C.gold); }
+  else if (kind === 'drop') { sfx.cash(); rFloat(`+฿${th(G.lastPay || 0)}`, sx, sy - 34, C.gold); rBurst(sx, sy, 14, C.gold, 120); }
+}
+// particles live in world space for this mode
+function rBurst(x, y, n, col, sp) { for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, v = sp * (.4 + Math.random() * .8); S.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: .6, max: .6, col, s: 4, type: 'dot', g: 0 }); } }
+function rEvents(ev) {
+  const G = RS.G, seen = new Set();
+  for (const e of ev) {
+    const [k] = e.split(':');
+    if (seen.has(k)) continue; seen.add(k);
+    if (['crash', 'chicken', 'train', 'honk', 'turbo', 'pick', 'drop'].includes(k)) rFx(k, G);
+    else if (k === 'order') sfx.order();
+    else if (k === 'expire') { sfx.expire(); rFloat(`−฿${th(10)}`, G.car.x, G.car.y - 40, '#ff8a8a'); }
+  }
+}
+function rGuestDiff() {
+  const G = RS.G, n = rSnap(G), p = RS.prev || n;
+  for (const k of ['crash', 'chicken', 'train', 'honk', 'turbo', 'pick', 'drop']) {
+    const key = k === 'chicken' ? 'chick' : k;
+    if ((n[key] | 0) > (p[key] | 0)) rFx(k, G);
+  }
+  if (n.ids !== p.ids && n.orders > p.orders) sfx.order();
+  RS.prev = n;
+}
+function rInputs(G) {
+  // returns { steer, pedal, horn, turbo } built from whoever holds each half of the truck
+  const R = RS.roles, out = { steer: 0, pedal: 0, horn: false, turbo: false };
+  const take = (id, inp) => {
+    if (roleOf(id) === 'steer') { out.steer = inp.mx; out.horn = out.horn || inp.act; }
+    else { out.pedal = -inp.my; out.turbo = out.turbo || inp.act; }
+  };
+  if (!O.role) { take('pink', kInput('pink')); take('mint', kInput('mint')); return out; }
+  const li = kInput(O.local);
+  if (li.act) RS.act.n++;
+  RS.lastInp = li;
+  take(O.local, li);
+  const rid = O.local === 'pink' ? 'mint' : 'pink';
+  if (O.role === 'host') { const r = RS.remote; take(rid, { mx: r.s, my: -r.p, act: r.act }); r.act = false; }
+  else { const c = G.car; if (roleOf(rid) === 'steer') out.steer = c.hostS || 0; else out.pedal = c.hostP || 0; }
+  return out;
+}
+function rTick() {
+  const G = RS.G, inp = rInputs(G);
+  if (O.role === 'guest') {
+    G.t += Drv.DT; G.left = Math.max(0, G.left - Drv.DT);
+    G.car.inS = inp.steer; G.car.inP = inp.pedal;
+    if (!G.over) Drv.stepCar(G, inp.steer, inp.pedal, Drv.DT);
+    Drv.smooth(G);
+    rGuestDiff();
+  } else {
+    const ev = Drv.step(G, inp);
+    rEvents(ev);
+  }
+  if (G.over && !RS.endT) { RS.endT = 1.6; sfx.whistle(); }
+}
+function drvFrame(dt, now) {
+  const G = RS.G;
+  if (S.mode === 'play' && G) {
+    RS.acc += dt;
+    while (RS.acc >= Drv.DT) { rTick(); RS.acc -= Drv.DT; if (S.mode !== 'play') { RS.acc = 0; break; } }
+    if (RS.endT > 0) { RS.endT -= dt; if (RS.endT <= 0) { RS.endT = -1; rResults(); if (O.role === 'host') O.st = 'clear'; } }
+    // crossing bell
+    RS.bellT -= dt;
+    if (G.trains.length && RS.bellT <= 0 && G.trains.some(tr => { for (let y = 0; y < G.H; y++) if (G.tiles[y][tr.col] === '=' && Drv.gateClosed(G, y, G.t) && Math.hypot((tr.col + .5) * RK - G.car.x, (y + .5) * RK - G.car.y) < 9 * RK) return true; return false; })) { sfx.bell(); RS.bellT = 0.5; }
+    // tyre smoke when sliding
+    const c = G.car, d = { x: Math.cos(c.a), y: Math.sin(c.a) }, lat = Math.abs(-c.vx * d.y + c.vy * d.x);
+    RS.puffT -= dt;
+    if (lat > 1.4 * RK && RS.puffT <= 0) { RS.puffT = 0.05; S.parts.push({ x: c.x - d.x * 20, y: c.y - d.y * 20, vx: 0, vy: 0, life: .5, max: .5, col: 'rgba(220,220,230,.6)', s: 7, type: 'dot', g: 0 }); }
+    engine(!G.over, Math.hypot(c.vx, c.vy) / RK);
+  } else { RS.acc = 0; engine(false, 0); }
+  if (O.role) pumpOnline(now);
+  if (S.mode === 'play') S.banner = Math.max(0, S.banner - dt);
+  S.flash = Math.max(0, S.flash - dt * 2.2);
+  S.shake = Math.max(0, S.shake - dt * 3);
+  stepParts(dt);
+  for (const f of RS.floats) { f.life -= dt; f.y -= dt * 30; }
+  RS.floats = RS.floats.filter(f => f.life > 0);
+  if (G) rHud();
+  renderDrive(dt);
+}
+
+/* ---------- drawing ---------- */
+const drvBg = document.createElement('canvas'), drvMini = document.createElement('canvas');
+const ROOF = ['#b85c4a', '#c9824f', '#7f8fa6', '#a3707a', '#6f9a84', '#c8a25a', '#8b6fa8'];
+function isRoad(c) { return c === '.' || c === 'S' || c === 'p' || /[A-Fa-f]/.test(c); }
+function buildDrvBg() {
+  const G = RS.G;
+  if (!G) return;
+  const s = scale * RZ, W = G.W, H = G.H;
+  drvBg.width = Math.ceil(W * RK * s); drvBg.height = Math.ceil(H * RK * s);
+  const g = drvBg.getContext('2d');
+  g.setTransform(s, 0, 0, s, 0, 0);
+  const T = (x, y) => (x < 0 || y < 0 || x >= W || y >= H ? '#' : G.tiles[y][x]);
+  // building blocks get one roof colour each
+  const blk = []; let nb = 0;
+  for (let y = 0; y < H; y++) { blk.push(new Array(W).fill(-1)); }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (T(x, y) !== '#' || blk[y][x] >= 0) continue;
+    const st = [[x, y]]; blk[y][x] = nb;
+    while (st.length) { const [cx, cy] = st.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = cx + dx, ny = cy + dy; if (T(nx, ny) === '#' && nx >= 0 && ny >= 0 && nx < W && ny < H && blk[ny][nx] < 0) { blk[ny][nx] = nb; st.push([nx, ny]); } } }
+    nb++;
+  }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const c = T(x, y), px = x * RK, py = y * RK;
+    if (isRoad(c) || c === '=') {
+      g.fillStyle = G.rain ? '#2f3140' : '#3b3c4b'; g.fillRect(px, py, RK, RK);
+      if (c === 'p') { g.fillStyle = 'rgba(110,160,220,.55)'; g.beginPath(); g.ellipse(px + 32, py + 34, 24, 15, 0.3, 0, Math.PI * 2); g.fill(); }
+    } else if (c === ' ' || c === 't' || c === 'k') {
+      g.fillStyle = c === 'k' ? '#8f7d43' : '#3f7a46'; g.fillRect(px, py, RK, RK);
+      const r = rng(hash(x, y)); g.fillStyle = c === 'k' ? 'rgba(240,210,120,.35)' : 'rgba(150,220,140,.25)';
+      for (let k = 0; k < 5; k++) g.fillRect(px + r() * RK, py + r() * RK, 3, 6);
+    } else if (c === '~') { g.fillStyle = '#25617f'; g.fillRect(px, py, RK, RK); }
+    else if (c === '#') {
+      g.fillStyle = '#9b97aa'; g.fillRect(px, py, RK, RK);
+      const col = ROOF[blk[y][x] % ROOF.length];
+      const inset = (dx, dy) => (T(x + dx, y + dy) === '#' ? 0 : 7);
+      const l = inset(-1, 0), r2 = inset(1, 0), t2 = inset(0, -1), b2 = inset(0, 1);
+      g.fillStyle = col; g.fillRect(px + l, py + t2, RK - l - r2, RK - t2 - b2);
+      g.fillStyle = 'rgba(0,0,0,.12)'; if (!b2) {} else g.fillRect(px + l, py + RK - b2 - 6, RK - l - r2, 6);
+      g.strokeStyle = 'rgba(0,0,0,.12)'; g.lineWidth = 2; g.beginPath(); g.moveTo(px + RK / 2, py + t2 + 4); g.lineTo(px + RK / 2, py + RK - b2 - 4); g.stroke();
+    }
+    if (c === '=') {
+      const roadSide = isRoad(T(x - 1, y)) || isRoad(T(x + 1, y));
+      if (!roadSide) { g.fillStyle = '#6b6258'; g.fillRect(px, py, RK, RK); }
+      g.fillStyle = '#4a3624'; for (let k = 4; k < RK; k += 12) g.fillRect(px + 12, py + k, RK - 24, 5);
+      g.fillStyle = '#c8c8d2'; g.fillRect(px + 18, py, 4, RK); g.fillRect(px + RK - 22, py, 4, RK);
+    }
+    if (c === 't') {
+      g.fillStyle = 'rgba(0,0,0,.25)'; g.beginPath(); g.ellipse(px + 36, py + 40, 26, 14, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#2b6a3c'; g.beginPath(); g.arc(px + 32, py + 30, 26, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#3a8a4c'; g.beginPath(); g.arc(px + 26, py + 24, 14, 0, Math.PI * 2); g.fill();
+    }
+  }
+  // lane lines on two-lane roads
+  g.strokeStyle = 'rgba(255,240,200,.55)'; g.lineWidth = 3; g.setLineDash([14, 12]);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (!isRoad(T(x, y))) continue;
+    if (isRoad(T(x, y + 1)) && !isRoad(T(x, y - 1)) && !isRoad(T(x, y + 2)) && T(x, y) !== '=') { g.beginPath(); g.moveTo(x * RK, (y + 1) * RK); g.lineTo((x + 1) * RK, (y + 1) * RK); g.stroke(); }
+    if (isRoad(T(x + 1, y)) && !isRoad(T(x - 1, y)) && !isRoad(T(x + 2, y))) { g.beginPath(); g.moveTo((x + 1) * RK, y * RK); g.lineTo((x + 1) * RK, (y + 1) * RK); g.stroke(); }
+  }
+  g.setLineDash([]);
+  // bays, awnings and names
+  for (const sp of G.spots) {
+    const px = sp.tx * RK, py = sp.ty * RK;
+    g.strokeStyle = sp.shop ? '#ffb347' : '#7fe3d0'; g.lineWidth = 3; g.setLineDash([8, 6]); rr(g, px + 5, py + 5, RK - 10, RK - 10, 6); g.stroke(); g.setLineDash([]);
+    let bx = null;
+    for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) if (T(sp.tx + dx, sp.ty + dy) === '#') { bx = { x: sp.tx + dx, y: sp.ty + dy, dx, dy }; break; }
+    if (!bx) continue;
+    const ax = bx.x * RK, ay = bx.y * RK;
+    if (sp.shop) { for (let k = 0; k < 4; k++) { g.fillStyle = k % 2 ? '#fff4dc' : '#e2483d'; g.fillRect(ax + 4 + k * 14, ay + 4, 14, 16); } }
+    else { g.fillStyle = '#fff4dc'; g.beginPath(); g.moveTo(ax + 16, ay + 30); g.lineTo(ax + 32, ay + 14); g.lineTo(ax + 48, ay + 30); g.closePath(); g.fill(); g.fillRect(ax + 20, ay + 30, 24, 18); g.fillStyle = '#5a4030'; g.fillRect(ax + 28, ay + 36, 8, 12); }
+    g.font = `600 15px ${FONT}`; const tw = g.measureText(sp.name).width + 12, lx = ax + RK / 2, ly = ay + (bx.dy > 0 ? RK - 8 : bx.dy < 0 ? 26 : RK / 2 + 8);
+    rr(g, lx - tw / 2, ly - 15, tw, 21, 8); g.fillStyle = 'rgba(21,18,43,.82)'; g.fill();
+    g.fillStyle = sp.shop ? '#ffcf8a' : '#bff3e8'; g.textAlign = 'center'; g.fillText(sp.name, lx, ly);
+  }
+  // minimap
+  const m = 4; drvMini.width = W * m * scale; drvMini.height = H * m * scale;
+  const mg = drvMini.getContext('2d'); mg.setTransform(scale, 0, 0, scale, 0, 0);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const c = T(x, y);
+    mg.fillStyle = isRoad(c) ? '#9a98ad' : c === '=' ? '#b38a5c' : c === '#' ? '#3a3350' : c === '~' ? '#25617f' : '#2f5a3a';
+    mg.fillRect(x * m, y * m, m, m);
+  }
+}
+function rDrawCarShape(g, x, y, a, body, roof, w = 0.5, l = 0.86) {
+  g.save(); g.translate(x, y); g.rotate(a);
+  const L = l * RK, Wd = w * RK;
+  g.fillStyle = 'rgba(0,0,0,.3)'; rr(g, -L / 2 + 3, -Wd / 2 + 4, L, Wd, 9); g.fill();
+  g.fillStyle = body; rr(g, -L / 2, -Wd / 2, L, Wd, 9); g.fill();
+  g.fillStyle = roof; rr(g, -L * 0.12, -Wd * 0.38, L * 0.34, Wd * 0.76, 6); g.fill();
+  g.fillStyle = 'rgba(180,220,255,.85)'; g.fillRect(L * 0.2, -Wd * 0.34, 4, Wd * 0.68);
+  g.fillStyle = '#fff7c2'; g.fillRect(L / 2 - 4, -Wd / 2 + 3, 4, 6); g.fillRect(L / 2 - 4, Wd / 2 - 9, 4, 6);
+  g.restore();
+}
+function rDrawTruck(g, G, time) {
+  const c = G.car;
+  g.save(); g.translate(c.x, c.y); g.rotate(c.a);
+  const L = 0.9 * RK, Wd = 0.52 * RK;
+  if (c.turboT > 0) { for (let k = 0; k < 2; k++) { g.fillStyle = k ? '#ffe08a' : '#ff7a2f'; g.beginPath(); g.moveTo(-L / 2, -6 + k * 2); g.lineTo(-L / 2 - 18 - Math.random() * 10 + k * 8, 0); g.lineTo(-L / 2, 6 - k * 2); g.fill(); } }
+  g.fillStyle = 'rgba(0,0,0,.3)'; rr(g, -L / 2 + 4, -Wd / 2 + 5, L, Wd, 8); g.fill();
+  // wheels turn with the steering
+  g.fillStyle = '#1a1a22';
+  for (const [wx, wy, steer] of [[L * 0.28, -Wd / 2, 1], [L * 0.28, Wd / 2, 1], [-L * 0.3, -Wd / 2, 0], [-L * 0.3, Wd / 2, 0]]) { g.save(); g.translate(wx, wy); g.rotate(steer ? c.steer * 0.5 : 0); g.fillRect(-7, -3, 14, 6); g.restore(); }
+  g.fillStyle = '#f2b632'; rr(g, -L / 2, -Wd / 2, L, Wd, 8); g.fill();
+  g.fillStyle = '#c98f1c'; g.fillRect(-L / 2 + 4, -Wd / 2 + 4, L * 0.5, Wd - 8);
+  // parcels in the bed
+  G.carried.forEach((id, i) => { const o = G.orders.find(q => q.id === id); g.fillStyle = o ? ocol(o) : '#d9a05b'; g.fillRect(-L / 2 + 7 + i * 13, -Wd / 2 + 7, 11, Wd - 14); g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(-L / 2 + 7 + i * 13, -1, 11, 2); });
+  // cab with both of us inside
+  g.fillStyle = '#fff3c4'; rr(g, L * 0.06, -Wd / 2 + 3, L * 0.36, Wd - 6, 6); g.fill();
+  g.fillStyle = 'rgba(160,210,255,.9)'; g.fillRect(L * 0.36, -Wd / 2 + 5, 5, Wd - 10);
+  const seats = [[RS.roles.steer, -1], [RS.roles.pedal, 1]];
+  for (const [id, side] of seats) { g.fillStyle = id === 'pink' ? C.pink : C.mint; g.beginPath(); g.arc(L * 0.22, side * Wd * 0.2, 6.5, 0, Math.PI * 2); g.fill(); }
+  g.fillStyle = '#fff7c2'; g.fillRect(L / 2 - 3, -Wd / 2 + 3, 3, 6); g.fillRect(L / 2 - 3, Wd / 2 - 9, 3, 6);
+  g.restore();
+  if (c.honkT > 0) { g.font = `600 13px ${FONT}`; g.textAlign = 'center'; g.lineWidth = 3; g.strokeStyle = 'rgba(21,18,43,.85)'; g.strokeText('ปี๊นๆ', c.x, c.y - 30); g.fillStyle = C.gold; g.fillText('ปี๊นๆ', c.x, c.y - 30); }
+  if (c.stun > 0) for (let i = 0; i < 3; i++) { const a = time * 7 + i * 2.1; g.fillStyle = C.gold; g.beginPath(); g.arc(c.x + Math.cos(a) * 22, c.y - 26 + Math.sin(a) * 6, 3, 0, Math.PI * 2); g.fill(); }
+}
+function rDrawChicken(g, q, time) {
+  if (q.st === 'gone') return;
+  const flap = q.st === 'flee' ? Math.sin(time * 40) * 4 : 0;
+  g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.ellipse(q.x, q.y + 7, 8, 3, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#fffaf0'; g.beginPath(); g.ellipse(q.x, q.y, 9, 7, 0, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.ellipse(q.x - 6, q.y - 2 - flap * 0.3, 5, 3 + Math.abs(flap) * 0.4, -0.4, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#e2483d'; g.beginPath(); g.arc(q.x + 6, q.y - 6, 3, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#ffb347'; g.beginPath(); g.moveTo(q.x + 9, q.y - 3); g.lineTo(q.x + 14, q.y - 2); g.lineTo(q.x + 9, q.y); g.fill();
+  g.fillStyle = '#1a1530'; g.beginPath(); g.arc(q.x + 7, q.y - 3, 1.3, 0, Math.PI * 2); g.fill();
+}
+function rDrawTrain(g, G, tr, time) {
+  const r = Drv.trainRect(G, tr, G.t);
+  if (!r) return;
+  const n = Math.round(tr.len), seg = r.h / n;
+  for (let i = 0; i < n; i++) {
+    const y = r.y + i * seg, head = tr.dir > 0 ? i === n - 1 : i === 0;
+    g.fillStyle = 'rgba(0,0,0,.3)'; rr(g, r.x + 4, y + 5, r.w, seg - 4, 8); g.fill();
+    g.fillStyle = head ? '#c4302b' : '#f1e3c4'; rr(g, r.x, y + 2, r.w, seg - 4, 8); g.fill();
+    g.fillStyle = head ? '#f1e3c4' : '#c4302b'; g.fillRect(r.x + r.w / 2 - 4, y + 6, 8, seg - 12);
+    g.fillStyle = 'rgba(150,200,240,.8)'; for (let k = 10; k < seg - 10; k += 14) { g.fillRect(r.x + 5, y + k, 6, 8); g.fillRect(r.x + r.w - 11, y + k, 6, 8); }
+  }
+}
+function rDrawCrossings(g, G, time) {
+  for (const tr of G.trains) {
+    for (let y = 0; y < G.H; y++) {
+      if (G.tiles[y][tr.col] !== '=' || !(isRoad(G.tiles[y][tr.col - 1] || '#') || isRoad(G.tiles[y][tr.col + 1] || '#'))) continue;
+      const closed = Drv.gateClosed(G, y, G.t), blink = closed && Math.sin(time * 14) > 0;
+      for (const side of [-1, 1]) {
+        const bx = (tr.col + (side < 0 ? 0 : 1)) * RK + side * 6, by = (y + 0.5) * RK;
+        g.fillStyle = '#33303f'; g.beginPath(); g.arc(bx, by - 26 * side, 5, 0, Math.PI * 2); g.fill();
+        g.fillStyle = blink ? '#ff3b3b' : '#5a2a2a'; g.beginPath(); g.arc(bx, by - 26 * side, 3.5, 0, Math.PI * 2); g.fill();
+        g.save(); g.translate(bx, by - 26 * side); g.rotate(closed ? (side < 0 ? Math.PI / 2 : -Math.PI / 2) : 0);
+        for (let k = 0; k < 4; k++) { g.fillStyle = k % 2 ? '#fff' : '#e2483d'; g.fillRect(-2, side * (4 + k * 12), 4, side * 12); }
+        g.restore();
+      }
+    }
+  }
+}
+function rDrawRain(g, time) {
+  g.strokeStyle = 'rgba(190,210,255,.35)'; g.lineWidth = 1.5;
+  g.beginPath();
+  for (let i = 0; i < 90; i++) { const x = ((i * 97 + time * 600) % (RVW + 100)) - 50, y = RY0 + ((i * 53 + time * 900) % RVH); g.moveTo(x, y); g.lineTo(x - 6, y + 14); }
+  g.stroke();
+  g.fillStyle = 'rgba(10,12,40,.18)'; g.fillRect(0, RY0, RVW, RVH);
+}
+function rDrawHud(g, G, time) {
+  const shop = k => G.spots.find(s => s.key === k), w = 196;
+  G.orders.slice(0, 3).forEach((o, i) => {
+    const x = 8 + i * (w + 8), y = 12, h = 74, f = Math.max(0, o.left / o.max), col = ocol(o), inCar = o.st === 'car';
+    rr(g, x, y, w, h, 8); g.fillStyle = '#fff8e6'; g.fill();
+    g.fillStyle = col; rr(g, x, y, 8, h, 4); g.fill();
+    g.lineWidth = 2; g.strokeStyle = f < 0.25 && Math.sin(time * 12) > 0 ? '#ff4d4d' : '#e8d3a8'; rr(g, x, y, w, h, 8); g.stroke();
+    g.textAlign = 'left'; g.font = `600 13px ${FONT}`; g.fillStyle = '#3a2418';
+    const s = shop(o.from), hs = shop(o.to);
+    g.fillText(inCar ? `ส่ง ${hs ? hs.name : o.to}` : `รับที่ ${s ? s.name : o.from}`, x + 16, y + 20);
+    g.font = `400 11px ${FONT}`; g.fillStyle = '#7a6a5a';
+    g.fillText(inCar ? `${Drv.KIND[o.kind].name} · สภาพ ${th(Math.round(o.cond * 100))}%` : `${Drv.KIND[o.kind].name} → ${hs ? hs.name : o.to}`, x + 16, y + 38);
+    g.textAlign = 'right'; g.font = `600 12px ${FONT}`; g.fillStyle = '#9a6a2a'; g.fillText('฿' + th(o.price), x + w - 10, y + 20);
+    if (inCar) { g.fillStyle = col; g.font = `600 11px ${FONT}`; g.fillText('บนรถ', x + w - 10, y + 38); }
+    const bc = f > 0.5 ? '#5fd36a' : f > 0.25 ? '#ffb347' : '#ff4d4d';
+    g.fillStyle = '#e8d9bb'; rr(g, x + 16, y + h - 18, w - 28, 7, 3.5); g.fill();
+    g.fillStyle = bc; rr(g, x + 16, y + h - 18, (w - 28) * f, 7, 3.5); g.fill();
+  });
+  const rx = VW - 12;
+  g.textAlign = 'right';
+  g.font = `400 13px ${FONT}`; g.fillStyle = '#b3a8d9'; g.fillText('เวลา', rx, 30);
+  const low = G.left < 20 && Math.sin(time * 8) > 0;
+  g.font = `400 26px ${FONT_D}`; g.fillStyle = low ? '#ff6b6b' : C.paper; g.fillText(th(fmt(Math.ceil(G.left))), rx, 58);
+  g.font = `400 13px ${FONT}`; g.fillStyle = '#b3a8d9'; g.fillText('รายได้', rx - 92, 30);
+  g.font = `400 26px ${FONT_D}`; g.fillStyle = C.gold; g.fillText('฿' + th(G.money), rx - 92, 58);
+  const st = Drv.stars(G), lv = RLEVELS[RS.li];
+  g.font = `400 14px ${FONT}`; g.fillStyle = C.gold; g.fillText([0, 1, 2].map(i => (i < st ? '★' : '☆')).join(''), rx - 92, 80);
+  if (st < 3) { g.font = `400 10px ${FONT}`; g.fillStyle = '#b3a8d9'; g.fillText(`ดาวถัดไป ฿${th(lv.stars[st])}`, rx, 80); }
+}
+function rDrawControls(g, G, time) {
+  // who holds what, and what they are doing right now
+  const c = G.car, n = S.names, R = RS.roles, y = VH - 34;
+  const pill = (x, w, col) => { rr(g, x, y, w, 26, 13); g.fillStyle = 'rgba(21,18,43,.82)'; g.fill(); g.strokeStyle = hexA(col, .7); g.lineWidth = 1.5; g.stroke(); };
+  const cs = R.steer === 'pink' ? C.pink : C.mint, cp = R.pedal === 'pink' ? C.pink : C.mint;
+  pill(10, 170, cs);
+  g.save(); g.translate(30, y + 13); g.rotate(c.steer * 1.2);
+  g.strokeStyle = cs; g.lineWidth = 3; g.beginPath(); g.arc(0, 0, 8, 0, Math.PI * 2); g.stroke(); g.beginPath(); g.moveTo(-8, 0); g.lineTo(8, 0); g.moveTo(0, 0); g.lineTo(0, 8); g.stroke();
+  g.restore();
+  g.font = `600 12px ${FONT}`; g.textAlign = 'left'; g.fillStyle = cs; g.fillText(`${n[R.steer]} · พวงมาลัย`, 46, y + 18);
+  pill(188, 186, cp);
+  const pv = c.inP != null ? c.inP : 0;
+  g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(200, y + 6, 8, 14);
+  g.fillStyle = pv >= 0 ? '#5fd36a' : '#ff6b6b'; const ph = Math.abs(pv) * 7; g.fillRect(200, pv >= 0 ? y + 13 - ph : y + 13, 8, ph);
+  g.fillStyle = cp; g.fillText(`${n[R.pedal]} · คันเร่ง`, 216, y + 18);
+  for (let i = 0; i < Drv.TURBO_MAX; i++) { g.fillStyle = i < c.turbo ? '#ffb347' : 'rgba(255,255,255,.15)'; g.beginPath(); g.moveTo(330 + i * 13, y + 7); g.lineTo(337 + i * 13, y + 13); g.lineTo(330 + i * 13, y + 19); g.closePath(); g.fill(); }
+}
+function rTargets(G) {
+  const out = [];
+  for (const o of G.orders) {
+    const sp = G.spots.find(s => s.key === (o.st === 'car' ? o.to : o.from));
+    if (sp && (o.st === 'car' || G.carried.length < Drv.CAP)) out.push({ sp, col: ocol(o), drop: o.st === 'car' });
+  }
+  return out;
+}
+function renderDrive(dt) {
+  const g = ctx, G = RS.G;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  if (!G) return;
+  const c = G.car, time = S.time;
+  // camera leads the truck a little
+  const tx = c.x + c.vx * 0.35, ty = c.y + c.vy * 0.35, k = Math.min(1, (dt || 0.016) * 4);
+  RS.cam.x += (tx - RS.cam.x) * k; RS.cam.y += (ty - RS.cam.y) * k;
+  const hw = RVW / 2 / RZ, hh = RVH / 2 / RZ;
+  RS.cam.x = Math.max(hw, Math.min(G.W * RK - hw, RS.cam.x)); RS.cam.y = Math.max(hh, Math.min(G.H * RK - hh, RS.cam.y));
+  let ox = 0, oy = 0;
+  if (S.shake > 0) { ox = (Math.random() - .5) * 8 * S.shake; oy = (Math.random() - .5) * 8 * S.shake; }
+  g.fillStyle = '#15122b'; g.fillRect(0, 0, cv.width, cv.height);
+  const sx = (RS.cam.x - hw) * RZ * scale, sy = (RS.cam.y - hh) * RZ * scale;
+  g.drawImage(drvBg, sx - ox * scale, sy - oy * scale, RVW * scale, RVH * scale, 0, RY0 * scale, RVW * scale, RVH * scale);
+  g.save();
+  g.beginPath(); g.rect(0, RY0 * scale, RVW * scale, RVH * scale); g.clip();
+  g.setTransform(scale * RZ, 0, 0, scale * RZ, (RVW / 2 - RS.cam.x * RZ + ox) * scale, (RY0 + RVH / 2 - RS.cam.y * RZ + oy) * scale);
+  // bays that matter now
+  for (const t of rTargets(G)) {
+    const pulse = 0.5 + Math.sin(time * 6) * 0.5;
+    g.strokeStyle = hexA(t.col, 0.5 + pulse * 0.5); g.lineWidth = 5; rr(g, t.sp.tx * RK + 2, t.sp.ty * RK + 2, RK - 4, RK - 4, 10); g.stroke();
+    g.fillStyle = t.col; g.beginPath(); const by = t.sp.y - 46 - pulse * 6; g.moveTo(t.sp.x - 9, by); g.lineTo(t.sp.x + 9, by); g.lineTo(t.sp.x, by + 12); g.closePath(); g.fill();
+  }
+  if (G.stopT > 0 && G.bay >= 0 && G.spots[G.bay]) {
+    const sp = G.spots[G.bay];
+    g.strokeStyle = 'rgba(21,18,43,.7)'; g.lineWidth = 7; g.beginPath(); g.arc(sp.x, sp.y, 30, 0, Math.PI * 2); g.stroke();
+    g.strokeStyle = C.gold; g.lineWidth = 5; g.beginPath(); g.arc(sp.x, sp.y, 30, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, G.stopT / 0.45)); g.stroke();
+  }
+  rDrawCrossings(g, G, time);
+  for (const q of G.chickens) rDrawChicken(g, q, time);
+  const TRC = ['#5b8def', '#e86a5a', '#8ad06a', '#e8c25a', '#b57be0', '#57c3c3', '#f08cc0', '#ffffff'];
+  for (const o of G.traffic) {
+    rDrawCarShape(g, o.x, o.y, o.a, TRC[o.col % TRC.length], 'rgba(0,0,0,.25)');
+    if (o.honk > 0) { g.font = `600 12px ${FONT}`; g.textAlign = 'center'; g.fillStyle = '#fff'; g.fillText('ปี๊น!', o.x, o.y - 26); }
+  }
+  rDrawTruck(g, G, time);
+  for (const tr of G.trains) rDrawTrain(g, G, tr, time);
+  drawParts(g);
+  for (const f of RS.floats) {
+    g.globalAlpha = Math.min(1, f.life * 1.5); g.font = `400 26px ${FONT_D}`; g.textAlign = 'center'; g.lineWidth = 5; g.strokeStyle = 'rgba(21,18,43,.85)';
+    g.strokeText(f.text, f.x, f.y); g.fillStyle = f.col; g.fillText(f.text, f.x, f.y);
+  }
+  g.globalAlpha = 1;
+  g.restore();
+  g.setTransform(scale, 0, 0, scale, 0, 0);
+  if (G.rain) rDrawRain(g, time);
+  // arrows to targets off screen
+  for (const t of rTargets(G)) {
+    const px = (t.sp.x - RS.cam.x) * RZ + RVW / 2, py = (t.sp.y - RS.cam.y) * RZ + RY0 + RVH / 2;
+    if (px > 30 && px < RVW - 30 && py > RY0 + 30 && py < VH - 30) continue;
+    const cx = RVW / 2, cy = RY0 + RVH / 2, a = Math.atan2(py - cy, px - cx);
+    const ex = Math.max(28, Math.min(RVW - 28, cx + Math.cos(a) * 1000)), ey = Math.max(RY0 + 28, Math.min(VH - 28, cy + Math.sin(a) * 1000));
+    const s2 = Math.min((RVW / 2 - 28) / Math.abs(Math.cos(a) || 1e-6), (RVH / 2 - 28) / Math.abs(Math.sin(a) || 1e-6));
+    const ax = cx + Math.cos(a) * s2, ay = cy + Math.sin(a) * s2;
+    g.save(); g.translate(ax, ay); g.rotate(a);
+    g.fillStyle = 'rgba(21,18,43,.85)'; g.beginPath(); g.arc(0, 0, 17, 0, Math.PI * 2); g.fill();
+    g.fillStyle = t.col; g.beginPath(); g.moveTo(12, 0); g.lineTo(-7, -9); g.lineTo(-3, 0); g.lineTo(-7, 9); g.closePath(); g.fill();
+    g.restore();
+    g.font = `600 10px ${FONT}`; g.textAlign = 'center'; g.fillStyle = '#fff'; g.fillText(t.drop ? 'ส่ง' : 'รับ', ax, ay + 30 > VH - 4 ? ay - 22 : ay + 30);
+    void ex; void ey;
+  }
+  // minimap
+  const mw = G.W * 4, mh = G.H * 4, mx = RVW - mw - 10, my = VH - mh - 10;
+  g.globalAlpha = 0.9; rr(g, mx - 4, my - 4, mw + 8, mh + 8, 6); g.fillStyle = 'rgba(21,18,43,.85)'; g.fill();
+  g.drawImage(drvMini, mx, my, mw, mh); g.globalAlpha = 1;
+  for (const t of rTargets(G)) { g.fillStyle = t.col; g.fillRect(mx + t.sp.tx * 4 - 1, my + t.sp.ty * 4 - 1, 6, 6); }
+  for (const tr of G.trains) { const r = Drv.trainRect(G, tr, G.t); if (r) { g.fillStyle = '#ff5a4a'; g.fillRect(mx + r.x / RK * 4, my + Math.max(0, r.y / RK * 4), Math.max(2, r.w / RK * 4), Math.min(mh, r.h / RK * 4)); } }
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(mx + c.x / RK * 4, my + c.y / RK * 4, 3.2, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = 'rgba(255,255,255,.5)'; g.lineWidth = 1; g.strokeRect(mx + (RS.cam.x - hw) / RK * 4, my + (RS.cam.y - hh) / RK * 4, RVW / RZ / RK * 4, RVH / RZ / RK * 4);
+  rDrawControls(g, G, time);
+  // top band
+  const band = g.createLinearGradient(0, 0, 0, RY0);
+  band.addColorStop(0, '#120f26'); band.addColorStop(1, '#231a40');
+  g.fillStyle = band; g.fillRect(0, 0, VW, RY0);
+  rDrawHud(g, G, time);
+  drawBanner(g);
+  if (O.role && S.mode !== 'menu') drawNetNote(g);
+  if (S.flash > 0) { g.fillStyle = `rgba(255,80,110,${S.flash * .25})`; g.fillRect(0, 0, VW, VH); }
+}
+
+/* ---------- title list ---------- */
+function renderDrvLevels() {
+  let total = 0;
+  $('#rlevels').innerHTML = RLEVELS.map((lv, i) => {
+    const b = rBest(i), open = rOpen(i);
+    if (b) total += b.s;
+    const hs = b ? `<span class="st">${kStars(b.s)}</span> ฿${th(b.m)}` : open ? 'ยังไม่เคยขับ' : 'ยังล็อกอยู่';
+    return `<button type="button" class="lv${b && b.s ? ' done' : ''}" data-r="${i}"${open ? '' : ' disabled'}><span class="n">${th(i + 1)}</span><span class="nm">${lv.name}</span><span class="hs">${hs}</span></button>`;
+  }).join('');
+  $('#rStarsAll').textContent = `ดาวรวม ${th(total)}/${th(RLEVELS.length * 3)}`;
+  let next = RLEVELS.findIndex((l, i) => rOpen(i) && !(rBest(i) && rBest(i).s >= 3));
+  if (next < 0) next = 0;
+  $('#bGo').dataset.r = next;
+  if (S.tab === 'drv') $('#bGo').textContent = rBest(next) ? `ขับ${ROUTE(next)}` : 'ออกรถ';
+  setDrvPadLabels();
+}
+$('#rlevels').addEventListener('click', e => { const b = e.target.closest('[data-r]'); if (b && !b.disabled) startDrive(+b.dataset.r); });
+
+/* ---------- online ---------- */
+function onlineStartDrv(i) {
+  if (O.role !== 'host') return;
+  O.md = 'r'; O.lv = i; O.ep++; O.st = 'play'; O.seenDead = O.partner ? (O.partner.dead | 0) : 0; O.seenRq = O.partner ? (O.partner.rq | 0) : 0;
+  loadOnlineLevel(true);
+}
+$('#oLevelsR').addEventListener('click', e => { const b = e.target.closest('[data-r]'); if (b && !b.disabled) onlineStartDrv(+b.dataset.r); });
+function renderOnlineDrv() {
+  $('#oLevelsR').innerHTML = RLEVELS.map((lv, i) => {
+    const b = rBest(i), open = rOpen(i);
+    return `<button type="button" class="lv${b && b.s ? ' done' : ''}" data-r="${i}"${open ? '' : ' disabled'}><span class="n">${th(i + 1)}</span><span class="nm">${lv.name}</span><span class="hs">${b ? `<span class="st">${kStars(b.s)}</span>` : open ? 'ยังไม่เคยขับ' : 'ยังล็อกอยู่'}</span></button>`;
+  }).join('');
+}
+function rEncodePlayer() { const li = RS.lastInp || {}; return { s: Math.round((li.mx || 0) * 100) / 100, p: Math.round(-(li.my || 0) * 100) / 100, ka: RS.act.n }; }
+function rHostHears(pr) {
+  if (!RS.G || pr.ep !== O.ep || !pr.p) return;
+  const p = pr.p, R = RS.remote;
+  R.s = Math.max(-1, Math.min(1, +p.s || 0)); R.p = Math.max(-1, Math.min(1, +p.p || 0));
+  const ka = p.ka | 0;
+  if (RS.seenKa < 0) RS.seenKa = ka;
+  if (ka > RS.seenKa) { RS.seenKa = ka; R.act = true; }
+}
+function rGuestHears(pr) {
+  const G = RS.G;
+  if (!G || !pr.rw) return;
+  const was = G.over;
+  Drv.apply(G, pr.rw, true);
+  if (typeof pr.rw.ro === 'string') {
+    const r = pr.rw.ro === 'm' ? { steer: 'mint', pedal: 'pink' } : { steer: 'pink', pedal: 'mint' };
+    if (r.steer !== RS.roles.steer) { RS.roles = r; setDrvPadLabels(); }
+  }
+  if (G.over && !was && !RS.endT && S.mode === 'play') { RS.endT = 1.6; sfx.whistle(); }
+}
+
 /* ---------- Fullscreen ---------- */
 const isIPhone = /iPhone|iPod/.test(navigator.userAgent);
 const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement || null;
@@ -2408,7 +2983,7 @@ function boot(data) {
   requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
   if (inClaude()) setTimeout(roomApi, 300);
 }
-try { Object.defineProperty(window, '__tsr', { value: { S, KS, DS, O, KK, KT }, configurable: true }); } catch (e) {}
+try { Object.defineProperty(window, '__tsr', { value: { S, KS, DS, RS, O, KK, KT }, configurable: true }); } catch (e) {}
 try { if (window.claude && window.claude.hot && window.claude.hot.snapshot) window.claude.hot.snapshot(() => ({ names: S.names, li: S.li })); } catch (e) {}
 if (window.claude && window.claude.hot && window.claude.hot.ready) window.claude.hot.ready(boot);
 else boot((window.claude && window.claude.hot && window.claude.hot.data) || {});
