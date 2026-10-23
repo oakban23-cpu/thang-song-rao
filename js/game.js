@@ -35,6 +35,8 @@ const heartsIn = i => (ALL[i].map.join('').match(/\*/g) || []).length;
 const isOpen = i => ALL[i].n - 1 <= (prog.u[ALL[i].ch] || 0);
 const lvLabel = i => `ด่าน ${th(ALL[i].ch)}-${th(ALL[i].n)}`;
 const firstOf = ch => ALL.findIndex(l => l.ch === ch);
+const curLevel = () => (S.kind === 'kit' ? KLEVELS[KS.li] : ALL[S.li]);
+const curLabel = () => (S.kind === 'kit' ? kLabel(KS.li) : lvLabel(S.li));
 
 /* ---------- DOM ---------- */
 const app = $('#app'), stage = $('#stage'), cv = $('#cv'), ctx = cv.getContext('2d');
@@ -110,6 +112,7 @@ function fit() {
   cv.width = Math.max(1, Math.round(cw * dpr)); cv.height = Math.max(1, Math.round(ch * dpr));
   scale = cv.width / VW;
   buildBg();
+  if (S.kind === 'kit') buildKitBg();
 }
 
 /* ---------- Background + static tiles ---------- */
@@ -538,13 +541,13 @@ function drawParts(g) {
 function drawBanner(g) {
   if (S.banner <= 0) return;
   const a = Math.min(1, S.banner, (4.2 - S.banner) * 3);
-  const lv = ALL[S.li];
+  const lv = curLevel();
   g.globalAlpha = Math.max(0, a);
   g.font = `400 22px ${FONT_D}`;
-  const title = `${lvLabel(S.li)} · ${lv.name}`;
+  const title = `${curLabel()} · ${lv.name}`;
   g.font = `400 14px ${FONT}`;
   const lines = wrap(g, lv.hint, 600);
-  const w = Math.min(VW - 80, 660), h = 50 + lines.length * 20, x = (VW - w) / 2, y = 44;
+  const w = Math.min(VW - 80, 660), h = 50 + lines.length * 20, x = (VW - w) / 2, y = S.kind === 'kit' ? 236 : 44;
   rr(g, x, y, w, h, 14); g.fillStyle = 'rgba(21,17,46,.86)'; g.fill();
   g.strokeStyle = hexA(C.gold, .5); g.lineWidth = 1; g.stroke();
   g.textAlign = 'center'; g.textBaseline = 'alphabetic';
@@ -632,6 +635,7 @@ function readNames() {
 }
 function releaseAll() { for (const id of ['pink', 'mint']) for (const k of ['left', 'right', 'jump']) { KB[id][k] = false; TC[id][k] = false; } JP.pink = JP.mint = false; document.querySelectorAll('.pad button.on').forEach(b => b.classList.remove('on')); touches.clear(); }
 function loadLevel(i, fresh) {
+  S.kind = 'adv'; app.classList.remove('kit');
   S.li = i; S.W = Phys.load(ALL[i]); S.parts = []; S.deadId = null; S.flash = 0; S.shake = 0;
   if (fresh) { S.deaths = 0; S.elapsed = 0; S.banner = 4.2; }
   buildBg(); updateHud();
@@ -642,13 +646,14 @@ function startLevel(i) {
   loadLevel(i, true); showScreen(null); setMode('play');
 }
 function restart() {
+  if (S.kind === 'kit') { kitRestart(); return; }
   if (!S.W) return;
   if (O.role) { onlineRestart(); return; }
   S.deaths++; loadLevel(S.li, false); showScreen(null); setMode('play');
 }
 const tipsShown = {};
 function renderTips() {
-  const lv = ALL[S.li], tips = lv.tips || [], n = tipsShown[lv.name] || 0;
+  const lv = curLevel(), tips = lv.tips || [], n = tipsShown[lv.name] || 0;
   $('#pTips').innerHTML = tips.slice(0, n).map((t, i) => `<li><b>คำใบ้ ${th(i + 1)}</b> ${t}</li>`).join('');
   $('#pTips').hidden = n === 0;
   const b = $('#bTip');
@@ -657,15 +662,15 @@ function renderTips() {
 }
 function pause() {
   if (S.mode !== 'play') return;
-  setMode('paused'); releaseAll();
-  const lv = ALL[S.li];
-  $('#pNo').textContent = lvLabel(S.li) + ' · ' + lv.name;
+  setMode('paused'); releaseAll(); releaseK();
+  const lv = curLevel();
+  $('#pNo').textContent = curLabel() + ' · ' + lv.name;
   $('#pHint').textContent = lv.hint;
   $('#bLevels').hidden = !!O.role; $('#bLeave').hidden = !O.role; $('#pNet').hidden = !O.role;
   renderTips(); showScreen('pause');
 }
 function resume() { if (S.mode !== 'paused') return; showScreen(null); setMode('play'); }
-function toTitle() { if (O.role) leaveOnline(); releaseAll(); renderLevels(); showScreen('title'); setMode('menu'); }
+function toTitle() { if (O.role) leaveOnline(); releaseAll(); releaseK(); showScreen('title'); setMode('menu'); setTab(S.tab); }
 function die(id) {
   setMode('dying'); S.deadId = id; S.deathT = 1; S.flash = 1; S.shake = 1; sfx.die();
   if (O.role === 'guest') O.dead++;
@@ -683,6 +688,7 @@ function win() {
 }
 function showClear() {
   setMode('clear'); releaseAll();
+  $('#cStars').hidden = true;
   const lv = ALL[S.li], nxt = ALL[S.li + 1];
   const endCh = !nxt || nxt.ch !== lv.ch, endAll = !nxt;
   const chList = ALL.filter(l => l.ch === lv.ch);
@@ -704,6 +710,7 @@ function showClear() {
   $('#bNext').focus({ preventScroll: true });
 }
 function next() {
+  if (S.kind === 'kit') { kitNext(); return; }
   if (O.role === 'host') { if (S.li < ALL.length - 1) onlineStart(S.li + 1); return; }
   if (S.li >= ALL.length - 1) toTitle(); else startLevel(S.li + 1);
 }
@@ -725,7 +732,9 @@ function renderLevels() {
   $('#bGo').textContent = !started ? 'ออกเดินทาง' : `เล่นต่อ ${lvLabel(cont)}`;
   $('#bGo').dataset.i = cont;
   $('#bCh2').dataset.i = firstOf(3);
+  renderKitLevels();
 }
+function goFromTitle() { if (S.tab === 'kit') startKitchen(+$('#bGo').dataset.k || 0); else startLevel(+$('#bGo').dataset.i || 0); }
 /* ---------- Main loop ---------- */
 let last = performance.now(), acc = 0;
 function tick() {
@@ -759,6 +768,7 @@ function tick() {
 function frame(now) {
   const dt = Math.min(.05, (now - last) / 1000); last = now;
   S.time += dt;
+  if (S.kind === 'kit') { kitFrame(dt, now); requestAnimationFrame(frame); return; }
   if (S.mode === 'play') {
     acc += dt;
     while (acc >= DT) { tick(); acc -= DT; if (S.mode !== 'play') { acc = 0; break; } }
@@ -785,7 +795,8 @@ function frame(now) {
 const MAP = { KeyA: ['pink', 'left'], KeyD: ['pink', 'right'], KeyW: ['pink', 'jump'], ArrowLeft: ['mint', 'left'], ArrowRight: ['mint', 'right'], ArrowUp: ['mint', 'jump'] };
 document.addEventListener('keydown', e => {
   const tag = e.target && e.target.tagName;
-  if (tag === 'INPUT') { if (e.key === 'Enter' && S.mode === 'menu') startLevel(+$('#bGo').dataset.i || 0); return; }
+  if (tag === 'INPUT') { if (e.key === 'Enter' && S.mode === 'menu' && scr.online.hidden) goFromTitle(); return; }
+  if (S.kind === 'kit' && S.mode === 'play' && kitKey(e, true)) return;
   const m0 = MAP[e.code], m = m0 && O.role ? [O.local, m0[1]] : m0;
   if (m) {
     e.preventDefault();
@@ -795,12 +806,12 @@ document.addEventListener('keydown', e => {
   }
   if (e.repeat) return;
   if (e.code === 'KeyF') { toggleFull(); return; }
-  if (e.code === 'KeyR' && (S.mode === 'play' || S.mode === 'dying')) restart();
+  if (e.code === 'KeyR' && S.kind !== 'kit' && (S.mode === 'play' || S.mode === 'dying')) restart();
   else if (e.code === 'Escape' || e.code === 'KeyP') { if (S.mode === 'play') pause(); else if (S.mode === 'paused') resume(); }
   else if (e.key === 'Enter' && S.mode === 'paused') { e.preventDefault(); resume(); }
 });
-document.addEventListener('keyup', e => { const m = MAP[e.code]; if (m) KB[O.role ? O.local : m[0]][m[1]] = false; });
-window.addEventListener('blur', releaseAll);
+document.addEventListener('keyup', e => { if (S.kind === 'kit') kitKey(e, false); const m = MAP[e.code]; if (m) KB[O.role ? O.local : m[0]][m[1]] = false; });
+window.addEventListener('blur', () => { releaseAll(); releaseK(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden) { if (S.mode === 'play' && !O.role) pause(); else releaseAll(); } });
 
 const touches = new Map();
@@ -833,8 +844,8 @@ pad.addEventListener('contextmenu', e => e.preventDefault());
 
 for (const ch of CHAPTERS) $('#levels' + ch).addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (b && !b.disabled) startLevel(+b.dataset.i); });
 $('#bCh2').addEventListener('click', () => startLevel(firstOf(3)));
-$('#bTip').addEventListener('click', () => { const n = ALL[S.li].name; tipsShown[n] = (tipsShown[n] || 0) + 1; renderTips(); });
-$('#bGo').addEventListener('click', () => startLevel(+$('#bGo').dataset.i || 0));
+$('#bTip').addEventListener('click', () => { const n = curLevel().name; tipsShown[n] = (tipsShown[n] || 0) + 1; renderTips(); });
+$('#bGo').addEventListener('click', goFromTitle);
 $('#bRestart').addEventListener('click', () => { if (S.mode === 'play' || S.mode === 'dying') restart(); });
 $('#bMenu').addEventListener('click', () => { if (S.mode === 'play') pause(); else if (S.mode === 'paused') resume(); });
 $('#bResume').addEventListener('click', resume);
@@ -842,14 +853,14 @@ $('#bRestart2').addEventListener('click', restart);
 $('#bLevels').addEventListener('click', toTitle);
 $('#bLevels2').addEventListener('click', toTitle);
 $('#bNext').addEventListener('click', next);
-$('#bAgain').addEventListener('click', () => { if (O.role === 'host') openOnlineRoom(); else startLevel(S.li); });
+$('#bAgain').addEventListener('click', () => { if (O.role === 'host') openOnlineRoom(); else if (S.kind === 'kit') startKitchen(KS.li); else startLevel(S.li); });
 [nPink, nMint].forEach(i => i.addEventListener('input', readNames));
 snd.addEventListener('change', () => { S.sound = snd.checked; store.set('sound', S.sound); });
 
 
 /* ---------- Online (two phones, one character each) ---------- */
 const O = { api: null, apiP: null, room: null, lobby: false, code: '', role: null, local: null, partner: null, partnerPeer: null, partnerName: '', partnerAt: 0,
-  ep: 0, lv: -1, st: 'lobby', loadedEp: -1, lastRec: { pink: -1, mint: -1 }, dead: 0, rq: 0, seenDead: 0, seenRq: 0, firstSeen: false, lastInp: null, unsub: [], lastD: '', lastH: 0, wonEp: -1, deathEp: -1 };
+  md: 'a', ep: 0, lv: -1, st: 'lobby', loadedEp: -1, lastRec: { pink: -1, mint: -1 }, dead: 0, rq: 0, seenDead: 0, seenRq: 0, firstSeen: false, lastInp: null, unsub: [], lastD: '', lastH: 0, wonEp: -1, deathEp: -1 };
 function roomApi() {
   if (!O.apiP) O.apiP = (window.claude && typeof window.claude.use === 'function') ? Promise.resolve(window.claude.use('room')).catch(() => null) : Promise.resolve(null);
   return O.apiP;
@@ -982,10 +993,11 @@ function renderOnlineRoom() {
       return `<button type="button" class="lv${prog.h[lv.name] != null ? ' done' : ''}" data-i="${i}"${locked ? ' disabled' : ''}><span class="n">${th(lv.n)}</span><span class="nm">${lv.name}</span><span class="hs">${locked ? 'ยังล็อกอยู่' : prog.h[lv.name] != null ? 'ผ่านแล้ว' : 'ยังไม่เคยผ่าน'}</span></button>`;
     }).join('');
   }
+  if (show) renderOnlineKit();
 }
 function onlineStart(i) {
   if (O.role !== 'host') return;
-  O.lv = i; O.ep++; O.st = 'play'; O.seenDead = O.partner ? (O.partner.dead | 0) : 0; O.seenRq = O.partner ? (O.partner.rq | 0) : 0;
+  O.md = 'a'; O.lv = i; O.ep++; O.st = 'play'; O.seenDead = O.partner ? (O.partner.dead | 0) : 0; O.seenRq = O.partner ? (O.partner.rq | 0) : 0;
   loadOnlineLevel(true);
 }
 function onlineRestart() {
@@ -995,6 +1007,14 @@ function onlineRestart() {
 function loadOnlineLevel(fresh) {
   audio();
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  if (O.md === 'k') {
+    const keepBanner = KS.G && KS.li === O.lv && !fresh;
+    loadKitchen(O.lv, { role: O.role, local: O.local });
+    if (keepBanner) S.banner = 0;
+    O.loadedEp = O.ep; showScreen(null); setMode('play');
+    return;
+  }
+  S.kind = 'adv'; app.classList.remove('kit');
   const changed = S.li !== O.lv || fresh;
   S.li = O.lv; S.W = Phys.load(ALL[O.lv]);
   S.W.net = { role: O.role, local: O.local };
@@ -1011,6 +1031,7 @@ function leaveOnline() {
   }
   O.room = null; O.role = null; O.local = null; O.partner = null; O.code = '';
   if (S.W) S.W.net = null;
+  if (KS.G) KS.G.net = null;
   app.classList.remove('solo');
   $('#hNet').hidden = true;
 }
@@ -1038,12 +1059,15 @@ function hostHears(pr) {
     O.seenDead = pr.dead | 0; O.seenRq = pr.rq | 0;
     if (O.st === 'play' && (S.mode === 'play' || S.mode === 'dying' || S.mode === 'paused')) onlineRestart();
   }
+  if (S.kind === 'kit') { if (O.md === 'k') kHostHears(pr); return; }
   if (S.W && pr.ep === O.ep && pr.p && S.W.net) Net.applyPlayer(S.W, 'mint', pr.p, performance.now());
 }
 function guestHears(pr) {
   const lv = pr.lv | 0, ep = pr.ep | 0;
   if (pr.st === 'lobby') { if (S.mode !== 'menu' || scr.online.hidden) openOnlineRoom(); else renderOnlineRoom(); return; }
-  if (lv >= 0 && lv < ALL.length && (ep !== O.loadedEp)) { O.ep = ep; O.lv = lv; loadOnlineLevel(lv !== S.li); }
+  const md = pr.md === 'k' ? 'k' : 'a';
+  if (lv >= 0 && lv < (md === 'k' ? KLEVELS.length : ALL.length) && (ep !== O.loadedEp)) { const ch = md !== O.md || lv !== (md === 'k' ? KS.li : S.li) || S.kind !== (md === 'k' ? 'kit' : 'adv'); O.ep = ep; O.lv = lv; O.md = md; loadOnlineLevel(ch); }
+  if (md === 'k') { if (S.kind === 'kit' && ep === O.loadedEp) kGuestHears(pr); return; }
   if (!S.W || !S.W.net || ep !== O.loadedEp) return;
   if (pr.p) Net.applyPlayer(S.W, 'pink', pr.p, performance.now());
   if (pr.w) {
@@ -1065,9 +1089,15 @@ function guestHears(pr) {
 }
 function pumpOnline(now) {
   const room = O.room; if (!room) return;
-  const o = { app: 'tsr', v: 1, code: O.code, r: O.role === 'host' ? 'h' : 'g', n: S.names[O.local] || '', ep: O.ep, lv: O.lv };
+  const o = { app: 'tsr', v: 1, code: O.code, r: O.role === 'host' ? 'h' : 'g', n: S.names[O.local] || '', ep: O.ep, lv: O.lv, md: O.md };
   if (O.role === 'host') o.st = O.st; else { o.dead = O.dead; o.rq = O.rq; }
-  if (S.W && S.W.net && O.loadedEp === O.ep && (S.mode === 'play' || S.mode === 'dying' || S.mode === 'won' || S.mode === 'paused' || S.mode === 'clear')) {
+  const live = O.loadedEp === O.ep && (S.mode === 'play' || S.mode === 'paused' || S.mode === 'clear');
+  if (S.kind === 'kit') {
+    if (KS.G && KS.G.net && live) {
+      o.p = Kit.encodePlayer(KS.G, O.local, KS.lastInp || {}, KS.act);
+      if (O.role === 'host') o.kw = Kit.encode(KS.G);
+    }
+  } else if (S.W && S.W.net && O.loadedEp === O.ep && (S.mode === 'play' || S.mode === 'dying' || S.mode === 'won' || S.mode === 'paused' || S.mode === 'clear')) {
     o.p = Net.encodePlayer(S.W, O.local, O.lastInp || { left: false, right: false, jump: false });
     if (O.role === 'host') o.w = Net.encodeWorld(S.W);
   }
@@ -1098,6 +1128,594 @@ $('#oJoin').addEventListener('click', () => {
 for (const ch of CHAPTERS) $('#oLevels' + ch).addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (b && !b.disabled) onlineStart(+b.dataset.i); });
 $('#bLeave').addEventListener('click', toTitle);
 $('#bLeave2').addEventListener('click', toTitle);
+
+/* ---------- Kitchen mode ---------- */
+const KX = Kit.K, KY0 = 96;
+const KS = { G: null, li: 0, acc: 0, floats: [], act: { n: 0, ref: null, uref: null }, lastInp: {}, seenKa: -1, remote: { act: false, ref: null, use: false, uref: null }, endT: 0, prev: null, chopT: 0 };
+const KK = { pink: { u: 0, d: 0, l: 0, r: 0, act: 0, use: 0 }, mint: { u: 0, d: 0, l: 0, r: 0, act: 0, use: 0 } };
+const KT = { pink: { x: 0, y: 0, act: 0, use: 0 }, mint: { x: 0, y: 0, act: 0, use: 0 } };
+const KKEY = { KeyW: ['pink', 'u'], KeyS: ['pink', 'd'], KeyA: ['pink', 'l'], KeyD: ['pink', 'r'], Space: ['pink', 'act'], KeyQ: ['pink', 'act'], ShiftLeft: ['pink', 'use'], KeyE: ['pink', 'use'],
+  ArrowUp: ['mint', 'u'], ArrowDown: ['mint', 'd'], ArrowLeft: ['mint', 'l'], ArrowRight: ['mint', 'r'], Enter: ['mint', 'act'], NumpadEnter: ['mint', 'act'], Slash: ['mint', 'act'], ShiftRight: ['mint', 'use'], Period: ['mint', 'use'] };
+const DISH = { kaijeow: 'ข้าวไข่เจียว', kaprao: 'ข้าวกะเพราหมู', somtam: 'ส้มตำ', tomyum: 'ต้มยำกุ้ง' };
+const LABEL = { E: 'ไข่', H: 'หมู', K: 'กุ้ง', Y: 'มะละกอ', R: 'ข้าว' };
+if (!prog.k) prog.k = {};
+const kBest = i => prog.k[KLEVELS[i].name] || null;
+const kOpen = i => i === 0 || !!(kBest(i - 1) && kBest(i - 1).s >= 1);
+const kLabel = i => 'ร้าน ' + th(i + 1);
+Object.assign(sfx, {
+  pick() { tone(620, .05, 'triangle', .05, 760); },
+  drop() { tone(420, .05, 'triangle', .05, 300); },
+  chop() { tone(900 + Math.random() * 200, .03, 'square', .025); },
+  pound() { tone(140, .07, 'sine', .08, 90); },
+  wash() { tone(1400 + Math.random() * 600, .04, 'sine', .02); },
+  serve() { [988, 1319, 1568].forEach((f, i) => tone(f, .12, 'triangle', .06, 0, i * .06)); },
+  reject() { tone(180, .2, 'sawtooth', .05, 120); },
+  trash() { tone(260, .12, 'triangle', .05, 140); },
+  cooked() { tone(1760, .12, 'sine', .05); tone(2349, .18, 'sine', .04, 0, .1); },
+  burnt() { tone(300, .3, 'sawtooth', .04, 100); },
+  fire() { tone(220, .25, 'square', .05, 440); tone(440, .25, 'square', .04, 220, .25); },
+  spray() { tone(3000 + Math.random() * 1500, .04, 'sawtooth', .012); },
+  order() { tone(1568, .1, 'sine', .05); tone(2093, .2, 'sine', .04, 0, .09); },
+  expire() { [392, 370, 349].forEach((f, i) => tone(f, .18, 'triangle', .05, 0, i * .16)); },
+  dirty() { tone(2200, .05, 'triangle', .03); tone(1800, .05, 'triangle', .03, 0, .05); },
+  whistle() { tone(1200, .5, 'square', .05, 1600); }
+});
+
+function kInput(id) {
+  const a = KK[id], t = KT[id];
+  const mx = (a.r - a.l) + t.x, my = (a.d - a.u) + t.y;
+  const act = a.act > 0 || t.act > 0;
+  if (a.act > 0) a.act--;
+  if (t.act > 0) t.act--;
+  return { mx, my, act, use: !!(a.use || t.use) };
+}
+function releaseK() {
+  for (const id of ['pink', 'mint']) { Object.assign(KK[id], { u: 0, d: 0, l: 0, r: 0, act: 0, use: 0 }); Object.assign(KT[id], { x: 0, y: 0, act: 0, use: 0 }); }
+  kjoys.clear(); kbtns.clear();
+  document.querySelectorAll('.kpad .on').forEach(b => b.classList.remove('on'));
+  document.querySelectorAll('.kpad .knob').forEach(k => { k.style.transform = ''; });
+}
+function kitKey(e, down) {
+  const m = KKEY[e.code];
+  if (!m || (e.target && e.target.tagName === 'INPUT')) return false;
+  e.preventDefault();
+  const id = O.role ? O.local : m[0], k = m[1];
+  if (down) { if (e.repeat) return true; if (k === 'act') KK[id].act++; else KK[id][k] = 1; }
+  else if (k !== 'act') KK[id][k] = 0;
+  return true;
+}
+
+/* touch: joystick + buttons */
+const kjoys = new Map(), kbtns = new Map();
+const kpad = $('#kpad');
+const padId = el => (el.dataset.p === 'local' ? (O.local || 'pink') : el.dataset.p);
+function joyMove(e) {
+  const s = kjoys.get(e.pointerId);
+  if (!s) return;
+  const r = s.el.getBoundingClientRect();
+  let dx = (e.clientX - (r.left + r.width / 2)) / (r.width * 0.34), dy = (e.clientY - (r.top + r.height / 2)) / (r.height * 0.34);
+  const m = Math.hypot(dx, dy);
+  if (m > 1) { dx /= m; dy /= m; }
+  KT[s.id].x = Math.abs(dx) < 0.18 ? 0 : dx;
+  KT[s.id].y = Math.abs(dy) < 0.18 ? 0 : dy;
+  s.el.querySelector('.knob').style.transform = `translate(${dx * r.width * 0.3}px, ${dy * r.height * 0.3}px)`;
+}
+kpad.addEventListener('pointerdown', e => {
+  const j = e.target.closest('.joy'), b = e.target.closest('.kb');
+  if (j) { e.preventDefault(); try { j.setPointerCapture(e.pointerId); } catch (er) {} kjoys.set(e.pointerId, { el: j, id: padId(j) }); joyMove(e); audio(); return; }
+  if (b) {
+    e.preventDefault();
+    const id = padId(b);
+    if (b.dataset.k === 'act') KT[id].act++; else KT[id].use = 1;
+    b.classList.add('on'); kbtns.set(e.pointerId, { b, id }); audio();
+  }
+});
+window.addEventListener('pointermove', e => { if (kjoys.has(e.pointerId)) joyMove(e); }, { passive: true });
+const kEnd = e => {
+  const s = kjoys.get(e.pointerId);
+  if (s) { KT[s.id].x = 0; KT[s.id].y = 0; s.el.querySelector('.knob').style.transform = ''; kjoys.delete(e.pointerId); }
+  const b = kbtns.get(e.pointerId);
+  if (b) { if (b.b.dataset.k === 'use') KT[b.id].use = 0; b.b.classList.remove('on'); kbtns.delete(e.pointerId); }
+};
+window.addEventListener('pointerup', kEnd);
+window.addEventListener('pointercancel', kEnd);
+kpad.addEventListener('contextmenu', e => e.preventDefault());
+
+/* ---------- flow ---------- */
+function kSnap(G) { return { money: G.money, failed: G.failed, orders: G.orders.length, fires: G.list.filter(t => t.fire > 0).length, ids: G.orders.map(o => o.id).join(), over: G.over }; }
+function loadKitchen(i, net) {
+  KS.li = i; KS.G = Kit.load(KLEVELS[i]); KS.G.net = net || null;
+  KS.acc = 0; KS.floats = []; KS.act = { n: KS.act.n, ref: null, uref: null }; KS.seenKa = -1; KS.remote = { act: false, ref: null, use: false, uref: null }; KS.endT = 0; KS.prev = kSnap(KS.G);
+  S.kind = 'kit'; app.classList.add('kit');
+  S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
+  releaseK(); buildKitBg(); kHud();
+}
+function startKitchen(i) {
+  readNames(); audio();
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  loadKitchen(i); showScreen(null); setMode('play');
+}
+function kitRestart() { if (O.role) { onlineRestart(); return; } loadKitchen(KS.li); showScreen(null); setMode('play'); }
+function kitNext() {
+  if (O.role === 'host') { if (KS.li < KLEVELS.length - 1) onlineStartKit(KS.li + 1); return; }
+  if (KS.li < KLEVELS.length - 1 && kOpen(KS.li + 1)) startKitchen(KS.li + 1); else toTitle();
+}
+let hudKey = '';
+function kHud(force) {
+  const G = KS.G, lv = KLEVELS[KS.li];
+  if (!G) return;
+  const k = `${KS.li}|${G.money}|${Math.ceil(G.left)}`;
+  if (!force && k === hudKey) return;
+  hudKey = k;
+  $('#hNo').textContent = kLabel(KS.li);
+  $('#hName').textContent = lv.name;
+  $('#hHint').textContent = lv.hint;
+  $('#hHearts').textContent = '';
+}
+function kResults() {
+  const G = KS.G, lv = KLEVELS[KS.li], st = Kit.stars(G);
+  const b = prog.k[lv.name] || { s: 0, m: 0 };
+  const newBest = G.money > b.m;
+  prog.k[lv.name] = { s: Math.max(b.s, st), m: Math.max(b.m, G.money) };
+  store.set('prog2', prog);
+  setMode('clear'); releaseAll(); releaseK();
+  $('#cNo').textContent = `${kLabel(KS.li)} · ปิดร้าน`;
+  $('#cName').textContent = lv.name;
+  $('#cStars').hidden = false;
+  $('#cStars').innerHTML = [0, 1, 2].map(i => `<span class="${i < st ? '' : 'off'}">★</span>`).join('');
+  const msg = st === 3 ? 'ลูกค้าติดใจ บอกต่อกันทั้งซอย' : st === 2 ? 'ขายดีใช้ได้ อีกนิดเดียวได้สามดาว' : st === 1 ? 'เปิดร้านรอดแล้ว ร้านถัดไปเปิดให้เล่นแล้ว' : `ยังไม่ถึงดาวแรก ต้องได้ ฿${th(lv.stars[0])} ลองแบ่งงานกันใหม่`;
+  $('#cMsg').textContent = msg + (newBest && G.money > 0 ? ' · สถิติใหม่' : '');
+  $('#cStats').innerHTML = `<span>รายได้ <b>฿${th(G.money)}</b></span><span>เสิร์ฟ <b>${th(G.served)}</b> จาน</span><span>ลูกค้ารอไม่ไหว <b>${th(G.failed)}</b></span>`;
+  const last = KS.li >= KLEVELS.length - 1, guest = O.role === 'guest';
+  $('#bNext').textContent = 'ร้านถัดไป';
+  $('#bNext').hidden = guest || last || !kOpen(KS.li + 1);
+  $('#bAgain').hidden = guest;
+  $('#bAgain').textContent = O.role === 'host' ? 'เลือกด่านอื่น' : 'เปิดร้านอีกรอบ';
+  $('#bLevels2').hidden = !!O.role; $('#bLeave2').hidden = !O.role;
+  if (guest) $('#cMsg').textContent += ` · รอ${O.partnerName || 'อีกคน'}เลือกร้านต่อไป`;
+  showScreen('clear');
+}
+
+/* ---------- tick ---------- */
+function nearTile(G, p, t) { if (!t) return false; const r = Kit.tileRect(G, t); return Math.hypot(r.x + KX / 2 - p.x, r.y + KX / 2 - p.y) < KX * 1.75; }
+function kTick() {
+  const G = KS.G, inp = {};
+  if (!O.role) { inp.pink = kInput('pink'); inp.mint = kInput('mint'); }
+  else {
+    const me = G[O.local], li = kInput(O.local), rid = O.local === 'pink' ? 'mint' : 'pink';
+    if (li.act) { KS.act.n++; const t = Kit.target(G, me); KS.act.ref = t ? Kit.refOf(t) : null; }
+    if (li.use) { const t = Kit.target(G, me); KS.act.uref = t ? Kit.refOf(t) : null; }
+    KS.lastInp = li;
+    Kit.smoothPlayer(G, rid, performance.now());
+    if (O.role === 'host') {
+      inp[O.local] = li;
+      const R = KS.remote;
+      inp[rid] = { act: R.act, ref: R.ref, use: R.use, uref: R.uref };
+      R.act = false;
+    } else {
+      Kit.smoothBoat(G);
+      inp[O.local] = { mx: li.mx, my: li.my };
+    }
+  }
+  const ev = Kit.step(G, inp);
+  kEvents(ev);
+  if (O.role === 'guest') kGuestDiff();
+  if (G.over && !KS.endT) { KS.endT = 1.4; sfx.whistle(); }
+}
+function kFloat(text, x, y, col) { KS.floats.push({ text, x, y, col, life: 1.4 }); }
+function tileCenter(G, t) { const r = Kit.tileRect(G, t); return { x: r.x + KX / 2, y: r.y + KX / 2 }; }
+function kEvents(ev) {
+  const G = KS.G, seen = new Set();
+  for (const e of ev) {
+    const [k, id] = e.split(':');
+    if (seen.has(k) && k !== 'serve') continue; seen.add(k);
+    if (k === 'pick' || k === 'plate') sfx.pick();
+    else if (k === 'drop') sfx.drop();
+    else if (k === 'chop' || k === 'chopped') { if ((KS.chopT -= 1) <= 0) { sfx.chop(); KS.chopT = 9; } }
+    else if (k === 'pound' || k === 'pounded') { if ((KS.chopT -= 1) <= 0) { sfx.pound(); KS.chopT = 14; } }
+    else if (k === 'wash' || k === 'washed') { if ((KS.chopT -= 1) <= 0) { sfx.wash(); KS.chopT = 7; } }
+    else if (k === 'spray' || k === 'spray0') { if ((KS.chopT -= 1) <= 0) { sfx.spray(); KS.chopT = 3; } }
+    else if (k === 'serve') { sfx.serve(); const w = G.list.find(t => t.t === 'W'), c = w ? tileCenter(G, w) : { x: VW / 2, y: 0 }; const s = G.lastServe; kFloat(`+฿${th(Kit.PRICE[s.r] + s.tip)}`, c.x, c.y - 10, C.gold); burst(c.x, c.y + KY0, 12, C.gold, { speed: 90, up: 60, life: .7, size: 3, g: 120 }); }
+    else if (k === 'reject') { sfx.reject(); const p = G[id]; kFloat('ไม่มีใครสั่ง', p.x, p.y - 30, '#ff8a8a'); }
+    else if (k === 'trash') sfx.trash();
+    else if (k === 'cooked') sfx.cooked();
+    else if (k === 'burnt') sfx.burnt();
+    else if (k === 'fire') { sfx.fire(); S.shake = 0.5; }
+    else if (k === 'order') sfx.order();
+    else if (k === 'expire') { sfx.expire(); kFloat(`−฿${th(15)}`, 120, -40, '#ff8a8a'); }
+    else if (k === 'dirty') sfx.dirty();
+  }
+}
+function kGuestDiff() {
+  const G = KS.G, n = kSnap(G), p = KS.prev || n;
+  if (n.money > p.money && G.served > (p.served || 0)) { sfx.serve(); const w = G.list.find(t => t.t === 'W'); if (w) { const c = tileCenter(G, w); kFloat(`+฿${th(n.money - p.money)}`, c.x, c.y - 10, C.gold); } }
+  if (G.failed > p.failed) { sfx.expire(); kFloat(`−฿${th(15)}`, 120, -40, '#ff8a8a'); }
+  if (n.ids !== p.ids && n.orders > p.orders) sfx.order();
+  if (n.fires > p.fires) sfx.fire();
+  n.served = G.served;
+  KS.prev = n;
+}
+function kitFrame(dt, now) {
+  const G = KS.G;
+  if (S.mode === 'play' && G) {
+    KS.acc += dt;
+    while (KS.acc >= Kit.DT) { kTick(); KS.acc -= Kit.DT; if (S.mode !== 'play') { KS.acc = 0; break; } }
+    if (KS.endT > 0) { KS.endT -= dt; if (KS.endT <= 0) { KS.endT = -1; kResults(); if (O.role === 'host') O.st = 'clear'; } }
+  } else KS.acc = 0;
+  if (O.role) pumpOnline(now);
+  if (S.mode === 'play') S.banner = Math.max(0, S.banner - dt);
+  S.flash = Math.max(0, S.flash - dt * 2.2);
+  S.shake = Math.max(0, S.shake - dt * 3);
+  if (G && S.mode === 'play') for (const p of [G.pink, G.mint]) {
+    if (p.using && p.held && p.held.k === 'ext' && Math.random() < 0.8) {
+      const a = (Math.random() - .5) * .7, c = Math.cos(a), s = Math.sin(a), vx = (p.fx * c - p.fy * s) * 300, vy = (p.fx * s + p.fy * c) * 300;
+      S.parts.push({ x: p.x + p.fx * 26, y: p.y + p.fy * 22 - 8 + KY0, vx, vy, life: .32, max: .32, col: 'rgba(235,245,255,.9)', s: 4 + Math.random() * 4, type: 'dot', g: 0 });
+    }
+  }
+  stepParts(dt);
+  for (const f of KS.floats) { f.life -= dt; f.y -= dt * 30; }
+  KS.floats = KS.floats.filter(f => f.life > 0);
+  if (G) kHud();
+  renderKitchen();
+}
+
+/* ---------- drawing ---------- */
+const KCOL = { floorA: '#e9dcc4', floorB: '#ddcbae', wall: '#2c2346', wallTop: '#3a2f5c', wood: '#c48a55', woodTop: '#d9a26a', woodFront: '#8f5a33', crate: '#a86e3e', steel: '#8d93a6', steelD: '#555b6e', water: '#1f5f78', waterL: '#4fb3c8' };
+const kbg = document.createElement('canvas');
+function kStatic(t) { return !t.boat; }
+function drawCounterBase(g, x, y, t) {
+  const top = t === 'S' ? '#4a4b5c' : t === 'N' ? '#b9c0cf' : KCOL.woodTop;
+  const front = t === 'S' ? '#2e2f3c' : t === 'N' ? '#7b8296' : KCOL.woodFront;
+  g.fillStyle = front; g.fillRect(x, y, KX, KX);
+  g.fillStyle = top; g.fillRect(x + 1, y + 1, KX - 2, KX - 11);
+  g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(x + 1, y + 1, KX - 2, 3);
+  if (t !== 'S' && t !== 'N') { g.strokeStyle = 'rgba(90,50,20,.18)'; g.lineWidth = 1; for (let k = 1; k < 3; k++) { g.beginPath(); g.moveTo(x + 4, y + k * 17); g.lineTo(x + KX - 4, y + k * 17 + 2); g.stroke(); } }
+}
+function drawStationArt(g, t, x, y) {
+  const cx = x + KX / 2, cy = y + KX / 2 - 5;
+  if (Kit.CRATE[t.t]) {
+    g.fillStyle = KCOL.crate; g.fillRect(x + 5, y + 5, KX - 10, KX - 20);
+    g.strokeStyle = '#6e4423'; g.lineWidth = 2; g.strokeRect(x + 6, y + 6, KX - 12, KX - 22);
+    g.beginPath(); g.moveTo(x + 6, y + 6); g.lineTo(x + KX - 6, y + KX - 16); g.stroke();
+    if (t.t === 'R') { g.fillStyle = '#f2efe6'; g.beginPath(); g.ellipse(cx, cy - 2, 18, 14, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = '#7fb7c9'; g.fillRect(cx - 18, cy - 2, 36, 10); g.fillStyle = '#fff'; g.beginPath(); g.ellipse(cx, cy - 4, 14, 8, 0, 0, Math.PI * 2); g.fill(); }
+    else drawFood(g, Kit.CRATE[t.t], cx, cy - 2, 0.95);
+    g.font = `600 11px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+    g.lineWidth = 3; g.strokeStyle = 'rgba(40,20,10,.8)'; g.strokeText(LABEL[t.t], cx, y + KX - 13); g.fillStyle = '#fff6e0'; g.fillText(LABEL[t.t], cx, y + KX - 13);
+  } else if (t.t === 'B') {
+    g.fillStyle = '#efd7a8'; rr(g, x + 7, y + 8, KX - 14, KX - 26, 5); g.fill();
+    g.strokeStyle = '#c9a56b'; g.lineWidth = 1.5; g.stroke();
+    g.fillStyle = '#cfd5e2'; g.fillRect(x + KX - 20, y + 10, 4, 18); g.fillStyle = '#4a3a2a'; g.fillRect(x + KX - 20, y + 28, 4, 8);
+  } else if (t.t === 'M') {
+    g.fillStyle = '#7a4a2c'; g.beginPath(); g.ellipse(cx, cy, 20, 16, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#4e2f1c'; g.beginPath(); g.ellipse(cx, cy - 2, 14, 10, 0, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#9b6a45'; g.lineWidth = 5; g.lineCap = 'round'; g.beginPath(); g.moveTo(cx + 6, cy - 4); g.lineTo(cx + 20, cy - 18); g.stroke(); g.lineCap = 'butt';
+  } else if (t.t === 'S') {
+    g.strokeStyle = '#25262f'; g.lineWidth = 4; g.beginPath(); g.arc(cx, cy, 19, 0, Math.PI * 2); g.stroke();
+    g.strokeStyle = '#6b6d80'; g.lineWidth = 2; g.beginPath(); g.arc(cx, cy, 13, 0, Math.PI * 2); g.stroke();
+  } else if (t.t === 'P') {
+    // drawn dynamically (count)
+  } else if (t.t === 'W') {
+    g.fillStyle = '#f4e7c8'; g.fillRect(x + 4, y + 18, KX - 8, KX - 32);
+    for (let k = 0; k < 4; k++) { g.fillStyle = k % 2 ? '#e8b23a' : '#d63d3d'; g.fillRect(x + 2 + k * (KX - 4) / 4, y + 2, (KX - 4) / 4, 14); }
+    g.fillStyle = '#f2c94c'; g.beginPath(); g.arc(cx + 14, y + 36, 6, Math.PI, 0); g.fill(); g.fillRect(cx + 7, y + 36, 14, 2);
+    g.font = `600 12px ${FONT}`; g.textAlign = 'center'; g.fillStyle = '#7a2a2a'; g.fillText('ส่ง', cx - 8, y + 41);
+  } else if (t.t === 'X') {
+    g.fillStyle = '#5d6476'; g.beginPath(); g.arc(cx, cy, 20, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#3d4352'; g.beginPath(); g.arc(cx, cy, 15, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#8890a3'; g.lineWidth = 2; g.beginPath(); g.moveTo(cx - 8, cy); g.lineTo(cx + 8, cy); g.stroke();
+  } else if (t.t === 'N') {
+    g.fillStyle = '#6f778c'; rr(g, x + 6, y + 7, KX - 12, KX - 24, 8); g.fill();
+    g.fillStyle = '#5bb5d6'; rr(g, x + 10, y + 11, KX - 20, KX - 32, 6); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.45)'; g.fillRect(x + 14, y + 14, 12, 3);
+  } else if (t.t === 'D') {
+    g.fillStyle = '#3b3346'; rr(g, x + 8, y + 10, KX - 16, KX - 28, 5); g.fill();
+    g.font = `600 10px ${FONT}`; g.textAlign = 'center'; g.fillStyle = '#d7cfe8'; g.fillText('คืนจาน', cx, y + KX - 14);
+  }
+}
+function drawTileStatic(g, t, x, y) {
+  if (t.t === '#') { g.fillStyle = KCOL.wall; g.fillRect(x, y, KX, KX); g.fillStyle = KCOL.wallTop; g.fillRect(x, y, KX, KX - 10); return; }
+  if (t.t === '~') return;
+  if ('.12'.includes(t.t)) return;
+  drawCounterBase(g, x, y, t.t);
+  drawStationArt(g, t, x, y);
+}
+function buildKitBg() {
+  const G = KS.G;
+  if (!G) return;
+  kbg.width = cv.width; kbg.height = cv.height;
+  const g = kbg.getContext('2d');
+  g.setTransform(scale, 0, 0, scale, 0, 0);
+  const sky = g.createLinearGradient(0, 0, 0, KY0);
+  sky.addColorStop(0, '#120f26'); sky.addColorStop(1, '#2a1d45');
+  g.fillStyle = sky; g.fillRect(0, 0, VW, KY0);
+  g.strokeStyle = 'rgba(255,230,180,.35)'; g.lineWidth = 1;
+  g.beginPath(); for (let x = 0; x <= VW; x += 8) g.lineTo(x, 8 + Math.sin(x / VW * Math.PI * 3) * 5); g.stroke();
+  for (let x = 12; x < VW; x += 36) { const y = 9 + Math.sin(x / VW * Math.PI * 3) * 5; g.fillStyle = ['#ffcf5a', '#ff6f9c', '#4fe0bf', '#ff9a5a'][(x / 36 | 0) % 4]; g.beginPath(); g.arc(x, y + 3, 3, 0, Math.PI * 2); g.fill(); }
+  g.translate(0, KY0);
+  for (let y = 0; y < Kit.GH; y++) for (let x = 0; x < Kit.GW; x++) {
+    const t = G.tiles[y][x];
+    if (t.t === '~') continue;
+    g.fillStyle = (x + y) % 2 ? KCOL.floorA : KCOL.floorB; g.fillRect(x * KX, y * KX, KX, KX);
+  }
+  for (let y = 0; y < Kit.GH; y++) for (let x = 0; x < Kit.GW; x++) drawTileStatic(g, G.tiles[y][x], x * KX, y * KX);
+}
+
+function drawFood(g, k, cx, cy, s = 1) {
+  g.save(); g.translate(cx, cy); g.scale(s, s);
+  switch (k) {
+    case 'egg': g.fillStyle = '#fffaf0'; g.beginPath(); g.ellipse(0, 0, 9, 11, 0, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#d8ccb4'; g.lineWidth = 1; g.stroke(); break;
+    case 'rice': g.fillStyle = '#fdfdf8'; g.beginPath(); g.ellipse(0, 1, 11, 8, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = '#ece7da'; for (const [a, b] of [[-4, 0], [3, -2], [0, 3]]) g.fillRect(a, b, 2, 1); break;
+    case 'pork': g.fillStyle = '#f08a96'; rr(g, -12, -8, 24, 16, 6); g.fill(); g.fillStyle = '#fbd3d8'; rr(g, -8, -4, 10, 5, 2); g.fill(); break;
+    case 'porkc': g.fillStyle = '#f08a96'; for (const [a, b] of [[-9, -2], [-1, -6], [5, 1], [-4, 4]]) { rr(g, a, b, 7, 6, 2); g.fill(); } break;
+    case 'shrimp': g.strokeStyle = '#ff8a4c'; g.lineWidth = 6; g.lineCap = 'round'; g.beginPath(); g.arc(0, 0, 8, 0.4, Math.PI * 1.6); g.stroke(); g.fillStyle = '#ff8a4c'; g.beginPath(); g.moveTo(5, -9); g.lineTo(12, -12); g.lineTo(9, -5); g.fill(); break;
+    case 'shrimpc': g.strokeStyle = '#ff9d66'; g.lineWidth = 4; g.lineCap = 'round'; for (const [a, b] of [[-6, -2], [5, 2]]) { g.beginPath(); g.arc(a, b, 4, 0.5, Math.PI * 1.5); g.stroke(); } break;
+    case 'papaya': g.fillStyle = '#6bb04a'; g.beginPath(); g.ellipse(0, 0, 13, 9, -0.3, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#a7d77f'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(-9, 2); g.quadraticCurveTo(0, -5, 9, -3); g.stroke(); break;
+    case 'papayac': g.strokeStyle = '#cfe9a0'; g.lineWidth = 2; for (let i = -4; i <= 4; i += 2) { g.beginPath(); g.moveTo(-9, i); g.quadraticCurveTo(0, i - 4, 9, i + 1); g.stroke(); } break;
+    case 'somtam': g.strokeStyle = '#bfe08a'; g.lineWidth = 2; for (let i = -4; i <= 4; i += 2) { g.beginPath(); g.moveTo(-9, i); g.quadraticCurveTo(0, i + 3, 9, i - 1); g.stroke(); } g.fillStyle = '#e23b3b'; g.beginPath(); g.arc(-3, -1, 2.5, 0, Math.PI * 2); g.arc(4, 2, 2.2, 0, Math.PI * 2); g.fill(); break;
+    case 'omelette': g.fillStyle = '#c98a2a'; g.beginPath(); g.ellipse(0, 0, 12, 9, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = '#ffd64d'; g.beginPath(); g.ellipse(-1, -1, 9.5, 7, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = '#ffe98a'; g.beginPath(); g.ellipse(-3, -3, 4, 2.5, 0, 0, Math.PI * 2); g.fill(); break;
+    case 'kaprao': g.fillStyle = '#7a4a2a'; g.beginPath(); g.ellipse(0, 1, 11, 8, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = '#3f9a4a'; for (const [a, b, r] of [[-5, -2, .5], [4, -3, -.4], [1, 3, .2]]) { g.beginPath(); g.ellipse(a, b, 4, 2, r, 0, Math.PI * 2); g.fill(); } g.fillStyle = '#e23b3b'; g.fillRect(-1, -1, 3, 2); break;
+    case 'tomyum': g.fillStyle = '#ff7a2f'; g.beginPath(); g.arc(0, 0, 10, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#ffd0a8'; g.lineWidth = 2.5; g.beginPath(); g.arc(-2, 0, 4, 0.4, Math.PI * 1.6); g.stroke(); g.fillStyle = '#3f9a4a'; g.fillRect(3, -5, 4, 2); break;
+    case 'burnt': g.fillStyle = '#2a2222'; g.beginPath(); g.ellipse(0, 0, 11, 8, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = '#4a3a3a'; g.fillRect(-4, -3, 5, 3); break;
+  }
+  g.restore();
+}
+function drawItem(g, it, cx, cy, s = 1) {
+  if (!it) return;
+  g.save(); g.translate(cx, cy); g.scale(s, s);
+  if (it.k === 'plate') {
+    g.fillStyle = 'rgba(0,0,0,.15)'; g.beginPath(); g.ellipse(1, 3, 17, 13, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(0, 0, 17, 13, 0, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#c7d3e0'; g.lineWidth = 1.5; g.beginPath(); g.ellipse(0, 0, 12, 9, 0, 0, Math.PI * 2); g.stroke();
+    const c = it.c, pos = c.length === 2 ? [[-5, 0], [5, 0]] : [[0, 0]];
+    c.forEach((f, i) => drawFood(g, f, pos[i][0], pos[i][1], c.length === 2 ? 0.65 : 0.8));
+  } else if (it.k === 'dirty') {
+    for (let i = Math.min(3, it.n) - 1; i >= 0; i--) { g.fillStyle = '#d9d2c3'; g.beginPath(); g.ellipse(0, -i * 3, 16, 12, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = '#a89a7c'; g.beginPath(); g.arc(-4, -i * 3 + 1, 3, 0, Math.PI * 2); g.arc(5, -i * 3 - 2, 2, 0, Math.PI * 2); g.fill(); }
+    if (it.n > 1) { g.fillStyle = C.ink; g.beginPath(); g.arc(13, -12, 7, 0, Math.PI * 2); g.fill(); g.fillStyle = '#fff'; g.font = `600 10px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(th(it.n), 13, -11.5); g.textBaseline = 'alphabetic'; }
+  } else if (it.k === 'pan' || it.k === 'pot') {
+    const pan = it.k === 'pan';
+    if (pan) { g.fillStyle = '#2a2a33'; g.fillRect(12, -3, 15, 6); }
+    else { g.fillStyle = '#6a7084'; g.fillRect(-21, -3, 6, 6); g.fillRect(15, -3, 6, 6); }
+    g.fillStyle = pan ? '#3a3b48' : '#8d93a6'; g.beginPath(); g.arc(0, 0, pan ? 15 : 16, 0, Math.PI * 2); g.fill();
+    g.fillStyle = pan ? '#23242c' : '#5b6174'; g.beginPath(); g.arc(0, 0, pan ? 12 : 13, 0, Math.PI * 2); g.fill();
+    if (it.f) {
+      const f = it.st === 'cook' ? it.f : it.f;
+      if (it.st === 'cook') drawFood(g, f === 'egg' ? 'egg' : f, 0, 0, 0.75);
+      else drawFood(g, f, 0, 0, 0.85);
+      if (it.st === 'cook' && f === 'egg') { g.fillStyle = 'rgba(255,214,77,' + Math.min(1, it.p) + ')'; g.beginPath(); g.ellipse(0, 0, 9, 7, 0, 0, Math.PI * 2); g.fill(); }
+    }
+  } else if (it.k === 'ext') {
+    g.fillStyle = '#d62e2e'; rr(g, -7, -14, 14, 26, 5); g.fill();
+    g.fillStyle = '#2a2a33'; g.fillRect(-3, -18, 6, 5); g.strokeStyle = '#2a2a33'; g.lineWidth = 3; g.beginPath(); g.moveTo(2, -16); g.quadraticCurveTo(14, -18, 12, -6); g.stroke();
+    g.fillStyle = '#fff'; g.fillRect(-5, -4, 10, 4);
+  } else drawFood(g, it.k, 0, 0, 1);
+  g.restore();
+}
+function bar(g, x, y, w, v, col) {
+  g.fillStyle = 'rgba(21,18,43,.8)'; rr(g, x - 1, y - 1, w + 2, 8, 4); g.fill();
+  g.fillStyle = col; rr(g, x, y, Math.max(3, w * Math.min(1, v)), 6, 3); g.fill();
+}
+function drawFire(g, x, y, t) {
+  const cx = x + KX / 2, by = y + KX - 12;
+  const gl = g.createRadialGradient(cx, by - 14, 4, cx, by - 14, 40);
+  gl.addColorStop(0, 'rgba(255,170,60,.55)'); gl.addColorStop(1, 'rgba(255,90,30,0)');
+  g.fillStyle = gl; g.fillRect(cx - 40, by - 54, 80, 80);
+  for (let k = 0; k < 3; k++) {
+    const ox = (k - 1) * 12, h = 26 + Math.sin(t * 14 + k * 2) * 6 + (k === 1 ? 10 : 0);
+    g.fillStyle = '#ff5a1f'; g.beginPath(); g.moveTo(cx + ox - 9, by); g.quadraticCurveTo(cx + ox - 8, by - h * .6, cx + ox + Math.sin(t * 9 + k) * 3, by - h); g.quadraticCurveTo(cx + ox + 8, by - h * .6, cx + ox + 9, by); g.fill();
+    g.fillStyle = '#ffd24a'; g.beginPath(); g.moveTo(cx + ox - 5, by); g.quadraticCurveTo(cx + ox - 4, by - h * .4, cx + ox, by - h * .65); g.quadraticCurveTo(cx + ox + 4, by - h * .4, cx + ox + 5, by); g.fill();
+  }
+}
+function drawTileDynamic(g, G, t, x, y, time) {
+  const cx = x + KX / 2, cy = y + KX / 2 - 6, it = t.item;
+  if (t.t === 'S' && Kit.isCook(it) && (it.st === 'cook' || it.st === 'done')) {
+    g.fillStyle = `rgba(255,120,40,${0.35 + 0.15 * Math.sin(time * 12)})`; g.beginPath(); g.arc(cx, cy + 5, 21, 0, Math.PI * 2); g.fill();
+  }
+  if (t.t === 'P') {
+    const n = t.plates < 0 ? 4 : Math.min(4, t.plates);
+    for (let i = 0; i < n; i++) { g.fillStyle = '#c7d3e0'; g.beginPath(); g.ellipse(cx, cy + 4 - i * 3, 17, 12, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.ellipse(cx, cy + 3 - i * 3, 16, 11, 0, 0, Math.PI * 2); g.fill(); }
+    if (t.plates >= 0) { g.font = `600 12px ${FONT}`; g.textAlign = 'center'; g.lineWidth = 3; g.strokeStyle = 'rgba(40,20,10,.8)'; const s = `${th(t.plates)} ใบ`; g.strokeText(s, cx, y + KX - 13); g.fillStyle = '#fff6e0'; g.fillText(s, cx, y + KX - 13); }
+  }
+  if (t.t === 'N') {
+    if (t.dirty) drawItem(g, { k: 'dirty', n: t.dirty }, cx - 6, cy + 2, 0.75);
+    for (let i = 0; i < Math.min(3, t.clean); i++) { g.fillStyle = '#fff'; g.beginPath(); g.ellipse(x + KX - 14, y + 14 + i * 4, 9, 6, 0, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#9fb5c9'; g.lineWidth = 1; g.stroke(); }
+    if (t.wp > 0) bar(g, x + 8, y - 6, KX - 16, t.wp, '#5bb5d6');
+  }
+  if (t.t === 'D' && t.ret) drawItem(g, { k: 'dirty', n: t.ret }, cx, cy, 0.85);
+  if (it) {
+    drawItem(g, it, cx, cy + (t.t === 'S' ? 4 : 0), 1);
+    if (it.cp > 0 && it.cp < 1) bar(g, x + 8, y - 6, KX - 16, it.cp, t.t === 'M' ? '#c9a06a' : '#7fd36a');
+    if (Kit.isCook(it)) {
+      if (it.st === 'cook') bar(g, x + 8, y - 6, KX - 16, it.p, '#ffb347');
+      else if (it.st === 'done') {
+        const o = it.of != null ? it.of : it.o / G.burnT;
+        if (o < 0.35) { g.fillStyle = '#5fd36a'; g.beginPath(); g.arc(cx + 18, y + 6, 8, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(cx + 14, y + 6); g.lineTo(cx + 17, y + 9); g.lineTo(cx + 22, y + 3); g.stroke(); }
+        else {
+          const on = Math.sin(time * (8 + o * 16)) > 0;
+          bar(g, x + 8, y - 6, KX - 16, o, on ? '#ff4d4d' : '#ffb347');
+          if (on) { g.fillStyle = '#ff4d4d'; g.beginPath(); g.arc(cx + 18, y + 6, 8, 0, Math.PI * 2); g.fill(); g.fillStyle = '#fff'; g.font = `600 12px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('!', cx + 18, y + 7); g.textBaseline = 'alphabetic'; }
+          g.fillStyle = `rgba(80,80,90,${0.25 + o * 0.4})`; for (let k = 0; k < 3; k++) { const sy = (time * 30 + k * 12) % 36; g.beginPath(); g.arc(cx - 6 + k * 6, cy - sy, 4 + sy * .15, 0, Math.PI * 2); g.fill(); }
+        }
+      } else if (it.st === 'burnt') { g.fillStyle = 'rgba(60,60,70,.5)'; for (let k = 0; k < 3; k++) { const sy = (time * 25 + k * 12) % 36; g.beginPath(); g.arc(cx - 6 + k * 6, cy - sy, 5 + sy * .15, 0, Math.PI * 2); g.fill(); } }
+    }
+  }
+  if (t.fire > 0) { g.globalAlpha = Math.min(1, 0.4 + t.fire); drawFire(g, x, y, time); g.globalAlpha = 1; }
+}
+function drawBoat(g, G, time) {
+  const B = G.boat;
+  if (!B) return;
+  const bx = B.x0 * KX, top = Kit.boatTop(B), w = B.w * KX, h = B.h * KX;
+  g.fillStyle = KCOL.water; g.fillRect(bx, 0, (Kit.GW - B.x0) * KX, Kit.GH * KX);
+  g.strokeStyle = 'rgba(120,210,230,.35)'; g.lineWidth = 2;
+  for (let y = 10; y < Kit.GH * KX; y += 26) { g.beginPath(); for (let x = bx; x <= Kit.GW * KX; x += 12) g.lineTo(x, y + Math.sin(x * 0.05 + time * 2 + y) * 3); g.stroke(); }
+  g.fillStyle = 'rgba(0,0,0,.25)'; rr(g, bx - 4, top + 8, w + 8, h + 4, 18); g.fill();
+  g.fillStyle = '#7a4a28'; rr(g, bx - 6, top - 6, w + 12, h + 12, 18); g.fill();
+  for (let y = 0; y < B.h; y++) for (let x = 0; x < B.w; x++) {
+    const t = B.tiles[y][x], px = bx + x * KX, py = top + y * KX;
+    if ('.12'.includes(t.t)) { g.fillStyle = (x + y) % 2 ? '#b98552' : '#c4915c'; g.fillRect(px, py, KX, KX); g.strokeStyle = 'rgba(80,45,20,.35)'; g.lineWidth = 1; for (let k = 1; k < 4; k++) { g.beginPath(); g.moveTo(px, py + k * 16); g.lineTo(px + KX, py + k * 16); g.stroke(); } }
+    else drawTileStatic(g, t, px, py);
+  }
+  if (B.ph === 'hold') { const gx = bx, gy = top + KX; g.strokeStyle = 'rgba(255,207,90,.6)'; g.setLineDash([5, 5]); g.lineWidth = 2; g.strokeRect(gx + 2, gy + 2, KX - 4, KX - 4); g.setLineDash([]); }
+}
+function drawChef(g, p, time, name, nameA) {
+  const pink = p.id === 'pink', col = pink ? C.pink : C.mint, dark = pink ? C.pinkD : C.mintD;
+  const bob = p.walk ? Math.abs(Math.sin(p.walk)) * 2 : 0;
+  const x = p.x, y = p.y - bob, it = p.held, hx = x + p.fx * 21, hy = p.fy < 0 ? y - 27 : y + p.fy * 14 - 6;
+  g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.ellipse(x, p.y + 15, 18, 6, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = dark; g.beginPath(); g.arc(x, y + 3, 19, 0, Math.PI * 2); g.fill();
+  g.fillStyle = col; g.beginPath(); g.arc(x, y, 19, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(x - p.fx * 3, y - 16 - p.fy * 2, 13, 8, 0, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.arc(x - 6 - p.fx * 3, y - 21, 6, 0, Math.PI * 2); g.arc(x + 6 - p.fx * 3, y - 21, 6, 0, Math.PI * 2); g.arc(x - p.fx * 3, y - 24, 6.5, 0, Math.PI * 2); g.fill();
+  g.fillStyle = col; g.fillRect(x - 12 - p.fx * 3, y - 13 - p.fy * 2, 24, 3);
+  if (p.fy >= 0) {
+    const ex = p.fx * 6, ey = 2 + p.fy * 3;
+    for (const s of [-1, 1]) { g.fillStyle = '#fff'; g.beginPath(); g.ellipse(x + ex + s * 6, y + ey, 3.5, 4.2, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = C.ink; g.beginPath(); g.arc(x + ex + s * 6 + p.fx * 1.3, y + ey + .8 + p.fy, 2, 0, Math.PI * 2); g.fill(); }
+    g.fillStyle = 'rgba(255,170,200,.75)'; g.beginPath(); g.ellipse(x + ex - 11, y + ey + 6, 2.6, 1.6, 0, 0, Math.PI * 2); g.ellipse(x + ex + 11, y + ey + 6, 2.6, 1.6, 0, 0, Math.PI * 2); g.fill();
+  }
+  if (p.using) { g.strokeStyle = 'rgba(255,255,255,.8)'; g.lineWidth = 2; const a = time * 20; g.beginPath(); g.arc(hx, hy, 14, a, a + 1.2); g.stroke(); }
+  if (it) drawItem(g, it, hx, hy, 0.85);
+  if (nameA <= 0) return;
+  g.globalAlpha = nameA;
+  g.font = `600 11px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+  g.lineWidth = 3; g.strokeStyle = 'rgba(21,18,43,.85)'; g.strokeText(name, x, y - 32);
+  g.fillStyle = col; g.fillText(name, x, y - 32);
+  g.globalAlpha = 1;
+}
+function drawTarget(g, G, p) {
+  const t = Kit.target(G, p);
+  if (!t) return;
+  const r = Kit.tileRect(G, t);
+  g.strokeStyle = p.id === 'pink' ? C.pink : C.mint; g.lineWidth = 3; g.setLineDash([7, 5]);
+  rr(g, r.x + 3, r.y + 3, KX - 6, KX - 6, 8); g.stroke(); g.setLineDash([]);
+}
+function drawOrders(g, G, time) {
+  const pad = 8, w = 158, h = KY0 - 22;
+  G.orders.forEach((o, i) => {
+    const x = pad + i * (w + 8), y = 16, f = Math.max(0, o.left / o.max), shake = f < 0.2 ? Math.sin(time * 30) * 1.5 : 0;
+    g.save(); g.translate(shake, 0);
+    rr(g, x, y, w, h, 8); g.fillStyle = '#fff8e6'; g.fill();
+    g.strokeStyle = f < 0.2 ? '#ff4d4d' : '#e8d3a8'; g.lineWidth = 2; g.stroke();
+    g.font = `600 14px ${FONT}`; g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillStyle = '#3a2418'; g.fillText(DISH[o.r], x + 8, y + 19);
+    g.font = `600 11px ${FONT}`; g.textAlign = 'right'; g.fillStyle = '#9a6a2a'; g.fillText('฿' + th(Kit.PRICE[o.r]), x + w - 8, y + 19);
+    Kit.RECIPES[o.r].forEach((fd, k) => { const ix = x + 22 + k * 34; g.fillStyle = '#efe2c4'; g.beginPath(); g.arc(ix, y + 40, 14, 0, Math.PI * 2); g.fill(); drawFood(g, fd, ix, y + 40, 0.75); });
+    g.font = `400 10px ${FONT}`; g.textAlign = 'right'; g.fillStyle = '#7a6a5a';
+    const how = { kaijeow: 'ไข่ › กระทะ', kaprao: 'หมู › หั่น › กระทะ', somtam: 'มะละกอ › หั่น › ตำ', tomyum: 'กุ้ง › หั่น › หม้อ' }[o.r];
+    g.fillText(how, x + w - 8, y + 44);
+    const col = f > 0.5 ? '#5fd36a' : f > 0.2 ? '#ffb347' : '#ff4d4d';
+    g.fillStyle = '#e8d9bb'; rr(g, x + 8, y + h - 12, w - 16, 6, 3); g.fill();
+    g.fillStyle = col; rr(g, x + 8, y + h - 12, (w - 16) * f, 6, 3); g.fill();
+    g.restore();
+  });
+  const rx = VW - 12;
+  g.textAlign = 'right'; g.textBaseline = 'alphabetic';
+  g.font = `400 13px ${FONT}`; g.fillStyle = C.muted || '#b3a8d9'; g.fillText('เวลา', rx, 34);
+  const low = G.left < 20 && Math.sin(time * 8) > 0;
+  g.font = `400 26px ${FONT_D}`; g.fillStyle = low ? '#ff6b6b' : C.paper; g.fillText(th(fmt(Math.ceil(G.left))), rx, 62);
+  g.font = `400 13px ${FONT}`; g.fillStyle = '#b3a8d9'; g.fillText('รายได้', rx - 96, 34);
+  g.font = `400 26px ${FONT_D}`; g.fillStyle = C.gold; g.fillText('฿' + th(G.money), rx - 96, 62);
+  const lv = KLEVELS[KS.li], st = Kit.stars(G);
+  g.font = `400 14px ${FONT}`; g.fillStyle = C.gold; g.fillText([0, 1, 2].map(i => (i < st ? '★' : '☆')).join(''), rx - 96, 82);
+  if (st < 3) { g.font = `400 10px ${FONT}`; g.fillStyle = '#b3a8d9'; g.fillText(`ดาวถัดไป ฿${th(lv.stars[st])}`, rx, 82); }
+}
+function renderKitchen() {
+  const g = ctx, G = KS.G;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  if (!G) return;
+  g.drawImage(kbg, 0, 0);
+  let ox = 0, oy = 0;
+  if (S.shake > 0) { ox = (Math.random() - .5) * 6 * S.shake; oy = (Math.random() - .5) * 6 * S.shake; }
+  g.setTransform(scale, 0, 0, scale, ox * scale, (KY0 + oy) * scale);
+  const time = S.time;
+  drawBoat(g, G, time);
+  for (const t of G.list) { const r = Kit.tileRect(G, t); drawTileDynamic(g, G, t, r.x, r.y, time); }
+  const locals = O.role ? [G[O.local]] : [G.pink, G.mint];
+  if (S.mode === 'play') for (const p of locals) drawTarget(g, G, p);
+  const order = [G.pink, G.mint].sort((a, b) => a.y - b.y);
+  const nameA = S.mode === 'menu' ? 0 : Math.max(0, Math.min(1, 7 - (G.def.time - G.left)));
+  for (const p of order) drawChef(g, p, time, S.names[p.id], nameA);
+  g.setTransform(scale, 0, 0, scale, 0, 0);
+  drawParts(g);
+  drawOrders(g, G, time);
+  g.setTransform(scale, 0, 0, scale, 0, KY0 * scale);
+  for (const f of KS.floats) {
+    g.globalAlpha = Math.min(1, f.life * 1.5);
+    g.font = `400 20px ${FONT_D}`; g.textAlign = 'center'; g.lineWidth = 4; g.strokeStyle = 'rgba(21,18,43,.85)';
+    g.strokeText(f.text, f.x, f.y); g.fillStyle = f.col; g.fillText(f.text, f.x, f.y);
+  }
+  g.globalAlpha = 1;
+  g.setTransform(scale, 0, 0, scale, 0, 0);
+  drawBanner(g);
+  if (O.role && S.mode !== 'menu') drawNetNote(g);
+}
+
+/* ---------- title tabs + level list ---------- */
+S.tab = store.get('tab', 'adv') === 'kit' ? 'kit' : 'adv';
+function setTab(t) {
+  S.tab = t; store.set('tab', t);
+  app.classList.toggle('tab-kit', t === 'kit');
+  document.querySelectorAll('.tab').forEach(b => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+  renderLevels();
+  if (S.mode === 'menu' && !O.role) {
+    if (t === 'kit') { loadKitchen(+$('#bGo').dataset.k || 0); S.banner = 0; }
+    else if (S.kind === 'kit') { S.kind = 'adv'; app.classList.remove('kit'); buildBg(); }
+  }
+}
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
+function kStars(n) { return [0, 1, 2].map(i => (i < n ? '★' : '☆')).join(''); }
+function renderKitLevels() {
+  let total = 0;
+  $('#klevels').innerHTML = KLEVELS.map((lv, i) => {
+    const b = kBest(i), open = kOpen(i);
+    if (b) total += b.s;
+    const hs = b ? `<span class="st">${kStars(b.s)}</span> ฿${th(b.m)}` : open ? 'ยังไม่เคยเปิดร้าน' : 'ยังล็อกอยู่';
+    return `<button type="button" class="lv${b && b.s ? ' done' : ''}" data-k="${i}"${open ? '' : ' disabled'}><span class="n">${th(i + 1)}</span><span class="nm">${lv.name}</span><span class="hs">${hs}</span></button>`;
+  }).join('');
+  $('#kStarsAll').textContent = `ดาวรวม ${th(total)}/${th(KLEVELS.length * 3)}`;
+  let next = KLEVELS.findIndex((l, i) => kOpen(i) && !(kBest(i) && kBest(i).s >= 3));
+  if (next < 0) next = 0;
+  if (S.tab === 'kit') { $('#bGo').textContent = kBest(next) ? `เปิด${kLabel(next)}` : 'เปิดร้าน'; $('#bGo').dataset.k = next; }
+}
+$('#klevels').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (b && !b.disabled) startKitchen(+b.dataset.k); });
+
+/* ---------- online ---------- */
+function onlineStartKit(i) {
+  if (O.role !== 'host') return;
+  O.md = 'k'; O.lv = i; O.ep++; O.st = 'play'; O.seenDead = O.partner ? (O.partner.dead | 0) : 0; O.seenRq = O.partner ? (O.partner.rq | 0) : 0;
+  loadOnlineLevel(true);
+}
+$('#oLevelsK').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (b && !b.disabled) onlineStartKit(+b.dataset.k); });
+function renderOnlineKit() {
+  $('#oLevelsK').innerHTML = KLEVELS.map((lv, i) => {
+    const b = kBest(i), open = kOpen(i);
+    return `<button type="button" class="lv${b && b.s ? ' done' : ''}" data-k="${i}"${open ? '' : ' disabled'}><span class="n">${th(i + 1)}</span><span class="nm">${lv.name}</span><span class="hs">${b ? `<span class="st">${kStars(b.s)}</span>` : open ? 'ยังไม่เคยเปิดร้าน' : 'ยังล็อกอยู่'}</span></button>`;
+  }).join('');
+}
+function kHostHears(pr) {
+  const G = KS.G;
+  if (!G || pr.ep !== O.ep || !pr.p) return;
+  Kit.applyPlayer(G, 'mint', pr.p, performance.now());
+  const ka = pr.p.ka | 0;
+  if (KS.seenKa < 0) KS.seenKa = ka;
+  if (ka > KS.seenKa) {
+    KS.seenKa = ka;
+    const t = Kit.byRef(G, pr.p.kr);
+    KS.remote.act = true; KS.remote.ref = t && nearTile(G, G.mint, t) ? pr.p.kr : null;
+  }
+  KS.remote.use = !!pr.p.ku;
+  const u = Kit.byRef(G, pr.p.kur);
+  KS.remote.uref = u && nearTile(G, G.mint, u) ? pr.p.kur : null;
+}
+function kGuestHears(pr) {
+  const G = KS.G;
+  if (!G) return;
+  if (pr.p) Kit.applyPlayer(G, 'pink', pr.p, performance.now());
+  if (pr.kw) {
+    const wasOver = G.over, had = Kit.enc(G[O.local].held);
+    Kit.apply(G, pr.kw);
+    const has = Kit.enc(G[O.local].held);
+    if (has !== had && S.mode === 'play') { if (!has) sfx.drop(); else if (!had || has[0] !== had[0]) sfx.pick(); }
+    if (G.over && !wasOver && !KS.endT && S.mode === 'play') { KS.endT = 1.4; sfx.whistle(); }
+  }
+}
 
 /* ---------- Fullscreen ---------- */
 const isIPhone = /iPhone|iPod/.test(navigator.userAgent);
@@ -1154,6 +1772,7 @@ function boot(data) {
   loadLevel(Math.max(0, Math.min(ALL.length - 1, li)), true);
   S.banner = 0;
   renderLevels(); showScreen('title'); setMode('menu');
+  setTab(S.tab);
   syncFull();
   fit();
   if (window.ResizeObserver) new ResizeObserver(fit).observe(stage); else window.addEventListener('resize', fit);
@@ -1161,6 +1780,7 @@ function boot(data) {
   requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
   if (inClaude()) setTimeout(roomApi, 300);
 }
+try { Object.defineProperty(window, '__tsr', { value: { S, KS, O, KK, KT }, configurable: true }); } catch (e) {}
 try { if (window.claude && window.claude.hot && window.claude.hot.snapshot) window.claude.hot.snapshot(() => ({ names: S.names, li: S.li })); } catch (e) {}
 if (window.claude && window.claude.hot && window.claude.hot.ready) window.claude.hot.ready(boot);
 else boot((window.claude && window.claude.hot && window.claude.hot.data) || {});

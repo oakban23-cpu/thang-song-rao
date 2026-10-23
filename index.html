@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>ทางสองเรา</title>
-<meta name="description" content="เกมผจญภัยสองคน ต้องช่วยกันถึงจะผ่านด่าน เล่นเครื่องเดียวกันหรือออนไลน์คนละเครื่อง">
+<meta name="description" content="เกมสองคน ผจญภัยช่วยกันผ่านด่าน กับครัววุ่นวายช่วยกันทำอาหาร เล่นเครื่องเดียวกันหรือออนไลน์คนละเครื่อง">
 <meta name="theme-color" content="#15122b">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="mobile-web-app-capable" content="yes">
@@ -169,12 +169,37 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
 }
 .pad button.on{background:var(--pc);color:var(--ink)}
 .pad svg{width:46%;height:46%}
+.tabs{display:flex;gap:6px;margin:10px 0 2px;padding:4px;border-radius:14px;background:var(--panel-2);border:1px solid var(--line);width:fit-content;max-width:100%;flex-wrap:wrap}
+.tab{font:600 15px/1 var(--f-ui);padding:10px 16px;border-radius:10px;border:0;background:transparent;color:var(--muted);cursor:pointer}
+.tab.on{background:var(--gold);color:var(--ink)}
+.tab .new{margin-left:4px}
+.tab.on .new{background:var(--ink);color:var(--gold)}
+.app.tab-kit [data-mode="adv"],.app:not(.tab-kit) [data-mode="kit"]{display:none!important}
+.kstars{margin:4px 0 0;font:400 40px/1.2 var(--f-display);letter-spacing:.12em;color:var(--gold)}
+.kstars .off{color:var(--line)}
+.lv .st{font-size:12px;color:var(--gold);letter-spacing:.06em}
+.kpad{position:absolute;inset:0;z-index:4;display:none;pointer-events:none}
+.app.touch.playing.kit .kpad{display:block}
+.app.touch.playing.kit .pad{display:none!important}
+.kside{position:absolute;bottom:6px;display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:auto}
+.kside.pink{left:0;--pc:var(--pink)}
+.kside.mint{right:0;--pc:var(--mint)}
+.kside.solo-joy{left:0;--pc:var(--local, var(--pink))}
+.kside.solo-btn{right:0;--pc:var(--local, var(--pink))}
+.app.solo .kside.pink,.app.solo .kside.mint,.app:not(.solo) .kside[data-side="solo"]{display:none}
+.kbtns{display:flex;gap:8px}
+.kb{width:clamp(48px, 12.5vmin, 66px);height:clamp(48px, 12.5vmin, 66px);border-radius:50%;padding:0;border:2px solid var(--pc);background:rgba(21,18,43,.5);color:var(--pc);font:600 12px/1.15 var(--f-ui);touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.kb.on{background:var(--pc);color:var(--ink)}
+.solo-btn .kb{width:clamp(58px, 16vmin, 84px);height:clamp(58px, 16vmin, 84px);font-size:14px}
+.joy{position:relative;width:clamp(96px, 26vmin, 140px);height:clamp(96px, 26vmin, 140px);border-radius:50%;border:2px solid var(--pc);background:rgba(21,18,43,.35);touch-action:none}
+.knob{position:absolute;left:50%;top:50%;width:42%;height:42%;margin:-21% 0 0 -21%;border-radius:50%;background:var(--pc);opacity:.85;pointer-events:none}
 .rotate{display:none;position:absolute;left:0;right:0;bottom:150px;margin:0;text-align:center;font-size:13px;color:var(--muted)}
 @media (orientation:portrait){.app.touch.playing .rotate{display:block}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
+
 <div class="app menu" id="app">
   <header class="hud">
     <span class="lv-no" id="hNo">ด่าน ๑</span>
@@ -192,15 +217,26 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
 
     <section class="screen" id="sTitle">
       <div class="panel">
-        <p class="eyebrow">เกมผจญภัยสำหรับสองคน เล่นเครื่องเดียวกัน</p>
+        <p class="eyebrow">เกมสำหรับสองคน เล่นเครื่องเดียวกันหรือคนละเครื่อง</p>
         <h1 class="title">ทางสองเรา</h1>
-        <p class="tag">ทุกด่านคนเดียวผ่านไม่ได้ ต้องเหยียบหัวกัน ยืนกดเปิดทางให้กัน ช่วยกันเข็นหิน และคิดลำดับให้ดี จนเดินเข้าประตูหัวใจได้พร้อมกันทั้งคู่</p>
-        <div class="duo">
-          <label class="who pink"><span class="chip" aria-hidden="true"></span><span class="role">ตัวชมพู · <b data-kb>W A D</b><b data-tc>ปุ่มฝั่งซ้าย</b></span><input id="nPink" maxlength="10" value="เค้า" autocomplete="off"></label>
-          <label class="who mint"><span class="chip" aria-hidden="true"></span><span class="role">ตัวมิ้นต์ · <b data-kb>↑ ← →</b><b data-tc>ปุ่มฝั่งขวา</b></span><input id="nMint" maxlength="10" value="ตัวเอง" autocomplete="off"></label>
+        <div class="tabs" role="tablist" aria-label="เลือกโหมด">
+          <button class="tab on" type="button" role="tab" data-tab="adv" aria-selected="true">ผจญภัย</button>
+          <button class="tab" type="button" role="tab" data-tab="kit" aria-selected="false">ครัววุ่นวาย <span class="new">ใหม่</span></button>
         </div>
-        <p class="keys" data-kb>ชมพูกด <kbd>W</kbd> กระโดด มิ้นต์กด <kbd>↑</kbd> กระโดด · <kbd>R</kbd> เริ่มด่านใหม่ · <kbd>Esc</kbd> พักเกม · <kbd>F</kbd> เต็มจอ · ใครพลาดต้องเริ่มด่านใหม่ทั้งคู่</p>
-        <p class="keys" data-tc>หมุนเครื่องเป็นแนวนอน ถือกันคนละฝั่ง ปุ่มซ้ายของจอเป็นของชมพู ปุ่มขวาเป็นของมิ้นต์ · ใครพลาดต้องเริ่มด่านใหม่ทั้งคู่</p>
+        <p class="tag" data-mode="kit">เปิดร้านอาหารตามสั่งด้วยกัน หั่น ทอด ตำ จัดจาน ส่งให้ทันก่อนลูกค้าหมดความอดทน ยิ่งเร็วยิ่งได้ทิป ด่านหลังๆ เตาลุกไฟ แล้วครัวก็ลอยไปบนเรือ</p>
+        <p class="tag" data-mode="adv">ทุกด่านคนเดียวผ่านไม่ได้ ต้องเหยียบหัวกัน ยืนกดเปิดทางให้กัน ช่วยกันเข็นหิน และคิดลำดับให้ดี จนเดินเข้าประตูหัวใจได้พร้อมกันทั้งคู่</p>
+        <div class="duo">
+          <label class="who pink"><span class="chip" aria-hidden="true"></span><span class="role">ตัวชมพู · <b data-kb data-mode="adv">W A D</b><b data-kb data-mode="kit">W A S D</b><b data-tc>ปุ่มฝั่งซ้าย</b></span><input id="nPink" maxlength="10" value="เค้า" autocomplete="off"></label>
+          <label class="who mint"><span class="chip" aria-hidden="true"></span><span class="role">ตัวมิ้นต์ · <b data-kb data-mode="adv">↑ ← →</b><b data-kb data-mode="kit">ลูกศร</b><b data-tc>ปุ่มฝั่งขวา</b></span><input id="nMint" maxlength="10" value="ตัวเอง" autocomplete="off"></label>
+        </div>
+        <p class="keys" data-kb data-mode="kit">ชมพู <kbd>Space</kbd> หยิบ/วาง <kbd>Shift</kbd> ซ้าย ใช้ (หั่น ตำ ล้าง ฉีด) · มิ้นต์ <kbd>Enter</kbd> หยิบ/วาง <kbd>Shift</kbd> ขวา ใช้ · <kbd>Esc</kbd> พักเกม</p>
+        <p class="keys" data-tc data-mode="kit">หมุนเครื่องเป็นแนวนอน ถือกันคนละฝั่ง แต่ละฝั่งมีจอยสติ๊กกับปุ่มหยิบ/วางและปุ่มใช้ (หั่น ตำ ล้าง ฉีด)</p>
+        <p class="keys" data-kb data-mode="adv">ชมพูกด <kbd>W</kbd> กระโดด มิ้นต์กด <kbd>↑</kbd> กระโดด · <kbd>R</kbd> เริ่มด่านใหม่ · <kbd>Esc</kbd> พักเกม · <kbd>F</kbd> เต็มจอ · ใครพลาดต้องเริ่มด่านใหม่ทั้งคู่</p>
+        <p class="keys" data-tc data-mode="adv">หมุนเครื่องเป็นแนวนอน ถือกันคนละฝั่ง ปุ่มซ้ายของจอเป็นของชมพู ปุ่มขวาเป็นของมิ้นต์ · ใครพลาดต้องเริ่มด่านใหม่ทั้งคู่</p>
+        <div class="lv-head" data-mode="kit"><h3>ร้านของเรา</h3><span class="note" id="kStarsAll"></span></div>
+        <p class="ch-note" data-mode="kit">ได้อย่างน้อย ๑ ดาวเพื่อเปิดร้านถัดไป</p>
+        <div class="levels" id="klevels" data-mode="kit"></div>
+        <div data-mode="adv">
         <div class="lv-head"><h3>บทที่ ๑ · ฝึกมือ</h3><span class="note" id="tHearts1"></span></div>
         <p class="ch-note">ด่านละหนึ่งกลไก ไว้ทำความรู้จักของในเกม</p>
         <div class="levels" id="levels1"></div>
@@ -210,9 +246,10 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
         <div class="lv-head"><h3>บทที่ ๓ · โลกแปลก <span class="new">ใหม่</span></h3><span class="note" id="tHearts3"></span></div>
         <p class="ch-note">ด้ายแดงผูกสองคนไว้ด้วยกัน ระฆังที่ปลุกเงาย้อนเวลา หินที่สลับร่างกัน และถ้ำที่มืดจนเห็นแค่รอบตัว</p>
         <div class="levels" id="levels3"></div>
+        </div>
         <div class="actions">
           <button class="cta" id="bGo" type="button">ออกเดินทาง</button>
-          <button class="ghost" id="bCh2" type="button">ไปบทใหม่ · โลกแปลก</button>
+          <button class="ghost" id="bCh2" type="button" data-mode="adv">ไปบทใหม่ · โลกแปลก</button>
           <button class="ghost online-btn" id="bOnline" type="button">เล่นออนไลน์ คนละเครื่อง</button>
           <button class="ghost full-btn" id="bFull2" type="button" data-full><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span>เต็มจอ</span></button>
           <label class="toggle"><input type="checkbox" id="snd" checked> เสียง</label>
@@ -241,6 +278,7 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
       <div class="panel sm">
         <p class="eyebrow" id="cNo"></p>
         <h2 id="cName"></h2>
+        <p class="kstars" id="cStars" hidden></p>
         <p class="phint" id="cMsg"></p>
         <p class="stats" id="cStats"></p>
         <div class="actions">
@@ -283,6 +321,8 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
             <div class="levels" id="oLevels2"></div>
             <div class="lv-head"><h3>บทที่ ๓ · โลกแปลก</h3></div>
             <div class="levels" id="oLevels3"></div>
+            <div class="lv-head"><h3>ครัววุ่นวาย</h3></div>
+            <div class="levels" id="oLevelsK"></div>
           </div>
         </div>
         <div class="actions">
@@ -305,6 +345,18 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
         <button type="button" data-p="mint" data-k="right" aria-label="มิ้นต์ไปขวา"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       </div>
     </div>
+    <div class="kpad" id="kpad">
+      <div class="kside pink" data-side="pink">
+        <div class="kbtns"><button type="button" class="kb act" data-p="pink" data-k="act">หยิบ<br>วาง</button><button type="button" class="kb use" data-p="pink" data-k="use">ใช้</button></div>
+        <div class="joy" data-p="pink"><span class="knob"></span></div>
+      </div>
+      <div class="kside mint" data-side="mint">
+        <div class="kbtns"><button type="button" class="kb act" data-p="mint" data-k="act">หยิบ<br>วาง</button><button type="button" class="kb use" data-p="mint" data-k="use">ใช้</button></div>
+        <div class="joy" data-p="mint"><span class="knob"></span></div>
+      </div>
+      <div class="kside solo-joy" data-side="solo"><div class="joy" data-p="local"><span class="knob"></span></div></div>
+      <div class="kside solo-btn" data-side="solo"><div class="kbtns"><button type="button" class="kb use" data-p="local" data-k="use">ใช้</button><button type="button" class="kb act" data-p="local" data-k="act">หยิบ<br>วาง</button></div></div>
+    </div>
     <p class="rotate">หมุนจอเป็นแนวนอนจะเห็นฉากชัดกว่า</p>
   </main>
 </div>
@@ -312,7 +364,9 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" onerror="var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';document.head.appendChild(s)"></script>
 <script src="js/physics.js"></script>
 <script src="js/net.js"></script>
+<script src="js/kitchen.js"></script>
 <script src="js/levels.js"></script>
+<script src="js/klevels.js"></script>
 <script src="js/game.js"></script>
 </body>
 </html>
