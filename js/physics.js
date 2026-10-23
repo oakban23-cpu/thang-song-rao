@@ -5,6 +5,7 @@ const Phys = (() => {
   const PW = 22, PH = 28, BS = 30;
   const PUSH_LIGHT = 95, PUSH_HEAVY = 80, LIFT_SPEED = 110, LIFT_H = 10;
   const DT = 1 / 120, COYOTE = 0.08, JBUF = 0.12, HOLD = 0.3, PULL_MAX = 3, SWING_V = 260;
+  const DOOR_GRACE = 0.5;
   const FAN_V = 230, FAN_ACC = 2600, CRUMBLE_T = 0.5, CRUMBLE_BACK = 3.5, LAUNCH = 830, SEE_RISE = 40, SEE_V = 900;
 
   const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
@@ -80,6 +81,32 @@ const Phys = (() => {
   }
 
   const inner = b => ({ x: b.x + 0.05, y: b.y + 0.05, w: b.w - 0.1, h: b.h - 0.1 });
+  // a body that ended up inside a wall (door shut on it, bridge lit under it, portal exit, swap) is nudged
+  // to the nearest free spot within a tile instead of being allowed to slide through the wall
+  // on the guest, doors and light bridges arrive late from the host, so a guest caught in one is let through as before
+  function freeSpot(L, b, hits) {
+    const up = Math.max(...hits.map(r => b.y + b.h - r.y)), down = Math.max(...hits.map(r => r.y + r.h - b.y));
+    const left = Math.max(...hits.map(r => b.x + b.w - r.x)), right = Math.max(...hits.map(r => r.x + r.w - b.x));
+    const cands = [[0, -up, up * 0.9], [-left, 0, left], [right, 0, right], [0, down, down * 1.5]].sort((p, q) => p[2] - q[2]);
+    for (const [dx, dy] of cands) {
+      if (Math.abs(dx) > T + 2 || Math.abs(dy) > T + 2) continue;
+      if (solidsIn(L, inner({ x: b.x + dx, y: b.y + dy, w: b.w, h: b.h }), b).length) continue;
+      return [dx, dy];
+    }
+    return null;
+  }
+  function unstick(L, b, lenient) {
+    let hits = solidsIn(L, inner(b), b);
+    if (lenient) hits = hits.filter(r => !(r.tile && 'Db'.includes(L.grid[r.y / T][r.x / T])));
+    if (!hits.length) return false;
+    const f = freeSpot(L, b, hits);
+    if (!f) return false;
+    const [dx, dy] = f;
+    b.x += dx; b.y += dy;
+    if (dy < 0 && b.vy > 0) b.vy = 0;
+    if (dy > 0 && b.vy < 0) b.vy = 0;
+    return true;
+  }
   function moveX(L, b, dx) {
     if (!dx) return false;
     const pre = new Set(solidsIn(L, inner(b), b).map(r => r.k));
@@ -110,9 +137,10 @@ const Phys = (() => {
     const L = W.L;
     if (!dy) return null;
     const pre = new Set(solidsIn(L, inner(b), b).map(r => r.k));
-    const prevBottom = b.y + b.h;
+    const prevBottom = b.y + b.h, prevTop = b.y;
     b.y += dy;
-    const hits = solidsIn(L, b, b).filter(r => !pre.has(r.k));
+    // only things actually above (rising) or below (falling) count; a box touching our side must not lift us onto it
+    const hits = solidsIn(L, b, b).filter(r => !pre.has(r.k) && (dy < 0 ? r.y + r.h <= prevTop + 0.5 : r.y >= prevBottom - 0.5));
     if (dy < 0) {
       if (hits.length) { b.y = Math.max(...hits.map(r => r.y + r.h)); if (b.vy < 0) b.vy = 0; }
       return null;
@@ -146,6 +174,7 @@ const Phys = (() => {
 
   function updateBox(W, b, inp) {
     const L = W.L;
+    unstick(L, b);
     let push = 0;
     for (const d of [-1, 1]) {
       let n = 0;
@@ -163,12 +192,22 @@ const Phys = (() => {
     b.push = push;
     if (b.ground && b.ground.ref && b.ground.ref.dy) moveY(W, b, b.ground.ref.dy);
     if (b.heavy) b.vy = Math.min(b.vy + G * DT, MAXFALL); else fall(L, b);
-    if (push && b.ground) moveX(L, b, push * (b.heavy ? PUSH_HEAVY : PUSH_LIGHT) * DT);
+    if (push && b.ground) {
+      // a player standing in the way stops the box rather than being swallowed by it
+      let dx = push * (b.heavy ? PUSH_HEAVY : PUSH_LIGHT) * DT;
+      for (const p of [W.pink, W.mint]) {
+        if (!(p.y + p.h > b.y + 4 && p.y < b.y + b.h - 4)) continue;
+        if (dx > 0 && p.x >= b.x + b.w - 2) dx = Math.min(dx, Math.max(0, p.x - (b.x + b.w)));
+        if (dx < 0 && p.x + p.w <= b.x + 2) dx = Math.max(dx, Math.min(0, p.x + p.w - b.x));
+      }
+      moveX(L, b, dx);
+    }
     b.ground = moveY(W, b, b.vy * DT);
   }
 
   function updatePlayer(W, p, i, ev) {
     const L = W.L, o = p === W.pink ? W.mint : W.pink;
+    unstick(L, p, !!(W.net && W.net.role === 'guest'));
     const g = p.ground;
     if (g && g.ref) {
       if (g.ref.dx) moveX(L, p, g.ref.dx);
@@ -309,6 +348,7 @@ const Phys = (() => {
       b.x = to.x * T + T / 2 - b.w / 2 + (cx - (from.x * T + T / 2));
       b.y = b.y + (to.y - from.y) * T;
       b.ground = null; b.portLock = true; q.flash = 1;
+      unstick(L, b);
       if (b.isPlayer) b.net = null;
       ev.push('portal');
     }
@@ -369,7 +409,21 @@ const Phys = (() => {
       L.on = on;
       for (const d of L.doors) {
         const r = { x: d.x * T, y: d.y * T, w: T, h: T };
-        const open = !!on[d.id] || bodies.some(b => overlaps(b, r));
+        // a door will not slam on someone passing through, but only for DOOR_GRACE: leaning into the doorway no longer
+        // holds it open for good; once it shuts, unstick() pushes whoever is caught to the nearer side
+        let open = !!on[d.id];
+        if (open) d.grace = 0;
+        else if (d.open) {
+          const inside = bodies.filter(b => overlaps(b, r));
+          if (inside.length && (d.grace || 0) < DOOR_GRACE) { d.grace = (d.grace || 0) + DT; open = true; }
+          else if (inside.length) {
+            // someone in a dead-end pocket of the doorway with nowhere to be pushed: wait for them to move
+            d.open = false;
+            const trapped = inside.some(b => { const h = solidsIn(L, inner(b), b); return h.length && !freeSpot(L, b, h); });
+            d.open = true;
+            if (trapped) open = true;
+          }
+        }
         if (open !== d.open) { d.open = open; ev.push(open ? 'open' : 'close'); }
         d.anim = approach(d.anim, open ? 1 : 0, DT * 7);
       }

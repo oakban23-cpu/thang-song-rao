@@ -84,5 +84,18 @@ const highest = (W, who, plan) => { let best = 1e9; const wrap = plan.map(a => (
   runPlan(W, [go('mint', 6.6), { name: 'leap', timeout: 300, fn(W, i, k) { i.mint.left = true; if (k === 20) i.mint.jp = i.mint.jump = true; return k > 90 && W.mint.ground; } }, go('mint', 1.6), holdFor('mint', 1, 600)]);
   ok(W.L.boxes[0].y > 13 * T, '4-6 the portal stays closed until someone stands on plate 3'); }
 
+// 4-3 / 4-6: entering the high portal low down must not drop you into the floor at the other end
+for (const [name, from, to] of [['ประตูมิติ', 'b', 'a'], ['มิติซ้อนมิติ', 'b', 'a']]) {
+  const W = Phys.load(L4(name)); const q = W.L.portals[0];
+  for (const t of W.L.toggles) if (t.id === q.id) W.L.tog[t.id] = true;
+  for (const pl of W.L.plates) if (pl.id === q.id) place(W.mint, pl.x * T + 5, (pl.y + 1) * T);
+  settle(W, 10);
+  const s = q[from], d = q[to];
+  W.pink.x = s.x * T + 5; W.pink.y = s.y * T + T - 2 - W.pink.h / 2 - 14; W.pink.vy = 300; W.pink.ground = null;
+  let worst = 0, went = false;
+  for (let k = 0; k < 60; k++) { Phys.step(W, { pink: idle(), mint: idle() }); if (Math.abs(W.pink.x - d.x * T) < T) went = true; if (went) worst = Math.max(worst, W.pink.y + W.pink.h - (d.y + 1) * T); }
+  ok(went && worst <= 0.5, `${name}: coming out of the portal low down lands on the floor, not inside it (went ${went}, sank ${worst.toFixed(1)}px)`);
+}
+
 console.log(fails ? fails + ' FAILED' : 'NO SHORTCUTS');
 process.exit(fails ? 1 : 0);

@@ -151,14 +151,18 @@ const Drv = (() => {
       else fwd = Math.max(-VREV, fwd - REV_ACC * -p * dt);
     } else fwd -= Math.sign(fwd) * Math.min(Math.abs(fwd), DRAG * dt);
     if (Math.abs(fwd) > top) fwd -= Math.sign(fwd) * Math.min(Math.abs(fwd) - top, GRASS_DRAG * dt);
-    car.a = wrapA(car.a + car.steer * TURN * clamp(fwd / TURN_V, -1, 1) * dt);
+    // jammed against a wall (e.g. sideways in a one-tile alley): gas/reverse plus the wheel still turns the truck slowly,
+    // otherwise it could never get out because turning needs speed
+    let tf = clamp(fwd / TURN_V, -1, 1);
+    if ((car.jam || 0) > 0.25 && Math.abs(p) > 0.3 && Math.abs(tf) < 0.45) tf = Math.sign(p) * 0.45;
+    car.a = wrapA(car.a + car.steer * TURN * tf * dt);
     const grip = GRIP[surf] * (G.rain ? 0.35 : 1);
     lat *= Math.exp(-grip * dt);
     car.vx = d.x * fwd + px * lat; car.vy = d.y * fwd + py * lat;
     car.x += car.vx * dt; car.y += car.vy * dt;
     car.turboT = Math.max(0, car.turboT - dt);
     // walls, traffic
-    let hit = 0;
+    let hit = 0, walled = false;
     for (let it = 0; it < 3; it++) {
       let tx = 0, ty = 0;
       for (const c of circles(car)) {
@@ -166,7 +170,7 @@ const Drv = (() => {
         for (let yy = y0; yy <= y1; yy++) for (let xx = x0; xx <= x1; xx++) {
           if (xx >= 0 && yy >= 0 && xx < G.W && yy < G.H && drivable(G.tiles[yy][xx])) continue;
           const pu = rectPush(c, { x: xx * K, y: yy * K, w: K, h: K }, CAR_R);
-          if (pu) { tx += pu.x; ty += pu.y; c.x += pu.x; c.y += pu.y; }
+          if (pu) { tx += pu.x; ty += pu.y; c.x += pu.x; c.y += pu.y; walled = true; }
         }
         if (!opts.noTraffic) for (const o of G.traffic) for (const oc of circles(o)) {
           const dx = c.x - oc.x, dy = c.y - oc.y, dd = Math.hypot(dx, dy), m = CAR_R * 2 - 2;
@@ -179,6 +183,7 @@ const Drv = (() => {
       const nx = tx / pl, ny = ty / pl, vn = car.vx * nx + car.vy * ny;
       if (vn < 0) { hit = Math.max(hit, -vn); car.vx -= 1.3 * vn * nx; car.vy -= 1.3 * vn * ny; car.vx *= 0.85; car.vy *= 0.85; }
     }
+    car.jam = walled && Math.hypot(car.vx, car.vy) < 0.6 * K ? (car.jam || 0) + dt : 0;
     return hit;
   }
 
@@ -264,8 +269,11 @@ const Drv = (() => {
         if (!rectPush(c, r, CAR_R)) continue;
         // flung off the line
         const side = tr.row != null ? (car.y < r.y + r.h / 2 ? -1 : 1) : (car.x < r.x + r.w / 2 ? -1 : 1);
+        const ox = car.x, oy = car.y;
         if (tr.row != null) { car.vy = side * 7 * K; car.vx = tr.dir * tr.sp * K * 0.4; car.y += side * K * 0.6; }
         else { car.vx = side * 7 * K; car.vy = tr.dir * tr.sp * K * 0.4; car.x += side * K * 0.6; }
+        // never throw the truck into a building beside the line: keep the shove only if it lands on open ground
+        if (circles(car).some(cc => { const t = tileAt(G, Math.floor(cc.x / K), Math.floor(cc.y / K)); return !t || !drivable(t); })) { car.x = ox; car.y = oy; }
         car.stun = 1.2; car.safe = 2; G.trainHits++; G.ev.train++;
         G.money = Math.max(0, G.money - TRAIN_FINE);
         damage(G, 0.5, true);

@@ -1,0 +1,143 @@
+// Random play on every kitchen, defense night and driving route: nothing may throw, go NaN, leave the map,
+// sink into walls, duplicate an item, or fail to end the round.
+const vm = require('vm'), fs = require('fs'), path = require('path');
+const ctx = {}; vm.createContext(ctx);
+const JS = fs.existsSync(path.join(__dirname, 'game.js')) ? __dirname : path.join(__dirname, '..', 'js');   // coop/ (dev) or tests/ (repo)
+for (const f of ['kitchen', 'klevels', 'defense', 'dlevels', 'drive', 'rlevels']) vm.runInContext(fs.readFileSync(path.join(JS, f + '.js'), 'utf8'), ctx);
+vm.runInContext('this.Kit=Kit;this.Def=Def;this.Drv=Drv;this.KL=KLEVELS;this.DL=DLEVELS;this.RL=RLEVELS;', ctx);
+const { Kit, Def, Drv, KL, DL, RL } = ctx;
+const RUNS = +process.argv[2] || 6;
+let seed = 1; const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+const found = new Map();
+const report = (k, info) => { if (!found.has(k)) found.set(k, { n: 0, info }); found.get(k).n++; };
+const fin = (...v) => v.every(Number.isFinite);
+const pen = (cx, cy, r, R) => { const nx = Math.max(R.x, Math.min(cx, R.x + R.w)), ny = Math.max(R.y, Math.min(cy, R.y + R.h)); return r - Math.hypot(cx - nx, cy - ny); };
+
+function walker() {
+  let mx = 0, my = 0, until = 0, use = false, useUntil = 0;
+  return (k, actP) => {
+    if (k >= until) { const a = rnd() * Math.PI * 2, still = rnd() < 0.2; mx = still ? 0 : Math.cos(a); my = still ? 0 : Math.sin(a); until = k + 15 + Math.floor(rnd() * 90); }
+    if (k >= useUntil) { use = rnd() < 0.3; useUntil = k + 20 + Math.floor(rnd() * 120); }
+    return { mx, my, act: rnd() < actP, use };
+  };
+}
+
+// ---- kitchen
+const KF = new Set(['.', '1', '2']);
+for (const def of KL) {
+  let ends = 0;
+  for (let run = 0; run < RUNS; run++) {
+    seed = 1000 + run * 77 + def.name.length;
+    const G = Kit.load(def), wp = walker(), wm = walker();
+    let over = false;
+    for (let k = 0; k < (def.time + 5) / Kit.DT; k++) {
+      const inp = { pink: wp(k, 0.04), mint: wm(k, 0.04) };
+      try { Kit.step(G, inp); } catch (e) { report(`kitchen ${def.name}: exception ${e.message}`, e.stack.split('\n')[1]); break; }
+      for (const p of [G.pink, G.mint]) {
+        if (!fin(p.x, p.y)) report(`kitchen ${def.name}: NaN player`, `run ${run}`);
+        if (p.x < 0 || p.y < 0 || p.x > Kit.GW * Kit.K || p.y > Kit.GH * Kit.K) report(`kitchen ${def.name}: player off the map`, `${p.x | 0},${p.y | 0}`);
+        if (!G.boat || Math.abs(p.x / Kit.K - (G.boat.x0 + G.boat.w / 2)) > G.boat.w / 2 + 1) {
+          const tx = Math.floor(p.x / Kit.K), ty = Math.floor(p.y / Kit.K);
+          for (let y = ty - 1; y <= ty + 1; y++) for (let x = tx - 1; x <= tx + 1; x++) {
+            if (x < 0 || y < 0 || x >= Kit.GW || y >= Kit.GH || KF.has(G.tiles[y][x].t)) continue;
+            const d = pen(p.x, p.y, Kit.PR, { x: x * Kit.K, y: y * Kit.K, w: Kit.K, h: Kit.K });
+            if (d > 5) report(`kitchen ${def.name}: ${p.id} inside '${G.tiles[y][x].t}'`, `run ${run} t=${(k * Kit.DT).toFixed(1)} by ${d.toFixed(1)}px`);
+          }
+        }
+      }
+      // no item object in two places at once
+      const seen = new Set(), dup = it => { if (!it) return; if (seen.has(it)) report(`kitchen ${def.name}: an item is in two places`, `run ${run}`); seen.add(it); };
+      dup(G.pink.held); dup(G.mint.held);
+      for (const row of G.tiles) for (const t of row) dup(t.item);
+      if (G.boat) for (const row of G.boat.tiles) for (const t of row) dup(t.item);
+      if (!fin(G.money)) report(`kitchen ${def.name}: money NaN`, '');
+      if (G.over) { over = true; break; }
+    }
+    if (over) ends++; else report(`kitchen ${def.name}: round never ended`, `run ${run} left ${G.left}`);
+  }
+  console.log(`kitchen ${def.name.padEnd(18)} ${RUNS} random rounds, ended ${ends}`);
+}
+
+// ---- defense
+const DSOL = new Set(['#', 't', '~', 'h', 'T']);
+for (const def of DL) {
+  const res = {};
+  for (let run = 0; run < RUNS; run++) {
+    seed = 2000 + run * 91 + def.name.length;
+    const G = Def.load(def), wp = walker(), wm = walker();
+    let k = 0;
+    for (; k < 900 / Def.DT && !G.over; k++) {
+      const inp = { pink: wp(k, 0.01), mint: wm(k, 0.01) };
+      try { Def.step(G, inp); } catch (e) { report(`defense ${def.name}: exception ${e.message}`, e.stack.split('\n')[1]); break; }
+      for (const p of [G.pink, G.mint]) {
+        if (!fin(p.x, p.y, p.hp)) report(`defense ${def.name}: NaN hero`, `run ${run}`);
+        if (p.hp < -0.01 || p.hp > (p.max || 100) + 0.01) report(`defense ${def.name}: hp out of range`, `${p.hp}`);
+        const tx = Math.floor(p.x / Def.K), ty = Math.floor(p.y / Def.K);
+        for (let y = ty - 1; y <= ty + 1; y++) for (let x = tx - 1; x <= tx + 1; x++) {
+          if (x < 0 || y < 0 || x >= Def.GW || y >= Def.GH || !DSOL.has(G.tiles[y][x].t)) continue;
+          const d = pen(p.x, p.y, Def.PR, { x: x * Def.K, y: y * Def.K, w: Def.K, h: Def.K });
+          if (d > 5) report(`defense ${def.name}: ${p.id} inside '${G.tiles[y][x].t}'`, `run ${run} by ${d.toFixed(1)}px`);
+        }
+        if (p.x < 0 || p.y < 0 || p.x > Def.GW * Def.K || p.y > Def.GH * Def.K) report(`defense ${def.name}: hero off the map`, `${p.x | 0},${p.y | 0}`);
+      }
+      for (const e of G.en) if (!fin(e.x, e.y, e.hp)) report(`defense ${def.name}: NaN ghost ${e.type}`, '');
+      if (!fin(G.coins) || G.coins < -0.01) report(`defense ${def.name}: coins ${G.coins}`, '');
+      for (const H of G.houses) if (!fin(H.hp) || H.hp < -0.01 || H.hp > H.max + 0.01) report(`defense ${def.name}: house hp ${H.hp}`, '');
+    }
+    const r = G.over ? G.ph : 'never ended'; res[r] = (res[r] || 0) + 1;
+    if (!G.over) report(`defense ${def.name}: night never ended`, `run ${run} ph ${G.ph} wave ${G.wi} en ${G.en.length}`);
+  }
+  console.log(`defense ${def.name.padEnd(18)} ${RUNS} random nights: ${JSON.stringify(res)}`);
+}
+
+// ---- drive
+// can a driver who means it get out? alternate gas+full lock and reverse+opposite lock (a three-point turn), both ways
+function rescue(def, c) {
+  for (const sgn of [1, -1]) {
+    const G = Drv.load(def); G.traffic = []; G.trains = [];
+    Object.assign(G.car, { x: c.x, y: c.y, a: c.a, vx: 0, vy: 0 });
+    for (let k = 0; k < 600; k++) { Drv.step(G, Math.floor(k / 90) % 2 ? { steer: -sgn, pedal: -1 } : { steer: sgn, pedal: 1 }); if (Math.hypot(G.car.x - c.x, G.car.y - c.y) > 1.2 * Drv.K) return true; }
+  }
+  return false;
+}
+for (const def of RL) {
+  let ends = 0, crashes = 0, maxStuck = 0;
+  for (let run = 0; run < RUNS; run++) {
+    seed = 3000 + run * 53 + def.name.length;
+    const G = Drv.load(def);
+    let st = 0, pe = 0.6, until = 0, stuck = 0; const win = [];
+    for (let k = 0; k < (def.time + 5) / Drv.DT; k++) {
+      if (k >= until) { st = rnd() * 2 - 1; if (rnd() < 0.4) st = 0; pe = rnd() < 0.8 ? 0.3 + rnd() * 0.7 : -1; until = k + 30 + Math.floor(rnd() * 120); }
+      const inp = { steer: st, pedal: pe, horn: rnd() < 0.005, turbo: rnd() < 0.003 };
+      let ev;
+      try { ev = Drv.step(G, inp); } catch (e) { report(`drive ${def.name}: exception ${e.message}`, e.stack.split('\n')[1]); break; }
+      crashes += ev.filter(e => e.startsWith('crash')).length;
+      const c = G.car;
+      if (!fin(c.x, c.y, c.vx, c.vy, c.a)) report(`drive ${def.name}: NaN truck`, `run ${run}`);
+      if (c.x < 0 || c.y < 0 || c.x > G.W * Drv.K || c.y > G.H * Drv.K) report(`drive ${def.name}: truck off the map`, `${(c.x / Drv.K).toFixed(1)},${(c.y / Drv.K).toFixed(1)}`);
+      for (const cc of Drv.circles(c)) {
+        const tx = Math.floor(cc.x / Drv.K), ty = Math.floor(cc.y / Drv.K);
+        for (let y = ty - 1; y <= ty + 1; y++) for (let x = tx - 1; x <= tx + 1; x++) {
+          if (x < 0 || y < 0 || x >= G.W || y >= G.H || Drv.drivable(G.tiles[y][x])) continue;
+          const d = pen(cc.x, cc.y, 0.25 * Drv.K, { x: x * Drv.K, y: y * Drv.K, w: Drv.K, h: Drv.K });
+          if (d > 0.12 * Drv.K) report(`drive ${def.name}: truck inside '${G.tiles[y][x]}'`, `run ${run} t=${(k * Drv.DT).toFixed(1)} by ${(d / Drv.K).toFixed(2)} tile`);
+        }
+      }
+      // wedged = over a 6 s window the truck tried gas+wheel and reverse+wheel for at least a second each and still moved < 0.2 tile
+      win.push({ x: c.x, y: c.y, f: pe > 0.2 && Math.abs(st) > 0.3, r: pe < -0.5 && Math.abs(st) > 0.3 }); if (win.length > 360) win.shift();
+      if (win.length === 360 && k % 30 === 0) {
+        const xs = win.map(w => w.x), ys = win.map(w => w.y), span = Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+        if (span < 0.2 * Drv.K && win.filter(w => w.f).length > 60 && win.filter(w => w.r).length > 60 && !rescue(def, c)) { stuck++; report(`drive ${def.name}: truck wedged (gas and reverse both fail)`, `run ${run} t=${(k * Drv.DT).toFixed(1)} at ${(c.x / Drv.K).toFixed(1)},${(c.y / Drv.K).toFixed(1)}`); }
+      }
+      maxStuck = Math.max(maxStuck, stuck);
+      for (const o of G.traffic || []) if (!fin(o.x, o.y)) report(`drive ${def.name}: NaN traffic car`, '');
+      if (!fin(G.money)) report(`drive ${def.name}: money NaN`, '');
+      if (G.over) { ends++; break; }
+    }
+  }
+  console.log(`drive   ${def.name.padEnd(18)} ${RUNS} random drives, ended ${ends}, crashes ${crashes}, wedged checks ${maxStuck}`);
+}
+console.log('\n--- findings ---');
+for (const [k, v] of found) console.log(`${k}  ×${v.n}  (${v.info})`);
+console.log(found.size ? `${found.size} kinds of problem` : 'TOPDOWN FUZZ CLEAN');
+process.exit(found.size ? 1 : 0);

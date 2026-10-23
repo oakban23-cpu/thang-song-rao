@@ -103,5 +103,18 @@ for (const def of RLEVELS) {
   }
   ok(n > 50 && same === n, `guest copy of the truck and orders matches the host (${same}/${n})`);
 }
+// a truck jammed sideways in a one-tile alley can still turn its way out (gas/reverse + wheel)
+{
+  let freed = 0, total = 0;
+  for (const [x, y] of [[22.5, 10.6], [22.5, 11.4]]) for (const a of [0, 0.4, 2.6, 2.9, Math.PI, -0.3, 1.2, -2.0]) {
+    const G = Drv.load(RLEVELS[2]); G.traffic = []; G.trains = [];
+    Object.assign(G.car, { x: x * K, y: y * K, a, vx: 0, vy: 0 });
+    for (let k = 0; k < 30; k++) Drv.step(G, {});
+    const x0 = G.car.x, y0 = G.car.y;
+    for (let k = 0; k < 600; k++) { Drv.step(G, Math.floor(k / 90) % 2 ? { steer: -1, pedal: -1 } : { steer: 1, pedal: 1 }); if (Math.hypot(G.car.x - x0, G.car.y - y0) > 1.2 * K) { freed++; break; } }
+    total++;
+  }
+  ok(freed === total, `a truck jammed sideways in a one-tile alley turns its way out (${freed}/${total})`);
+}
 console.log(fails ? fails + ' FAILED' : 'DRIVING OK');
 process.exit(fails ? 1 : 0);

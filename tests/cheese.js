@@ -89,5 +89,24 @@ const settle = (W, n = 20) => { for (let i = 0; i < n; i++) Phys.step(W, { pink:
   runPlan(W, [go('mint', 4.0, { timeout: 300 })]);
   ok(W.mint.x > 8 * T, 'H6 mint blocked by pink gate'); }
 
+// H1: leaning into door B while it is open does not keep it open for the partner coming from plate 2
+for (const lean of [1, 8, 16]) {
+  const W = Phys.load(L2('สลับขั้ว')); place(W.pink, 20 * T + 5, 480); place(W.mint, 23 * T - 22 + lean, 448); settle(W, 40);
+  let best = 0;
+  for (let k = 0; k < 300; k++) { const inp = { pink: idle(), mint: idle() }; if (k < 3) inp.pink.jp = inp.pink.jump = true; inp.pink.right = true; Phys.step(W, inp); best = Math.max(best, W.pink.x + W.pink.w / 2); }
+  ok(best < 23.5 * T && W.L.doors.every(d => !d.open) && W.mint.x + W.mint.w <= 23 * T + 0.5, `H1 leaning ${lean}px into door B does not hold it open (pink reached ${(best / T).toFixed(2)})`);
+}
+// general: a box pushed into a player stops at the player; a player brushing a box cannot walk through it
+{ const W = Phys.load(L2('ลังซ้อนลัง')); const b = box(W, 1); place(W.pink, b.x - 60, 512); place(W.mint, b.x + b.w + 1, 512); settle(W);
+  runPlan(W, [hold('mint', -1, W => false, { timeout: 120 })]);
+  ok(b.x >= W.pink.x + W.pink.w - 0.5, `a pushed box stops at the player in its way (box ${(b.x / T).toFixed(2)}, pink right ${((W.pink.x + W.pink.w) / T).toFixed(2)})`);
+  const bx = b.x; place(W.pink, b.x - W.pink.w + 1.5, 512); settle(W, 2);
+  runPlan(W, [hold('pink', 1, W => false, { timeout: 120 })]);
+  ok(W.pink.x + W.pink.w <= b.x + 2, `a player overlapping a box by a hair cannot walk through it (pink right ${((W.pink.x + W.pink.w) / T).toFixed(2)}, box ${(b.x / T).toFixed(2)})`);
+}
+// general: a door that shuts on a player pushes them out to the nearer side instead of trapping them
+{ const W = Phys.load(LEVELS[0]); const d = W.L.doors[0]; place(W.mint, d.x * T - 8, (d.y + 1) * T); settle(W, 120);
+  ok(W.mint.x + W.mint.w <= d.x * T + 0.5, `a closed door pushes a player caught in it back out (mint right ${((W.mint.x + W.mint.w) / T).toFixed(2)}, door ${d.x})`); }
+
 console.log(fails ? fails + ' FAILED' : 'NO SHORTCUTS');
 process.exit(fails ? 1 : 0);

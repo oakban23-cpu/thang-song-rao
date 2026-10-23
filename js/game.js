@@ -723,7 +723,7 @@ function readNames() {
 function releaseAll() { for (const id of ['pink', 'mint']) for (const k of ['left', 'right', 'jump']) { KB[id][k] = false; TC[id][k] = false; } JP.pink = JP.mint = false; document.querySelectorAll('.pad button.on').forEach(b => b.classList.remove('on')); touches.clear(); }
 function loadLevel(i, fresh) {
   S.kind = 'adv'; app.classList.remove('kit', 'def', 'drv');
-  S.li = i; S.W = Phys.load(ALL[i]); S.parts = []; S.deadId = null; S.flash = 0; S.shake = 0;
+  S.li = i; S.W = Phys.load(ALL[i]); S.parts = []; S.deadId = null; S.flash = 0; S.shake = 0; JP.pink = JP.mint = false;
   if (fresh) { S.deaths = 0; S.elapsed = 0; S.banner = 4.2; }
   buildBg(); updateHud();
 }
@@ -751,7 +751,8 @@ function renderTips() {
 }
 function pause() {
   if (S.mode !== 'play') return;
-  setMode('paused'); releaseAll(); releaseK();
+  setMode('paused'); releaseAll(); releaseK(); engine(false, 0);
+  O.lastInp = null; KS.lastInp = {}; DS.lastInp = {}; RS.lastInp = {};
   const lv = curLevel();
   $('#pNo').textContent = curLabel() + ' · ' + lv.name;
   $('#pHint').textContent = lv.hint;
@@ -913,7 +914,7 @@ document.addEventListener('keydown', e => {
 });
 document.addEventListener('keyup', e => { if (topDown()) kitKey(e, false); const m = MAP[e.code]; if (m) KB[O.role ? O.local : m[0]][m[1]] = false; });
 window.addEventListener('blur', () => { releaseAll(); releaseK(); });
-document.addEventListener('visibilitychange', () => { if (document.hidden) { if (S.mode === 'play' && !O.role) pause(); else releaseAll(); } });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { engine(false, 0); if (S.mode === 'play' && !O.role) pause(); else releaseAll(); } });
 
 const touches = new Map();
 function syncTouch() {
@@ -1066,9 +1067,10 @@ async function enterRoom(code, role, tries = 0) {
   }
   O.code = code; O.role = role; O.local = role === 'host' ? 'pink' : 'mint';
   O.ep = 0; O.lv = -1; O.st = 'lobby'; O.loadedEp = -1; O.dead = 0; O.rq = 0; O.firstSeen = false; O.partner = null; O.partnerName = ''; O.wonEp = -1;
+  O.sid = Math.random().toString(36).slice(2, 10); O.partnerSid = null; O.freshEp = -1;
   S.names[O.local] = myName();
   O.room = room; O.lobby = lobby;
-  try { O.unsub.push(room.onPeers(onPeers, () => { O.partner = null; })); } catch (e) {}
+  try { O.unsub.push(room.onPeers(onPeers, () => { O.partner = null; dropRemoteInput(); })); } catch (e) {}
   app.classList.add('solo');
   app.style.setProperty('--local', O.local === 'pink' ? 'var(--pink)' : 'var(--mint)');
   openOnlineRoom();
@@ -1107,6 +1109,7 @@ function onlineRestart() {
 }
 function loadOnlineLevel(fresh) {
   audio();
+  if (fresh && O.role === 'host') O.freshEp = O.ep;
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   if (O.md === 'r') {
     const keepBanner = RS.G && RS.li === O.lv && !fresh;
@@ -1136,6 +1139,7 @@ function loadOnlineLevel(fresh) {
   O.loadedEp = O.ep; O.lastD = ''; O.lastH = 0;
   S.parts = []; S.deadId = null; S.flash = 0; S.shake = 0;
   if (changed) { S.deaths = 0; S.elapsed = 0; S.banner = 4.2; }
+  else if (O.role === 'guest') S.deaths++;
   buildBg(); updateHud(); releaseAll(); showScreen(null); setMode('play');
 }
 function leaveOnline() {
@@ -1163,14 +1167,23 @@ function onPeers(change) {
     if (!best || p.updatedAt > best.updatedAt) best = { peer: p.peer, updatedAt: p.updatedAt, pr };
   }
   const was = !!O.partner;
-  if (!best) { O.partner = null; if (was) renderOnlineRoom(); return; }
+  if (!best) { O.partner = null; dropRemoteInput(); if (was) renderOnlineRoom(); return; }
   O.partner = best.pr; O.partnerPeer = best.peer; O.partnerAt = performance.now();
   O.partnerName = cleanName(best.pr.n) || (O.role === 'host' ? 'ตัวเอง' : 'เค้า');
   S.names[O.local === 'pink' ? 'mint' : 'pink'] = O.partnerName;
   if (!was) renderOnlineRoom();
   if (O.role === 'host') hostHears(best.pr); else guestHears(best.pr);
 }
+// the partner left: forget whatever they were holding so the host does not keep pushing, chopping or driving for them
+function dropRemoteInput() {
+  if (O.role !== 'host') return;
+  KS.remote.act = KS.remote.use = false; DS.remote.act = DS.remote.use = false;
+  RS.remote.s = RS.remote.p = 0; RS.remote.act = false;
+  if (S.W && S.W.mint) S.W.mint.netInp = null;
+}
 function hostHears(pr) {
+  // a guest that rejoined starts its counters from zero again: take a fresh baseline
+  if (pr.sid && pr.sid !== O.partnerSid) { O.partnerSid = pr.sid; O.firstSeen = false; KS.seenKa = DS.seenKa = RS.seenKa = -1; }
   if (!O.firstSeen) { O.firstSeen = true; O.seenDead = pr.dead | 0; O.seenRq = pr.rq | 0; }
   if ((pr.dead | 0) > O.seenDead || (pr.rq | 0) > O.seenRq) {
     O.seenDead = pr.dead | 0; O.seenRq = pr.rq | 0;
@@ -1186,7 +1199,7 @@ function guestHears(pr) {
   if (pr.st === 'lobby') { if (S.mode !== 'menu' || scr.online.hidden) openOnlineRoom(); else renderOnlineRoom(); return; }
   const md = pr.md === 'k' || pr.md === 'd' || pr.md === 'r' ? pr.md : 'a';
   const nLv = md === 'k' ? KLEVELS.length : md === 'd' ? DLEVELS.length : md === 'r' ? RLEVELS.length : ALL.length, kind = md === 'k' ? 'kit' : md === 'd' ? 'def' : md === 'r' ? 'drv' : 'adv', cur = md === 'k' ? KS.li : md === 'd' ? DS.li : md === 'r' ? RS.li : S.li;
-  if (lv >= 0 && lv < nLv && (ep !== O.loadedEp)) { const ch = md !== O.md || lv !== cur || S.kind !== kind; O.ep = ep; O.lv = lv; O.md = md; loadOnlineLevel(ch); }
+  if (lv >= 0 && lv < nLv && (ep !== O.loadedEp)) { const ch = (pr.fs | 0) === ep || O.loadedEp < 0 || md !== O.md || lv !== cur || S.kind !== kind; O.ep = ep; O.lv = lv; O.md = md; loadOnlineLevel(ch); }
   if (md === 'k') { if (S.kind === 'kit' && ep === O.loadedEp) kGuestHears(pr); return; }
   if (md === 'd') { if (S.kind === 'def' && ep === O.loadedEp) dGuestHears(pr); return; }
   if (md === 'r') { if (S.kind === 'drv' && ep === O.loadedEp) rGuestHears(pr); return; }
@@ -1214,8 +1227,8 @@ function guestHears(pr) {
 }
 function pumpOnline(now) {
   const room = O.room; if (!room) return;
-  const o = { app: 'tsr', v: 1, code: O.code, r: O.role === 'host' ? 'h' : 'g', n: S.names[O.local] || '', ep: O.ep, lv: O.lv, md: O.md };
-  if (O.role === 'host') o.st = O.st; else { o.dead = O.dead; o.rq = O.rq; }
+  const o = { app: 'tsr', v: 1, code: O.code, r: O.role === 'host' ? 'h' : 'g', n: S.names[O.local] || '', ep: O.ep, lv: O.lv, md: O.md, sid: O.sid };
+  if (O.role === 'host') { o.st = O.st; o.fs = O.freshEp; } else { o.dead = O.dead; o.rq = O.rq; }
   const live = O.loadedEp === O.ep && (S.mode === 'play' || S.mode === 'paused' || S.mode === 'clear');
   if (S.kind === 'kit') {
     if (KS.G && KS.G.net && live) {
@@ -1360,7 +1373,7 @@ kpad.addEventListener('contextmenu', e => e.preventDefault());
 function kSnap(G) { return { money: G.money, failed: G.failed, orders: G.orders.length, fires: G.list.filter(t => t.fire > 0).length, ids: G.orders.map(o => o.id).join(), over: G.over }; }
 function loadKitchen(i, net) {
   KS.li = i; KS.G = Kit.load(KLEVELS[i]); KS.G.net = net || null;
-  KS.acc = 0; KS.floats = []; KS.act = { n: KS.act.n, ref: null, uref: null }; KS.seenKa = -1; KS.remote = { act: false, ref: null, use: false, uref: null }; KS.endT = 0; KS.prev = kSnap(KS.G);
+  KS.acc = 0; KS.floats = []; KS.act = { n: KS.act.n, ref: null, uref: null }; KS.seenKa = -1; KS.remote = { act: false, ref: null, use: false, uref: null }; KS.endT = 0; KS.savedB = null; KS.prev = kSnap(KS.G);
   S.kind = 'kit'; app.classList.add('kit'); app.classList.remove('def', 'drv'); setPadLabels('kit');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
   releaseK(); buildKitBg(); kHud();
@@ -1387,12 +1400,19 @@ function kHud(force) {
   $('#hHint').textContent = lv.hint;
   $('#hHearts').textContent = '';
 }
-function kResults() {
+// progress is saved as soon as the round ends, so leaving during the end whistle keeps the result
+function kSave() {
+  if (KS.savedB) return KS.savedB;
   const G = KS.G, lv = KLEVELS[KS.li], st = Kit.stars(G);
   const b = prog.k[lv.name] || { s: 0, m: 0 };
-  const newBest = G.money > b.m;
   prog.k[lv.name] = { s: Math.max(b.s, st), m: Math.max(b.m, G.money) };
   store.set('prog2', prog);
+  return (KS.savedB = b);
+}
+function kResults() {
+  const G = KS.G, lv = KLEVELS[KS.li], st = Kit.stars(G);
+  const b = kSave();
+  const newBest = G.money > b.m;
   setMode('clear'); releaseAll(); releaseK();
   $('#cNo').textContent = `${kLabel(KS.li)} · ปิดร้าน`;
   $('#cName').textContent = lv.name;
@@ -1435,7 +1455,7 @@ function kTick() {
   const ev = Kit.step(G, inp);
   kEvents(ev);
   if (O.role === 'guest') kGuestDiff();
-  if (G.over && !KS.endT) { KS.endT = 1.4; sfx.whistle(); }
+  if (G.over && !KS.endT) { KS.endT = 1.4; sfx.whistle(); kSave(); }
 }
 function kFloat(text, x, y, col) { KS.floats.push({ text, x, y, col, life: 1.4 }); }
 function tileCenter(G, t) { const r = Kit.tileRect(G, t); return { x: r.x + KX / 2, y: r.y + KX / 2 }; }
@@ -1850,7 +1870,7 @@ function kGuestHears(pr) {
     Kit.apply(G, pr.kw);
     const has = Kit.enc(G[O.local].held);
     if (has !== had && S.mode === 'play') { if (!has) sfx.drop(); else if (!had || has[0] !== had[0]) sfx.pick(); }
-    if (G.over && !wasOver && !KS.endT && S.mode === 'play') { KS.endT = 1.4; sfx.whistle(); }
+    if (G.over && !wasOver && !KS.endT && S.mode === 'play') { KS.endT = 1.4; sfx.whistle(); kSave(); }
   }
 }
 
@@ -1890,7 +1910,7 @@ function setPadLabels(kind) {
 function dSnap(G) { return { coins: G.coins, ph: G.ph, wi: G.wi, sn: [G.pink.snR | 0, G.mint.snR | 0], down: [G.pink.down, G.mint.down], boss: G.en.some(e => e.k === 'king'), tw: G.pads.reduce((s, t) => s + t.tw, 0) }; }
 function loadDefense(i, net) {
   DS.li = i; DS.G = Def.load(DLEVELS[i]); DS.G.net = net || null;
-  DS.acc = 0; DS.floats = []; DS.rings = []; DS.act = { n: DS.act.n, uref: null }; DS.seenKa = -1; DS.remote = { act: false, use: false, uref: null }; DS.endT = 0; DS.prev = null;
+  DS.acc = 0; DS.floats = []; DS.rings = []; DS.act = { n: DS.act.n, uref: null }; DS.seenKa = -1; DS.remote = { act: false, use: false, uref: null }; DS.endT = 0; DS.savedB = null; DS.prev = null;
   S.kind = 'def'; app.classList.add('def'); app.classList.remove('kit', 'drv');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
   setPadLabels('def'); releaseK(); buildDefBg(); dHud(true);
@@ -1915,12 +1935,19 @@ function dHud(force) {
   $('#hHint').textContent = lv.hint;
   $('#hHearts').textContent = '';
 }
-function dResults() {
+function dSave() {
+  if (DS.savedB) return DS.savedB;
   const G = DS.G, lv = DLEVELS[DS.li], st = Def.stars(G), won = G.ph === 'won';
   const pct = Math.max(0, Math.round(Math.min(...G.houses.map(H => H.hp / H.max)) * 100));
   const b = prog.d[lv.name] || { s: 0, h: 0 };
-  const best = won && pct > (b.h || 0);
   if (won) { prog.d[lv.name] = { s: Math.max(b.s, st), h: Math.max(b.h || 0, pct) }; store.set('prog2', prog); }
+  return (DS.savedB = b);
+}
+function dResults() {
+  const G = DS.G, lv = DLEVELS[DS.li], st = Def.stars(G), won = G.ph === 'won';
+  const pct = Math.max(0, Math.round(Math.min(...G.houses.map(H => H.hp / H.max)) * 100));
+  const b = dSave();
+  const best = won && pct > (b.h || 0);
   setMode('clear'); releaseAll(); releaseK();
   $('#cNo').textContent = `${NIGHT(DS.li)} · ${won ? 'ฟ้าสางแล้ว' : 'เฝ้าไม่รอด'}`;
   $('#cName').textContent = won ? lv.name : (G.why === 'down' ? 'ล้มทั้งคู่' : 'บ้านพัง');
@@ -2011,7 +2038,7 @@ function dTick() {
   const ev = Def.step(G, inp);
   dEvents(ev);
   if (O.role === 'guest') dGuestDiff();
-  if (G.over && !DS.endT) { DS.endT = 1.8; if (G.ph === 'won') sfx.win(); else sfx.lost(); }
+  if (G.over && !DS.endT) { DS.endT = 1.8; if (G.ph === 'won') sfx.win(); else sfx.lost(); dSave(); }
 }
 function defFrame(dt, now) {
   const G = DS.G;
@@ -2455,7 +2482,7 @@ function dGuestHears(pr) {
   if (pr.dw) {
     const was = G.over;
     Def.apply(G, pr.dw);
-    if (G.over && !was && !DS.endT && S.mode === 'play') { DS.endT = 1.8; if (G.ph === 'won') sfx.win(); else sfx.lost(); }
+    if (G.over && !was && !DS.endT && S.mode === 'play') { DS.endT = 1.8; if (G.ph === 'won') sfx.win(); else sfx.lost(); dSave(); }
   }
 }
 
@@ -2474,7 +2501,7 @@ Object.assign(sfx, {
   turboS() { tone(200, .5, 'sawtooth', .05, 900); },
   crash() { tone(90, .25, 'square', .07, 40); tone(160, .12, 'sawtooth', .05, 60, .03); },
   cluck() { tone(900, .05, 'square', .04, 1300); tone(1100, .07, 'square', .035, 700, .07); },
-  bell() { tone(1568, .12, 'triangle', .04); },
+  xbell() { tone(1568, .12, 'triangle', .04); },
   trainHorn() { tone(233, .9, 'sawtooth', .05); tone(277, .9, 'sawtooth', .035); },
   pickup() { tone(784, .08, 'triangle', .05); tone(1175, .12, 'triangle', .05, 0, .07); },
   cash() { [1047, 1319, 1568, 2093].forEach((f, i) => tone(f, .12, 'triangle', .05, 0, i * .06)); }
@@ -2524,7 +2551,7 @@ $('#bSwap').addEventListener('click', () => { swapRoles(); });
 function rSnap(G) { const e = G.evR || G.ev; return Object.assign({ money: G.money, orders: G.orders.length, ids: G.orders.map(o => o.id).join() }, e); }
 function loadDrive(i, net) {
   RS.li = i; RS.G = Drv.load(RLEVELS[i]); RS.G.net = net || null;
-  RS.acc = 0; RS.floats = []; RS.act = { n: RS.act.n }; RS.seenKa = -1; RS.remote = { s: 0, p: 0, act: false }; RS.endT = 0; RS.prev = null;
+  RS.acc = 0; RS.floats = []; RS.act = { n: RS.act.n }; RS.seenKa = -1; RS.remote = { s: 0, p: 0, act: false }; RS.endT = 0; RS.savedB = null; RS.prev = null;
   RS.cam.x = RS.G.car.x; RS.cam.y = RS.G.car.y;
   S.kind = 'drv'; app.classList.add('drv'); app.classList.remove('kit', 'def');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
@@ -2548,12 +2575,18 @@ function rHud(force) {
   const lv = RLEVELS[RS.li];
   $('#hNo').textContent = ROUTE(RS.li); $('#hName').textContent = lv.name; $('#hHint').textContent = lv.hint; $('#hHearts').textContent = '';
 }
-function rResults() {
+function rSave() {
+  if (RS.savedB) return RS.savedB;
   const G = RS.G, lv = RLEVELS[RS.li], st = Drv.stars(G);
   const b = prog.r[lv.name] || { s: 0, m: 0 };
-  const best = G.money > b.m;
   prog.r[lv.name] = { s: Math.max(b.s, st), m: Math.max(b.m, G.money) };
   store.set('prog2', prog);
+  return (RS.savedB = b);
+}
+function rResults() {
+  const G = RS.G, lv = RLEVELS[RS.li], st = Drv.stars(G);
+  const b = rSave();
+  const best = G.money > b.m;
   setMode('clear'); releaseAll(); releaseK(); engine(false, 0);
   $('#cNo').textContent = `${ROUTE(RS.li)} · หมดเวลาส่งของ`;
   $('#cName').textContent = lv.name;
@@ -2634,7 +2667,7 @@ function rTick() {
     const ev = Drv.step(G, inp);
     rEvents(ev);
   }
-  if (G.over && !RS.endT) { RS.endT = 1.6; sfx.whistle(); }
+  if (G.over && !RS.endT) { RS.endT = 1.6; sfx.whistle(); rSave(); }
 }
 function drvFrame(dt, now) {
   const G = RS.G;
@@ -2644,7 +2677,7 @@ function drvFrame(dt, now) {
     if (RS.endT > 0) { RS.endT -= dt; if (RS.endT <= 0) { RS.endT = -1; rResults(); if (O.role === 'host') O.st = 'clear'; } }
     // crossing bell
     RS.bellT -= dt;
-    if (G.trains.length && RS.bellT <= 0 && G.trains.some(tr => { for (let y = 0; y < G.H; y++) if (G.tiles[y][tr.col] === '=' && Drv.gateClosed(G, y, G.t) && Math.hypot((tr.col + .5) * RK - G.car.x, (y + .5) * RK - G.car.y) < 9 * RK) return true; return false; })) { sfx.bell(); RS.bellT = 0.5; }
+    if (G.trains.length && RS.bellT <= 0 && G.trains.some(tr => { for (let y = 0; y < G.H; y++) if (G.tiles[y][tr.col] === '=' && Drv.gateClosed(G, y, G.t) && Math.hypot((tr.col + .5) * RK - G.car.x, (y + .5) * RK - G.car.y) < 9 * RK) return true; return false; })) { sfx.xbell(); RS.bellT = 0.5; }
     // tyre smoke when sliding
     const c = G.car, d = { x: Math.cos(c.a), y: Math.sin(c.a) }, lat = Math.abs(-c.vx * d.y + c.vy * d.x);
     RS.puffT -= dt;
@@ -3007,7 +3040,7 @@ function rGuestHears(pr) {
     const r = pr.rw.ro === 'm' ? { steer: 'mint', pedal: 'pink' } : { steer: 'pink', pedal: 'mint' };
     if (r.steer !== RS.roles.steer) { RS.roles = r; setDrvPadLabels(); }
   }
-  if (G.over && !was && !RS.endT && S.mode === 'play') { RS.endT = 1.6; sfx.whistle(); }
+  if (G.over && !was && !RS.endT && S.mode === 'play') { RS.endT = 1.6; sfx.whistle(); rSave(); }
 }
 
 /* ---------- Fullscreen ---------- */

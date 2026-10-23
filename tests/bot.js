@@ -99,6 +99,7 @@ const plans = {
   'ลังซ้อนลัง': [
     jump('mint', 1, 40),
     go('mint', 16.0),
+    go('pink', 17.5),
     hold('mint', -1, W => box(W, 1).x <= 288.5),
     go('pink', 10.7, { hop: false }),
     hopTo('pink', W => cx(box(W, 1))),
