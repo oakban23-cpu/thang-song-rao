@@ -1,9 +1,9 @@
 {
   "name": "thang-song-rao",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "private": true,
-  "description": "เกมสองคน ผจญภัยช่วยกันผ่านด่าน กับครัววุ่นวายช่วยกันทำอาหาร",
+  "description": "เกมสองคน ผจญภัยช่วยกันผ่านด่าน ครัววุ่นวาย และป้องกันบ้านจากผี",
   "scripts": {
-    "test": "node tests/test.js && node tests/bot.js && node tests/cheese.js && node tests/bot3.js && node tests/cheese3.js && node tests/nettest.js && node tests/ktest.js && node tests/kbot.js"
+    "test": "node tests/test.js && node tests/bot.js && node tests/cheese.js && node tests/bot3.js && node tests/cheese3.js && node tests/nettest.js && node tests/ktest.js && node tests/kbot.js && node tests/dtest.js && node tests/dbot.js"
   }
 }
