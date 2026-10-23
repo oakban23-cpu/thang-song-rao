@@ -1,11 +1,11 @@
-// Random play on every kitchen, defense night and driving route: nothing may throw, go NaN, leave the map,
+// Random play on every kitchen, defense night, driving route, takraw court, song and building site: nothing may throw, go NaN, leave the map,
 // sink into walls, duplicate an item, or fail to end the round.
 const vm = require('vm'), fs = require('fs'), path = require('path');
 const ctx = {}; vm.createContext(ctx);
 const JS = fs.existsSync(path.join(__dirname, 'game.js')) ? __dirname : path.join(__dirname, '..', 'js');   // coop/ (dev) or tests/ (repo)
-for (const f of ['kitchen', 'klevels', 'defense', 'dlevels', 'drive', 'rlevels', 'takraw', 'tlevels']) vm.runInContext(fs.readFileSync(path.join(JS, f + '.js'), 'utf8'), ctx);
-vm.runInContext('this.Kit=Kit;this.Def=Def;this.Drv=Drv;this.Tak=Tak;this.KL=KLEVELS;this.DL=DLEVELS;this.RL=RLEVELS;this.TL=TLEVELS;', ctx);
-const { Kit, Def, Drv, Tak, KL, DL, RL, TL } = ctx;
+for (const f of ['kitchen', 'klevels', 'defense', 'dlevels', 'drive', 'rlevels', 'takraw', 'tlevels', 'rhythm', 'mlevels', 'tower', 'wlevels']) vm.runInContext(fs.readFileSync(path.join(JS, f + '.js'), 'utf8'), ctx);
+vm.runInContext('this.Kit=Kit;this.Def=Def;this.Drv=Drv;this.Tak=Tak;this.KL=KLEVELS;this.DL=DLEVELS;this.RL=RLEVELS;this.TL=TLEVELS;this.Rhy=Rhy;this.ML=MLEVELS;this.Twr=Twr;this.WL=WLEVELS;', ctx);
+const { Kit, Def, Drv, Tak, KL, DL, RL, TL, Rhy, ML, Twr, WL } = ctx;
 const RUNS = +process.argv[2] || 6;
 let seed = 1; const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
 const found = new Map();
@@ -161,6 +161,91 @@ for (const def of TL) {
     goals += G.ev.goals;
   }
   console.log(`takraw  ${def.name.padEnd(18)} ${RUNS} random rounds, ended ${ends}, goals by mashing ${goals}`);
+}
+// ---- rhythm: random presses on any lane at any time, plus junk and stale online messages
+const JUNK = [null, 5, 'x', [null], [[1e9, 1, 0]], [[-3, 2, 5]], [['a', 9, 'q']], [[0, 4, NaN]], [[2, 1, 1e12]], {}, [[1.5, 1, 3]]];
+for (const def of ML) {
+  let ends = 0, fails = 0;
+  for (let run = 0; run < RUNS; run++) {
+    seed = 5000 + run * 43 + def.name.length;
+    const online = run % 2 === 1;
+    const G = Rhy.load(def), P = online ? Rhy.load(def) : null;
+    if (online) { G.local = 'pink'; P.local = 'mint'; }
+    let lastNext = 0, lastScore = 0;
+    for (let t = -1; t < G.C.end + 3 && !G.over; t += 1 / 60) {
+      try {
+        const n = Math.floor(rnd() * 3);
+        for (let i = 0; i < n; i++) {
+          const lane = Math.floor(rnd() * 4), tt = t + (rnd() - 0.5) * 0.3;
+          if (!online) Rhy.hit(G, lane, tt);
+          else if (lane < 2) Rhy.hit(G, lane, tt); else Rhy.hit(P, lane, tt);
+        }
+        if (online) {
+          Rhy.expire(G, t, ['pink']); Rhy.expire(P, t, ['mint']);
+          if (rnd() < 0.3) Rhy.merge(G, Rhy.recent(P, 'mint', t - rnd() * 2));           // late and out of order
+          if (rnd() < 0.05) Rhy.merge(G, JUNK[Math.floor(rnd() * JUNK.length)]);
+          if (rnd() < 0.05) Rhy.merge(G, Rhy.recent(G, 'pink', t));                        // our own results echoed back
+        } else Rhy.expire(G, t);
+        Rhy.settle(G, t);
+      } catch (e) { report(`rhythm ${def.name}: exception ${e.message}`, e.stack.split('\n')[1]); break; }
+      if (!fin(G.score, G.energy, G.combo, G.base) || G.energy < 0 || G.energy > 100) report(`rhythm ${def.name}: bad numbers`, `${G.score} ${G.energy}`);
+      if (G.next < lastNext || G.score < lastScore) report(`rhythm ${def.name}: went backwards`, `${lastNext}->${G.next} ${lastScore}->${G.score}`);
+      if (G.notes.some((n, i) => i < G.next && !n.res)) report(`rhythm ${def.name}: scored past an undecided note`, `run ${run}`);
+      if (G.notes.some(n => n.res && !['perfect', 'good', 'ok', 'miss'].includes(n.res))) report(`rhythm ${def.name}: strange result`, '');
+      lastNext = G.next; lastScore = G.score;
+    }
+    if (G.over) ends++; else report(`rhythm ${def.name}: song never ended`, `run ${run}`);
+    if (G.failed) fails++;
+    if (Rhy.stars(G) > 0) report(`rhythm ${def.name}: random mashing earned a star`, `run ${run} acc ${Rhy.accuracy(G).toFixed(2)}`);
+  }
+  console.log(`rhythm  ${def.name.padEnd(18)} ${RUNS} random songs (half online with junk messages), ended ${ends}, band fell apart ${fails}`);
+}
+// ---- tower: random and lazy presses, half the runs online with a lagging guest and junk messages
+for (const def of WL) {
+  let ends = 0, best = 0;
+  for (let run = 0; run < RUNS; run++) {
+    seed = 6000 + run * 53 + def.name.length;
+    const online = run % 2 === 1, G = Twr.load(def, run + 1), U = online ? Twr.load(def, run + 1) : null;
+    if (online) { G.net = { role: 'host', local: 'pink' }; U.net = { role: 'guest', local: 'mint' }; }
+    let lastScore = 0, lastFloors = 1, q = [], dn = 0, seen = 0, lastReq = null;
+    const pr = { pink: 0.004 + rnd() * 0.02, mint: 0.004 + rnd() * 0.02 };
+    for (let k = 0; k < 120 * 400 && !G.over; k++) {
+      const t = k * Twr.DT;
+      try {
+        if (!online) Twr.step(G, { pink: { drop: rnd() < pr.pink }, mint: { drop: rnd() < pr.mint } });
+        else {
+          Twr.step(G, { pink: { drop: rnd() < pr.pink } });
+          const req = Twr.guestStep(U, 'mint', rnd() < pr.mint);
+          if (req) { dn++; lastReq = req; }
+          if (k % 5 === 0) {
+            q.push({ at: t + 0.05 + rnd() * 0.3, h: false, m: JSON.parse(JSON.stringify(Twr.encode(G))) });
+            const b = U.blk.mint;
+            q.push({ at: t + 0.05 + rnd() * 0.3, h: true, m: { x: b ? b.x : null, id: b ? b.id : -1, d: lastReq ? [dn, lastReq.id, lastReq.x, lastReq.t] : null } });
+            q.sort((a, b2) => a.at - b2.at);
+          }
+          if (rnd() < 0.01) Twr.apply(U, [null, {}, { fl: [] }, { fl: [[1, 2, 3, 4, 5, 6]], fb: 1e9 }, { fl: 'x', bk: 5 }][Math.floor(rnd() * 5)], 'mint');
+          if (rnd() < 0.01) Twr.dropAt(G, 'mint', rnd() * 2000 - 500, Math.floor(rnd() * 50), rnd() * 100);
+          while (q.length && q[0].at <= t) {
+            const e = q.shift();
+            if (e.h) { if (Number.isFinite(e.m.x)) Twr.remoteX(G, 'mint', e.m.x, e.m.id); if (e.m.d && e.m.d[0] > seen) { seen = e.m.d[0]; Twr.dropAt(G, 'mint', e.m.d[2], e.m.d[1], e.m.d[3]); } }
+            else Twr.apply(U, e.m, 'mint');
+          }
+        }
+      } catch (e) { report(`tower ${def.name}: exception ${e.message}`, e.stack.split('\n')[1]); break; }
+      const f = G.floors[G.floors.length - 1];
+      if (!fin(G.score, G.t, G.swayA, G.lives) || G.lives < 0 || G.lives > Twr.LIVES) report(`tower ${def.name}: bad numbers`, `${G.score} ${G.lives}`);
+      if (G.score < lastScore || G.floors.length < lastFloors) report(`tower ${def.name}: went backwards`, '');
+      if (G.floors.length > def.top + 1) report(`tower ${def.name}: built past the top`, '');
+      if (!(f.pink.a < f.pink.b && f.mint.a < f.mint.b && f.pink.b <= f.mint.a + 1e-6)) report(`tower ${def.name}: halves overlap or vanished`, JSON.stringify(f));
+      if (f.pink.a < 0 || f.mint.b > Twr.VW) report(`tower ${def.name}: tower off the screen`, JSON.stringify(f));
+      for (const w of ['pink', 'mint']) { const b = G.blk[w]; if (b && (!fin(b.x, b.y, b.w) || b.w < Twr.MIN_W - 1e-6)) report(`tower ${def.name}: strange block`, JSON.stringify(b)); }
+      lastScore = G.score; lastFloors = G.floors.length;
+    }
+    if (G.over) ends++; else report(`tower ${def.name}: never ended`, `run ${run} floors ${G.floors.length - 1}`);
+    if (G.won) report(`tower ${def.name}: random presses finished the building`, `run ${run}`);
+    best = Math.max(best, Twr.floorsDone(G));
+  }
+  console.log(`tower   ${def.name.padEnd(18)} ${RUNS} random sites (half online with a lagging guest and junk), ended ${ends}, most floors ${best}`);
 }
 console.log('\n--- findings ---');
 for (const [k, v] of found) console.log(`${k}  ×${v.n}  (${v.info})`);

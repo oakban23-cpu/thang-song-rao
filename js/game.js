@@ -35,8 +35,8 @@ const heartsIn = i => (ALL[i].map.join('').match(/\*/g) || []).length;
 const isOpen = i => ALL[i].n - 1 <= (prog.u[ALL[i].ch] || 0);
 const lvLabel = i => `ด่าน ${th(ALL[i].ch)}-${th(ALL[i].n)}`;
 const firstOf = ch => ALL.findIndex(l => l.ch === ch);
-const curLevel = () => (S.kind === 'kit' ? KLEVELS[KS.li] : S.kind === 'def' ? DLEVELS[DS.li] : S.kind === 'drv' ? RLEVELS[RS.li] : S.kind === 'tak' ? TLEVELS[TS.li] : ALL[S.li]);
-const curLabel = () => (S.kind === 'kit' ? kLabel(KS.li) : S.kind === 'def' ? NIGHT(DS.li) : S.kind === 'drv' ? ROUTE(RS.li) : S.kind === 'tak' ? COURT(TS.li) : lvLabel(S.li));
+const curLevel = () => (S.kind === 'kit' ? KLEVELS[KS.li] : S.kind === 'def' ? DLEVELS[DS.li] : S.kind === 'drv' ? RLEVELS[RS.li] : S.kind === 'tak' ? TLEVELS[TS.li] : S.kind === 'mus' ? MLEVELS[MS.li] : S.kind === 'twr' ? WLEVELS[WS.li] : ALL[S.li]);
+const curLabel = () => (S.kind === 'kit' ? kLabel(KS.li) : S.kind === 'def' ? NIGHT(DS.li) : S.kind === 'drv' ? ROUTE(RS.li) : S.kind === 'tak' ? COURT(TS.li) : S.kind === 'mus' ? SONG(MS.li) : S.kind === 'twr' ? SITE(WS.li) : lvLabel(S.li));
 // the modes driven by the kitchen-style controls (joystick + buttons); takraw is side-on but uses them too
 const topDown = () => S.kind === 'kit' || S.kind === 'def' || S.kind === 'drv' || S.kind === 'tak';
 
@@ -121,6 +121,8 @@ function fit() {
   if (S.kind === 'def') buildDefBg();
   if (S.kind === 'drv') buildDrvBg();
   if (S.kind === 'tak') buildTakBg();
+  if (S.kind === 'mus') buildMusBg();
+  if (S.kind === 'twr') buildTwrBg();
 }
 
 /* ---------- Background + static tiles ---------- */
@@ -724,7 +726,7 @@ function readNames() {
 }
 function releaseAll() { for (const id of ['pink', 'mint']) for (const k of ['left', 'right', 'jump']) { KB[id][k] = false; TC[id][k] = false; } JP.pink = JP.mint = false; document.querySelectorAll('.pad button.on').forEach(b => b.classList.remove('on')); touches.clear(); }
 function loadLevel(i, fresh) {
-  S.kind = 'adv'; app.classList.remove('kit', 'def', 'drv', 'tak');
+  S.kind = 'adv'; app.classList.remove('kit', 'def', 'drv', 'tak', 'mus', 'twr');
   S.li = i; S.W = Phys.load(ALL[i]); S.parts = []; S.deadId = null; S.flash = 0; S.shake = 0; JP.pink = JP.mint = false;
   if (fresh) { S.deaths = 0; S.elapsed = 0; S.banner = 4.2; }
   buildBg(); updateHud();
@@ -739,6 +741,8 @@ function restart() {
   if (S.kind === 'def') { defRestart(); return; }
   if (S.kind === 'drv') { drvRestart(); return; }
   if (S.kind === 'tak') { takRestart(); return; }
+  if (S.kind === 'mus') { musRestart(); return; }
+  if (S.kind === 'twr') { twrRestart(); return; }
   if (!S.W) return;
   if (O.role) { onlineRestart(); return; }
   S.deaths++; loadLevel(S.li, false); showScreen(null); setMode('play');
@@ -755,7 +759,7 @@ function renderTips() {
 function pause() {
   if (S.mode !== 'play') return;
   setMode('paused'); releaseAll(); releaseK(); engine(false, 0);
-  O.lastInp = null; KS.lastInp = {}; DS.lastInp = {}; RS.lastInp = {}; TS.lastInp = {};
+  O.lastInp = null; KS.lastInp = {}; DS.lastInp = {}; RS.lastInp = {}; TS.lastInp = {}; WS.press = { pink: 0, mint: 0 };
   const lv = curLevel();
   $('#pNo').textContent = curLabel() + ' · ' + lv.name;
   $('#pHint').textContent = lv.hint;
@@ -809,6 +813,8 @@ function next() {
   if (S.kind === 'def') { defNext(); return; }
   if (S.kind === 'drv') { drvNext(); return; }
   if (S.kind === 'tak') { takNext(); return; }
+  if (S.kind === 'mus') { musNext(); return; }
+  if (S.kind === 'twr') { twrNext(); return; }
   if (O.role === 'host') { if (S.li < ALL.length - 1) onlineStart(S.li + 1); return; }
   if (S.li >= ALL.length - 1) toTitle(); else startLevel(S.li + 1);
 }
@@ -834,8 +840,10 @@ function renderLevels() {
   renderDefLevels();
   renderDrvLevels();
   renderTakLevels();
+  renderMusLevels();
+  renderTwrLevels();
 }
-function goFromTitle() { if (S.tab === 'kit') startKitchen(+$('#bGo').dataset.k || 0); else if (S.tab === 'def') startDefense(+$('#bGo').dataset.d || 0); else if (S.tab === 'drv') startDrive(+$('#bGo').dataset.r || 0); else if (S.tab === 'tak') startTak(+$('#bGo').dataset.t || 0); else startLevel(+$('#bGo').dataset.i || 0); }
+function goFromTitle() { if (S.tab === 'kit') startKitchen(+$('#bGo').dataset.k || 0); else if (S.tab === 'def') startDefense(+$('#bGo').dataset.d || 0); else if (S.tab === 'drv') startDrive(+$('#bGo').dataset.r || 0); else if (S.tab === 'tak') startTak(+$('#bGo').dataset.t || 0); else if (S.tab === 'mus') startMus(+$('#bGo').dataset.m || 0); else if (S.tab === 'twr') startTwr(+$('#bGo').dataset.w || 0); else startLevel(+$('#bGo').dataset.i || 0); }
 /* ---------- Main loop ---------- */
 let last = performance.now(), acc = 0;
 function tick() {
@@ -876,6 +884,8 @@ function frame(now) {
   if (S.kind === 'def') { defFrame(dt, now); requestAnimationFrame(frame); return; }
   if (S.kind === 'drv') { drvFrame(dt, now); requestAnimationFrame(frame); return; }
   if (S.kind === 'tak') { if (eng) engine(false, 0); takFrame(dt, now); requestAnimationFrame(frame); return; }
+  if (S.kind === 'mus') { if (eng) engine(false, 0); musFrame(dt, now); requestAnimationFrame(frame); return; }
+  if (S.kind === 'twr') { if (eng) engine(false, 0); twrFrame(dt, now); requestAnimationFrame(frame); return; }
   if (eng) engine(false, 0);
   if (S.mode === 'play') {
     acc += dt;
@@ -904,6 +914,8 @@ const MAP = { KeyA: ['pink', 'left'], KeyD: ['pink', 'right'], KeyW: ['pink', 'j
 document.addEventListener('keydown', e => {
   const tag = e.target && e.target.tagName;
   if (tag === 'INPUT') { if (e.key === 'Enter' && S.mode === 'menu' && scr.online.hidden) goFromTitle(); return; }
+  if (S.kind === 'twr' && WKEY[e.code] && S.mode === 'play') { e.preventDefault(); if (!e.repeat) wPress(O.role ? O.local : WKEY[e.code]); return; }
+  if (S.kind === 'mus' && MKEY[e.code] != null) { e.preventDefault(); if (!e.repeat && S.mode === 'play') musPress(MKEY[e.code], e.timeStamp); return; }
   if (topDown() && S.mode === 'play' && kitKey(e, true)) return;
   const m0 = MAP[e.code], m = m0 && O.role ? [O.local, m0[1]] : m0;
   if (m) {
@@ -961,7 +973,7 @@ $('#bRestart2').addEventListener('click', restart);
 $('#bLevels').addEventListener('click', toTitle);
 $('#bLevels2').addEventListener('click', toTitle);
 $('#bNext').addEventListener('click', next);
-$('#bAgain').addEventListener('click', () => { if (O.role === 'host') openOnlineRoom(); else if (S.kind === 'kit') startKitchen(KS.li); else if (S.kind === 'def') startDefense(DS.li); else if (S.kind === 'drv') startDrive(RS.li); else if (S.kind === 'tak') startTak(TS.li); else startLevel(S.li); });
+$('#bAgain').addEventListener('click', () => { if (O.role === 'host') openOnlineRoom(); else if (S.kind === 'kit') startKitchen(KS.li); else if (S.kind === 'def') startDefense(DS.li); else if (S.kind === 'drv') startDrive(RS.li); else if (S.kind === 'tak') startTak(TS.li); else if (S.kind === 'mus') startMus(MS.li); else if (S.kind === 'twr') startTwr(WS.li); else startLevel(S.li); });
 [nPink, nMint].forEach(i => i.addEventListener('input', readNames));
 snd.addEventListener('change', () => { S.sound = snd.checked; store.set('sound', S.sound); });
 
@@ -1102,7 +1114,7 @@ function renderOnlineRoom() {
       return `<button type="button" class="lv${prog.h[lv.name] != null ? ' done' : ''}" data-i="${i}"${locked ? ' disabled' : ''}><span class="n">${th(lv.n)}</span><span class="nm">${lv.name}</span><span class="hs">${locked ? 'ยังล็อกอยู่' : prog.h[lv.name] != null ? 'ผ่านแล้ว' : 'ยังไม่เคยผ่าน'}</span></button>`;
     }).join('');
   }
-  if (show) { renderOnlineKit(); renderOnlineDef(); renderOnlineDrv(); renderOnlineTak(); }
+  if (show) { renderOnlineKit(); renderOnlineDef(); renderOnlineDrv(); renderOnlineTak(); renderOnlineMus(); renderOnlineTwr(); }
 }
 function onlineStart(i) {
   if (O.role !== 'host') return;
@@ -1117,6 +1129,18 @@ function loadOnlineLevel(fresh) {
   audio();
   if (fresh && O.role === 'host') O.freshEp = O.ep;
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  if (O.md === 'm') {
+    loadMus(O.lv, { role: O.role, local: O.local });
+    O.loadedEp = O.ep; showScreen(null); setMode('play');
+    return;
+  }
+  if (O.md === 'w') {
+    const keepBanner = WS.G && WS.li === O.lv && !fresh;
+    loadTwr(O.lv, { role: O.role, local: O.local });
+    if (keepBanner) S.banner = 0;
+    O.loadedEp = O.ep; showScreen(null); setMode('play');
+    return;
+  }
   if (O.md === 't') {
     const keepBanner = TS.G && TS.li === O.lv && !fresh;
     loadTak(O.lv, { role: O.role, local: O.local });
@@ -1145,7 +1169,7 @@ function loadOnlineLevel(fresh) {
     O.loadedEp = O.ep; showScreen(null); setMode('play');
     return;
   }
-  S.kind = 'adv'; app.classList.remove('kit', 'def', 'drv', 'tak');
+  S.kind = 'adv'; app.classList.remove('kit', 'def', 'drv', 'tak', 'mus', 'twr');
   const changed = S.li !== O.lv || fresh;
   S.li = O.lv; S.W = Phys.load(ALL[O.lv]);
   S.W.net = { role: O.role, local: O.local };
@@ -1166,6 +1190,7 @@ function leaveOnline() {
   if (KS.G) KS.G.net = null;
   if (DS.G) DS.G.net = null;
   if (RS.G) RS.G.net = null;
+  if (WS.G) WS.G.net = null;
   app.classList.remove('solo');
   $('#hNet').hidden = true;
 }
@@ -1196,7 +1221,7 @@ function dropRemoteInput() {
 }
 function hostHears(pr) {
   // a guest that rejoined starts its counters from zero again: take a fresh baseline
-  if (pr.sid && pr.sid !== O.partnerSid) { O.partnerSid = pr.sid; O.firstSeen = false; KS.seenKa = DS.seenKa = RS.seenKa = TS.seenKa = -1; }
+  if (pr.sid && pr.sid !== O.partnerSid) { O.partnerSid = pr.sid; O.firstSeen = false; KS.seenKa = DS.seenKa = RS.seenKa = TS.seenKa = -1; WS.seenReq = -1; }
   if (!O.firstSeen) { O.firstSeen = true; O.seenDead = pr.dead | 0; O.seenRq = pr.rq | 0; }
   if ((pr.dead | 0) > O.seenDead || (pr.rq | 0) > O.seenRq) {
     O.seenDead = pr.dead | 0; O.seenRq = pr.rq | 0;
@@ -1206,18 +1231,22 @@ function hostHears(pr) {
   if (S.kind === 'def') { if (O.md === 'd') dHostHears(pr); return; }
   if (S.kind === 'drv') { if (O.md === 'r') rHostHears(pr); return; }
   if (S.kind === 'tak') { if (O.md === 't') tHostHears(pr); return; }
+  if (S.kind === 'mus') { if (O.md === 'm') mHostHears(pr); return; }
+  if (S.kind === 'twr') { if (O.md === 'w') wHostHears(pr); return; }
   if (S.W && pr.ep === O.ep && pr.p && S.W.net) Net.applyPlayer(S.W, 'mint', pr.p, performance.now());
 }
 function guestHears(pr) {
   const lv = pr.lv | 0, ep = pr.ep | 0;
   if (pr.st === 'lobby') { if (S.mode !== 'menu' || scr.online.hidden) openOnlineRoom(); else renderOnlineRoom(); return; }
-  const md = pr.md === 'k' || pr.md === 'd' || pr.md === 'r' || pr.md === 't' ? pr.md : 'a';
-  const nLv = md === 'k' ? KLEVELS.length : md === 'd' ? DLEVELS.length : md === 'r' ? RLEVELS.length : md === 't' ? TLEVELS.length : ALL.length, kind = md === 'k' ? 'kit' : md === 'd' ? 'def' : md === 'r' ? 'drv' : md === 't' ? 'tak' : 'adv', cur = md === 'k' ? KS.li : md === 'd' ? DS.li : md === 'r' ? RS.li : md === 't' ? TS.li : S.li;
+  const md = pr.md === 'k' || pr.md === 'd' || pr.md === 'r' || pr.md === 't' || pr.md === 'm' || pr.md === 'w' ? pr.md : 'a';
+  const nLv = md === 'k' ? KLEVELS.length : md === 'd' ? DLEVELS.length : md === 'r' ? RLEVELS.length : md === 't' ? TLEVELS.length : md === 'm' ? MLEVELS.length : md === 'w' ? WLEVELS.length : ALL.length, kind = md === 'k' ? 'kit' : md === 'd' ? 'def' : md === 'r' ? 'drv' : md === 't' ? 'tak' : md === 'm' ? 'mus' : md === 'w' ? 'twr' : 'adv', cur = md === 'k' ? KS.li : md === 'd' ? DS.li : md === 'r' ? RS.li : md === 't' ? TS.li : md === 'm' ? MS.li : md === 'w' ? WS.li : S.li;
   if (lv >= 0 && lv < nLv && (ep !== O.loadedEp)) { const ch = (pr.fs | 0) === ep || O.loadedEp < 0 || md !== O.md || lv !== cur || S.kind !== kind; O.ep = ep; O.lv = lv; O.md = md; loadOnlineLevel(ch); }
   if (md === 'k') { if (S.kind === 'kit' && ep === O.loadedEp) kGuestHears(pr); return; }
   if (md === 'd') { if (S.kind === 'def' && ep === O.loadedEp) dGuestHears(pr); return; }
   if (md === 'r') { if (S.kind === 'drv' && ep === O.loadedEp) rGuestHears(pr); return; }
   if (md === 't') { if (S.kind === 'tak' && ep === O.loadedEp) tGuestHears(pr); return; }
+  if (md === 'm') { if (S.kind === 'mus' && ep === O.loadedEp) mGuestHears(pr); return; }
+  if (md === 'w') { if (S.kind === 'twr' && ep === O.loadedEp) wGuestHears(pr); return; }
   if (!S.W || !S.W.net || ep !== O.loadedEp) return;
   if (pr.p) Net.applyPlayer(S.W, 'pink', pr.p, performance.now());
   if (pr.w) {
@@ -1255,6 +1284,10 @@ function pumpOnline(now) {
       o.p = Def.encodePlayer(DS.G, O.local, DS.lastInp || {}, DS.act);
       if (O.role === 'host') o.dw = Def.encode(DS.G);
     }
+  } else if (S.kind === 'mus') {
+    if (MS.G && MS.G.net && live) o.mw = mEncode();
+  } else if (S.kind === 'twr') {
+    if (WS.G && WS.G.net && live) o.ww = wEncode();
   } else if (S.kind === 'tak') {
     if (TS.G && TS.G.net && live) {
       o.p = Tak.encodePlayer(TS.G, O.local, O.role === 'guest' ? TS.kick : null);
@@ -1394,7 +1427,7 @@ function kSnap(G) { return { money: G.money, failed: G.failed, orders: G.orders.
 function loadKitchen(i, net) {
   KS.li = i; KS.G = Kit.load(KLEVELS[i]); KS.G.net = net || null;
   KS.acc = 0; KS.floats = []; KS.act = { n: KS.act.n, ref: null, uref: null }; KS.seenKa = -1; KS.remote = { act: false, ref: null, use: false, uref: null }; KS.endT = 0; KS.savedB = null; KS.prev = kSnap(KS.G);
-  S.kind = 'kit'; app.classList.add('kit'); app.classList.remove('def', 'drv', 'tak'); setPadLabels('kit');
+  S.kind = 'kit'; app.classList.add('kit'); app.classList.remove('def', 'drv', 'tak', 'mus', 'twr'); setPadLabels('kit');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
   releaseK(); buildKitBg(); kHud();
 }
@@ -1826,7 +1859,7 @@ function renderKitchen() {
 S.tab = ['adv', 'kit', 'def', 'drv'].includes(store.get('tab', 'adv')) ? store.get('tab', 'adv') : 'adv';
 function setTab(t) {
   S.tab = t; store.set('tab', t);
-  for (const k of ['adv', 'kit', 'def', 'drv', 'tak']) app.classList.toggle('tab-' + k, t === k);
+  for (const k of ['adv', 'kit', 'def', 'drv', 'tak', 'mus', 'twr']) app.classList.toggle('tab-' + k, t === k);
   document.querySelectorAll('.tab').forEach(b => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
   renderLevels();
   if (S.mode === 'menu' && !O.role) {
@@ -1834,7 +1867,9 @@ function setTab(t) {
     else if (t === 'def') { loadDefense(+$('#bGo').dataset.d || 0); S.banner = 0; }
     else if (t === 'drv') { loadDrive(+$('#bGo').dataset.r || 0); S.banner = 0; }
     else if (t === 'tak') { loadTak(+$('#bGo').dataset.t || 0); S.banner = 0; }
-    else if (S.kind !== 'adv') { S.kind = 'adv'; app.classList.remove('kit', 'def', 'drv', 'tak'); buildBg(); }
+    else if (t === 'mus') { loadMus(+$('#bGo').dataset.m || 0); MS.t0 = performance.now() + 1e9; }
+    else if (t === 'twr') { loadTwr(+$('#bGo').dataset.w || 0); S.banner = 0; }
+    else if (S.kind !== 'adv') { S.kind = 'adv'; app.classList.remove('kit', 'def', 'drv', 'tak', 'mus', 'twr'); buildBg(); }
   }
 }
 document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
@@ -1933,7 +1968,7 @@ function dSnap(G) { return { coins: G.coins, ph: G.ph, wi: G.wi, sn: [G.pink.snR
 function loadDefense(i, net) {
   DS.li = i; DS.G = Def.load(DLEVELS[i]); DS.G.net = net || null;
   DS.acc = 0; DS.floats = []; DS.rings = []; DS.act = { n: DS.act.n, uref: null }; DS.seenKa = -1; DS.remote = { act: false, use: false, uref: null }; DS.endT = 0; DS.savedB = null; DS.prev = null;
-  S.kind = 'def'; app.classList.add('def'); app.classList.remove('kit', 'drv', 'tak');
+  S.kind = 'def'; app.classList.add('def'); app.classList.remove('kit', 'drv', 'tak', 'mus', 'twr');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
   setPadLabels('def'); releaseK(); buildDefBg(); dHud(true);
 }
@@ -2575,7 +2610,7 @@ function loadDrive(i, net) {
   RS.li = i; RS.G = Drv.load(RLEVELS[i]); RS.G.net = net || null;
   RS.acc = 0; RS.floats = []; RS.act = { n: RS.act.n }; RS.seenKa = -1; RS.remote = { s: 0, p: 0, act: false }; RS.endT = 0; RS.savedB = null; RS.prev = null;
   RS.cam.x = RS.G.car.x; RS.cam.y = RS.G.car.y;
-  S.kind = 'drv'; app.classList.add('drv'); app.classList.remove('kit', 'def', 'tak');
+  S.kind = 'drv'; app.classList.add('drv'); app.classList.remove('kit', 'def', 'tak', 'mus', 'twr');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
   releaseK(); setDrvPadLabels(); buildDrvBg(); rHud(true);
 }
@@ -3104,7 +3139,7 @@ function loadTak(i, net) {
   TS.li = i; TS.G = Tak.load(TLEVELS[i]); TS.G.net = net || null;
   TS.acc = 0; TS.floats = []; TS.kick = { n: TS.kick.n, req: null }; TS.seenKa = -1; TS.remote = { req: null, fresh: false };
   TS.endT = 0; TS.savedB = null; TS.prev = tSnap(TS.G); TS.lastInp = {}; TS.rimT = 0;
-  S.kind = 'tak'; app.classList.add('tak'); app.classList.remove('kit', 'def', 'drv');
+  S.kind = 'tak'; app.classList.add('tak'); app.classList.remove('kit', 'def', 'drv', 'mus', 'twr');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
   releaseK(); tSetPad(); buildTakBg(); tHud(true);
 }
@@ -3535,6 +3570,866 @@ function tGuestHears(pr) {
   }
 }
 
+/* ---------- Duo rhythm mode (ดนตรีจังหวะคู่) ---------- */
+const MS = { G: null, li: 0, t0: 0, pausedAt: 0, sched: -9, endT: 0, savedB: null, floats: [], flash: [0, 0, 0, 0], judge: [null, null, null, null], hitAnim: { pink: 0, mint: 0 }, syncFx: [], feverOn: false, lastMerge: 0, synced: false };
+const SONG = i => 'เพลงที่ ' + th(i + 1);
+const LANE_X = [150, 232, 728, 810], LANE_W = 74, HIT_Y = 466, TOP_Y = 92;
+const MKEY = { KeyA: 0, KeyD: 1, ArrowLeft: 2, ArrowRight: 3 };
+const LANE_KEY = ['A', 'D', '←', '→'];
+const JUDGE_TXT = { perfect: 'เป๊ะ!', good: 'ดี', ok: 'พอได้', miss: 'พลาด', early: 'เร็วไป' };
+const JUDGE_COL = { perfect: '#ffe27a', good: '#9ff0c8', ok: '#c9c0ff', miss: '#ff8a8a', early: '#ff8a8a' };
+if (!prog.m) prog.m = {};
+const mBest = i => prog.m[MLEVELS[i].name] || null;
+const mOpen = i => i === 0 || !!(mBest(i - 1) && mBest(i - 1).s >= 1);
+const mLocalWho = () => (O.role ? [O.local] : ['pink', 'mint']);
+const mNow = () => (performance.now() - MS.t0) / 1000;
+
+/* ---------- instruments (scheduled on the audio clock) ---------- */
+let noiseBuf = null;
+function mNoise(a) {
+  if (noiseBuf) return noiseBuf;
+  noiseBuf = a.createBuffer(1, a.sampleRate, a.sampleRate);
+  const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  return noiseBuf;
+}
+function mOsc(a, at, type, f0, f1, dur, vol, dest) {
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = type; o.frequency.setValueAtTime(f0, at); if (f1 && f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, at + dur);
+  g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(vol, at + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+  o.connect(g).connect(dest || a.destination); o.start(at); o.stop(at + dur + 0.03);
+}
+function mHiss(a, at, freq, q, dur, vol) {
+  const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+  s.buffer = mNoise(a); f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q;
+  g.gain.setValueAtTime(vol, at); g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+  s.connect(f).connect(g).connect(a.destination); s.start(at, Math.random() * 0.5); s.stop(at + dur + 0.02);
+}
+const midiF = m => 440 * Math.pow(2, (m - 69) / 12);
+// what = 'klong' | 'ranat' | 'pong' | 'ching' | 'chap' | 'bass' | 'tick' | 'thud'; pitch: drum 0 low / 1 high, else a midi note
+function mPlay(what, at, pitch, vol = 1) {
+  const a = audio(); if (!a) return;
+  at = Math.max(a.currentTime, at);
+  try {
+    if (what === 'klong') {
+      if (pitch === 0) { mOsc(a, at, 'sine', 120, 52, 0.32, 0.5 * vol); mHiss(a, at, 300, 1, 0.06, 0.18 * vol); }
+      else { mOsc(a, at, 'triangle', 300, 210, 0.12, 0.32 * vol); mHiss(a, at, 1800, 1.5, 0.05, 0.22 * vol); }
+    } else if (what === 'ranat') {
+      const f = midiF(pitch); mOsc(a, at, 'triangle', f, f, 0.42, 0.3 * vol); mOsc(a, at, 'sine', f * 2.01, f * 2.01, 0.18, 0.08 * vol); mHiss(a, at, 3500, 3, 0.015, 0.05 * vol);
+    } else if (what === 'pong') {
+      const f = midiF(pitch); mOsc(a, at, 'sine', f, f, 0.3, 0.32 * vol); mOsc(a, at, 'sine', f * 2.76, f * 2.76, 0.09, 0.07 * vol); mHiss(a, at, 1200, 2, 0.02, 0.05 * vol);
+    } else if (what === 'ching') { mOsc(a, at, 'sine', 2637, 2637, 0.5, 0.035 * vol); mOsc(a, at, 'sine', 3951, 3951, 0.35, 0.02 * vol); }
+    else if (what === 'chap') mHiss(a, at, 2600, 2, 0.07, 0.09 * vol);
+    else if (what === 'bass') mOsc(a, at, 'triangle', midiF(pitch), midiF(pitch), 0.35, 0.18 * vol);
+    else if (what === 'tick') mOsc(a, at, 'square', 1200, 1200, 0.05, 0.05 * vol);
+    else if (what === 'thud') { mOsc(a, at, 'sine', 90, 60, 0.12, 0.12 * vol); }
+  } catch (e) {}
+}
+const instOf = (G, who) => (G.def.inst && G.def.inst[who]) || (who === 'pink' ? 'klong' : 'ranat');
+const lanePitch = lane => (lane === 0 ? 0 : lane === 1 ? 1 : lane === 2 ? 60 : 72);
+// schedule the backing (ching-chap, bass on the bar, count-in) and, online, the partner's part a little ahead
+function mSchedule(t) {
+  const a = audio(), G = MS.G; if (!a || !G) return;
+  const ahead = 0.25, lat = a.outputLatency || a.baseLatency || 0, toAc = st => a.currentTime + (st - t) - lat;
+  if (MS.sched < t - 0.05) MS.sched = t - 0.05;
+  const from = MS.sched, to = t + ahead;
+  for (const c of G.C.count) if (c.t >= from && c.t < to) mPlay('tick', toAc(c.t), 0, c.n === 4 ? 1.4 : 1);
+  for (const b of G.C.back) if (b.t >= from && b.t < to) { mPlay(b.k, toAc(b.t), 0, 1); if (b.down) mPlay('bass', toAc(b.t), [48, 55, 52, 50][b.bar % 4], 1); }
+  if (O.role) {
+    const other = O.local === 'pink' ? 'mint' : 'pink', inst = instOf(G, other);
+    for (let i = G.next; i < G.notes.length; i++) { const n = G.notes[i]; if (n.t >= to) break; if (n.who === other && n.t >= from && n.res !== 'miss') mPlay(inst, toAc(n.t), n.pitch, 0.6); }
+  }
+  MS.sched = to;
+}
+
+/* ---------- flow ---------- */
+function loadMus(i, net) {
+  MS.li = i; MS.G = Rhy.load(MLEVELS[i]); MS.G.net = net || null; MS.G.local = net ? net.local : null;
+  MS.t0 = performance.now() + 700; MS.pausedAt = 0; MS.sched = -9; MS.endT = 0; MS.savedB = null; MS.floats = []; MS.flash = [0, 0, 0, 0]; MS.judge = [null, null, null, null];
+  MS.syncFx = []; MS.feverOn = false; MS.synced = !net || net.role === 'host';
+  S.kind = 'mus'; app.classList.add('mus'); app.classList.remove('kit', 'def', 'drv', 'tak', 'twr');
+  S.parts = []; S.flash = 0; S.shake = 0; S.banner = 0;
+  releaseK(); buildMusBg(); mHud(true); mPadLabels();
+}
+function startMus(i) {
+  readNames(); audio();
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  loadMus(i); showScreen(null); setMode('play');
+}
+function musRestart() { if (O.role) { onlineRestart(); return; } loadMus(MS.li); showScreen(null); setMode('play'); }
+function musNext() {
+  if (O.role === 'host') { if (MS.li < MLEVELS.length - 1) onlineStartMus(MS.li + 1); return; }
+  if (MS.li < MLEVELS.length - 1 && mOpen(MS.li + 1)) startMus(MS.li + 1); else toTitle();
+}
+let mHudKey = '';
+function mHud(force) {
+  const k = String(MS.li); if (!force && k === mHudKey) return; mHudKey = k;
+  const lv = MLEVELS[MS.li];
+  $('#hNo').textContent = SONG(MS.li); $('#hName').textContent = lv.name; $('#hHint').textContent = lv.hint; $('#hHearts').textContent = '';
+}
+function mSave() {
+  if (MS.savedB) return MS.savedB;
+  const G = MS.G, lv = MLEVELS[MS.li], st = Rhy.stars(G), acc = Math.round(Rhy.accuracy(G) * 100);
+  const b = prog.m[lv.name] || { s: 0, m: 0, a: 0 };
+  if (!G.failed) { prog.m[lv.name] = { s: Math.max(b.s, st), m: Math.max(b.m, G.score), a: Math.max(b.a || 0, acc) }; store.set('prog2', prog); }
+  return (MS.savedB = b);
+}
+function mResults() {
+  const G = MS.G, lv = MLEVELS[MS.li], st = Rhy.stars(G), acc = Math.round(Rhy.accuracy(G) * 100);
+  const b = mSave(), best = !G.failed && G.score > b.m;
+  setMode('clear'); releaseAll(); releaseK();
+  $('#cNo').textContent = `${SONG(MS.li)} · ${G.failed ? 'วงล่มกลางเพลง' : 'จบเพลง'}`;
+  $('#cName').textContent = lv.name;
+  $('#cStars').hidden = false;
+  $('#cStars').innerHTML = [0, 1, 2].map(i => `<span class="${i < st ? '' : 'off'}">★</span>`).join('');
+  const msg = G.failed ? 'พลังวงหมดก่อนจบเพลง ช่วยกันตีตัวง่ายๆ ให้ติดก่อน แล้วค่อยไล่ตัวยาก' : st === 3 ? 'เข้าขากันสุดๆ ฟังแล้วเหมือนคนเดียวตี' : st === 2 ? 'เพราะแล้ว อีกนิดได้สามดาว ลองนับจังหวะออกเสียงด้วยกัน' : st === 1 ? 'เล่นจบเพลงแล้ว เพลงถัดไปเปิดให้เล่นแล้ว' : `ยังไม่ถึงดาวแรก ต้องแม่น ${th(Math.round(lv.stars[0] * 100))}% ลองฟังฉิ่งฉับเป็นจังหวะ`;
+  $('#cMsg').textContent = msg + (best && b.m ? ' · สถิติใหม่' : '');
+  const s = G.stats;
+  $('#cStats').innerHTML = `<span>แต้ม <b>${th(G.score)}</b></span><span>แม่น <b>${th(acc)}%</b></span><span>เป๊ะ <b>${th(s.perfect)}</b> ดี <b>${th(s.good)}</b> พลาด <b>${th(s.miss)}</b></span><span>คอมโบ <b>${th(G.maxCombo)}</b> ตีพร้อม <b>${th(s.sync)}</b></span>`;
+  const last = MS.li >= MLEVELS.length - 1, guest = O.role === 'guest';
+  $('#bNext').textContent = 'เพลงถัดไป';
+  $('#bNext').hidden = guest || last || !mOpen(MS.li + 1);
+  $('#bAgain').hidden = guest;
+  $('#bAgain').textContent = O.role === 'host' ? 'เลือกด่านอื่น' : 'เล่นเพลงนี้อีกรอบ';
+  $('#bLevels2').hidden = !!O.role; $('#bLeave2').hidden = !O.role;
+  if (guest) $('#cMsg').textContent += ` · รอ${O.partnerName || 'อีกคน'}เลือกต่อ`;
+  showScreen('clear');
+}
+
+/* ---------- input ---------- */
+// a press on a lane at an event time (performance.now clock); online both key pairs play the local player's two lanes
+function musPress(lane, ts) {
+  const G = MS.G;
+  if (!G || S.mode !== 'play' || G.over) return;
+  if (O.role) lane = Rhy.LANE_OF[O.local][lane % 2];
+  const t = ((ts || performance.now()) - MS.t0) / 1000, who = Rhy.whoOf(lane);
+  const n = Rhy.hit(G, lane, t);
+  mPlay(instOf(G, who), audio() ? audio().currentTime : 0, n ? n.pitch : lanePitch(lane), 1);
+  MS.flash[lane] = 1; MS.hitAnim[who] = 1;
+  if (n) { MS.judge[lane] = { r: n.res === 'miss' ? 'early' : n.res, life: 0.5 }; if (n.res === 'perfect') mSpark(LANE_X[lane], HIT_Y, who); }
+}
+function mPadLabels() { document.querySelectorAll('.mpad button').forEach(b => { b.querySelector('i').textContent = b.dataset.k === 'lo' ? 'ต่ำ' : 'สูง'; }); }
+const mpad = $('#mpad');
+const mbtns = new Map();
+mpad.addEventListener('pointerdown', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  e.preventDefault(); audio();
+  const side = b.closest('.side').dataset.p, lane = Rhy.LANE_OF[O.role ? O.local : side][b.dataset.k === 'lo' ? 0 : 1];
+  b.classList.add('on'); mbtns.set(e.pointerId, b);
+  try { b.setPointerCapture(e.pointerId); } catch (err) {}
+  musPress(lane, e.timeStamp);
+});
+for (const ev of ['pointerup', 'pointercancel']) mpad.addEventListener(ev, e => { const b = mbtns.get(e.pointerId); if (b) { b.classList.remove('on'); mbtns.delete(e.pointerId); } });
+mpad.addEventListener('contextmenu', e => e.preventDefault());
+
+/* ---------- tick ---------- */
+function mSpark(x, y, who) { burst(x, y, 10, who === 'pink' ? C.pink : C.mint, { speed: 160, life: .45, size: 3, g: 200 }); }
+function mEvents(ev) {
+  const G = MS.G;
+  for (const e of ev) {
+    const [k, id] = e.split(':');
+    if (k === 'sync') { const n = G.notes[+id]; MS.syncFx.push({ t: n.t, life: 0.6 }); }
+    else if (k === 'fever') { sfx.win(); MS.floats.push({ text: 'วงเข้าขา! แต้มสองเท่า', x: VW / 2, y: 250, col: C.gold, life: 2, size: 24 }); burst(VW / 2, 300, 40, C.gold, { speed: 260, life: 1, size: 4, up: 120 }); }
+    else if (k === 'break') { mPlay('thud', audio() ? audio().currentTime : 0, 0, 1); MS.floats.push({ text: 'คอมโบหลุด', x: VW / 2, y: 200, col: '#ff9a9a', life: 1, size: 16 }); }
+    else if (k === 'fail') { sfx.lost(); S.shake = 1; }
+    else if (k === 'end') sfx.win();
+  }
+}
+function musFrame(dt, now) {
+  const G = MS.G;
+  // pause holds the song clock (playing alone); resuming gives a short run-up
+  if (S.mode === 'paused' && !O.role && !MS.pausedAt) MS.pausedAt = now;
+  if (S.mode === 'play' && MS.pausedAt) { const tp = (MS.pausedAt - MS.t0) / 1000; MS.t0 = now - (tp - 1.5) * 1000; MS.pausedAt = 0; MS.sched = tp - 1.5; }
+  if (S.mode === 'play' && G && MS.synced) {
+    const t = mNow();
+    for (const n of Rhy.expire(G, t, mLocalWho())) { MS.judge[n.lane] = { r: 'miss', life: 0.5 }; }
+    if (!O.role || O.role === 'host') mEvents(Rhy.settle(G, t));
+    mSchedule(t);
+    if (G.over && !MS.endT) { MS.endT = 1.6; mSave(); }
+    if (MS.endT > 0) { MS.endT -= dt; if (MS.endT <= 0) { MS.endT = -1; mResults(); if (O.role === 'host') O.st = 'clear'; } }
+    // drawn notes for the partner online: shown as hit once their result arrives
+  }
+  if (O.role) pumpOnline(now);
+  S.flash = Math.max(0, S.flash - dt * 2.2); S.shake = Math.max(0, S.shake - dt * 3);
+  for (let i = 0; i < 4; i++) { MS.flash[i] = Math.max(0, MS.flash[i] - dt * 6); if (MS.judge[i]) { MS.judge[i].life -= dt; if (MS.judge[i].life <= 0) MS.judge[i] = null; } }
+  for (const k of ['pink', 'mint']) MS.hitAnim[k] = Math.max(0, MS.hitAnim[k] - dt * 7);
+  for (const f of MS.syncFx) f.life -= dt; MS.syncFx = MS.syncFx.filter(f => f.life > 0);
+  for (const f of MS.floats) { f.life -= dt; f.y -= dt * 20; } MS.floats = MS.floats.filter(f => f.life > 0);
+  stepParts(dt);
+  if (G) mHud();
+  renderMus();
+}
+
+/* ---------- drawing ---------- */
+const musBg = document.createElement('canvas');
+const MSCENE = {
+  home: { sky: ['#ffcf9e', '#f59a7a', '#7a4d7c'], far: '#5a3a64', ground: '#3d2a44' },
+  parade: { sky: ['#9fd8ff', '#ffe2b0', '#f7b08a'], far: '#8a6a9a', ground: '#6a4a5a' },
+  river: { sky: ['#ffd6a0', '#f29f7f', '#5b6fa6'], far: '#3f4f7a', ground: '#2f3a5e' },
+  isan: { sky: ['#ffe0a0', '#f2b46a', '#a85a5a'], far: '#7a4a4a', ground: '#4a2e2e' },
+  stage: { sky: ['#140f2e', '#2c1d52', '#4a2563'], far: '#2a1f4a', ground: '#1e1636' }
+};
+function buildMusBg() {
+  const G = MS.G; if (!G) return;
+  musBg.width = cv.width; musBg.height = cv.height;
+  const g = musBg.getContext('2d'), P = MSCENE[G.def.scene] || MSCENE.home, R = rng(MS.li * 977 + 3);
+  g.setTransform(scale, 0, 0, scale, 0, 0);
+  const sky = g.createLinearGradient(0, 0, 0, VH); sky.addColorStop(0, P.sky[0]); sky.addColorStop(.55, P.sky[1]); sky.addColorStop(1, P.sky[2]);
+  g.fillStyle = sky; g.fillRect(0, 0, VW, VH);
+  if (G.def.scene === 'stage') for (let i = 0; i < 90; i++) { g.fillStyle = `rgba(255,240,220,${.2 + R() * .6})`; g.fillRect(R() * VW, R() * 300, 1.5, 1.5); }
+  // far silhouettes
+  g.fillStyle = P.far;
+  if (G.def.scene === 'river') { g.fillRect(0, 380, VW, 30); for (let i = 0; i < 6; i++) { const x = R() * VW; g.beginPath(); g.moveTo(x - 40, 380); g.lineTo(x, 330 - R() * 40); g.lineTo(x + 40, 380); g.fill(); } }
+  else if (G.def.scene === 'isan') { for (let i = 0; i < 5; i++) { const x = 60 + i * 210 + R() * 60; g.fillRect(x - 3, 250, 6, 150); g.beginPath(); g.arc(x, 250, 40 + R() * 20, Math.PI, 0); g.fill(); } }
+  else for (let i = 0; i < 4; i++) prang(g, 90 + i * 260 + R() * 50, 400, 40 + R() * 20, 160 + R() * 70, P.far);
+  // stage floor in the middle
+  g.fillStyle = P.ground; g.fillRect(0, 400, VW, VH - 400);
+  g.fillStyle = 'rgba(255,214,140,.18)'; g.beginPath(); g.ellipse(VW / 2, 470, 190, 34, 0, 0, Math.PI * 2); g.fill();
+  // lanes
+  for (let l = 0; l < 4; l++) {
+    const x = LANE_X[l], pink = l < 2;
+    const lg = g.createLinearGradient(0, TOP_Y - 30, 0, HIT_Y + 40); lg.addColorStop(0, 'rgba(21,17,46,0)'); lg.addColorStop(.25, 'rgba(21,17,46,.55)'); lg.addColorStop(1, 'rgba(21,17,46,.8)');
+    g.fillStyle = lg; g.fillRect(x - LANE_W / 2, TOP_Y - 30, LANE_W, HIT_Y + 40 - (TOP_Y - 30));
+    g.strokeStyle = hexA(pink ? C.pink : C.mint, .35); g.lineWidth = 1.5; g.strokeRect(x - LANE_W / 2, TOP_Y - 30, LANE_W, HIT_Y + 40 - (TOP_Y - 30));
+  }
+}
+function mDrawNote(g, n, y, alpha) {
+  const pink = n.who === 'pink', x = LANE_X[n.lane];
+  g.globalAlpha = alpha;
+  if (pink) {                                                   // a drum head
+    g.fillStyle = n.lane === 0 ? '#c94372' : '#ff8fb5'; g.beginPath(); g.ellipse(x, y, 26, 12, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#fff2f6'; g.beginPath(); g.ellipse(x, y - 2, 20, 7.5, 0, 0, Math.PI * 2); g.fill();
+  } else {                                                      // a ranat bar
+    rr(g, x - 28, y - 9, 56, 18, 6); g.fillStyle = n.lane === 2 ? '#1f9d80' : '#68f0cf'; g.fill();
+    g.fillStyle = 'rgba(255,255,255,.55)'; g.fillRect(x - 22, y - 6, 44, 3);
+    g.fillStyle = '#123'; g.beginPath(); g.arc(x - 18, y, 2, 0, Math.PI * 2); g.arc(x + 18, y, 2, 0, Math.PI * 2); g.fill();
+  }
+  if (n.sync >= 0) { g.strokeStyle = C.gold; g.lineWidth = 2.5; g.beginPath(); g.ellipse(x, y, 32, 15, 0, 0, Math.PI * 2); g.stroke(); }
+  g.globalAlpha = 1;
+}
+function mDrawBand(g, G, t) {
+  const cx = VW / 2, by = 452, beat = G.C.spb, ph = ((t - G.C.lead) / beat) % 1, bob = Math.max(0, Math.cos(ph * Math.PI * 2)) * 3;
+  // pink and the long drum
+  const pa = MS.hitAnim.pink, ma = MS.hitAnim.mint;
+  g.save(); g.translate(cx - 90, by - bob - pa * 4);
+  g.fillStyle = '#8a4a2a'; rr(g, -12, -46, 24, 64, 8); g.fill();
+  g.fillStyle = '#d9a46a'; g.beginPath(); g.ellipse(0, -46, 13, 5, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#e8d2a0'; for (let k = 0; k < 4; k++) g.fillRect(-12, -36 + k * 12, 24, 2);
+  g.restore();
+  g.save(); g.translate(cx - 120, by - bob); g.scale(1.6, 1.6); drawPlayer(g, { id: 'pink', x: -11, y: -28, w: 22, h: 28, face: 1, sq: pa * .5, walk: 0 }, S.time); g.restore();
+  g.strokeStyle = C.pinkD; g.lineWidth = 6; g.lineCap = 'round'; g.beginPath(); g.moveTo(cx - 108, by - 30); g.lineTo(cx - 92, by - 52 - bob + pa * 10); g.stroke();
+  // mint and the ranat
+  g.save(); g.translate(cx + 96, by - 8);
+  g.fillStyle = '#7a3e22'; g.beginPath(); g.moveTo(-46, -10); g.quadraticCurveTo(0, 18, 46, -10); g.lineTo(40, 4); g.quadraticCurveTo(0, 26, -40, 4); g.closePath(); g.fill();
+  for (let k = 0; k < 9; k++) { g.fillStyle = k % 2 ? '#e7c27a' : '#d7aa5a'; g.fillRect(-38 + k * 8.6, -16 + Math.abs(k - 4) * 0.8, 7, 12); }
+  g.restore();
+  g.save(); g.translate(cx + 140, by - bob); g.scale(1.6, 1.6); drawPlayer(g, { id: 'mint', x: -11, y: -28, w: 22, h: 28, face: -1, sq: ma * .5, walk: 0 }, S.time); g.restore();
+  g.strokeStyle = C.mintD; g.lineWidth = 5; g.beginPath(); g.moveTo(cx + 128, by - 30); g.lineTo(cx + 104, by - 26 - ma * 10); g.stroke();
+}
+function mDrawHud(g, G, t) {
+  rr(g, 10, 10, 190, 60, 12); g.fillStyle = 'rgba(21,17,46,.75)'; g.fill();
+  g.textAlign = 'left'; g.font = `400 12px ${FONT}`; g.fillStyle = '#c9bfef'; g.fillText('แต้ม', 22, 29);
+  g.font = `400 26px ${FONT_D}`; g.fillStyle = C.gold; g.fillText(th(G.score), 22, 60);
+  const acc = Rhy.accuracy(G), done = G.next / Math.max(1, G.notes.length);
+  g.textAlign = 'right'; g.font = `400 11px ${FONT}`; g.fillStyle = '#c9bfef';
+  g.fillText(`แม่น ${th(Math.round((G.next ? G.base / (100 * G.next) : 1) * 100))}%`, 190, 29);
+  // band energy
+  const ex = VW / 2 - 150, ey = 14, ew = 300;
+  rr(g, ex - 10, ey - 6, ew + 20, 34, 12); g.fillStyle = 'rgba(21,17,46,.75)'; g.fill();
+  g.textAlign = 'left'; g.font = `600 11px ${FONT}`; g.fillStyle = '#c9bfef'; g.fillText('พลังวง', ex, ey + 9);
+  const e = G.energy / 100, col = e > .5 ? '#7be08a' : e > .25 ? '#ffc65a' : '#ff6b6b';
+  rr(g, ex + 46, ey + 1, ew - 46, 10, 5); g.fillStyle = 'rgba(255,255,255,.12)'; g.fill();
+  rr(g, ex + 46, ey + 1, (ew - 46) * e, 10, 5); g.fillStyle = col; g.fill();
+  rr(g, ex + 46, ey + 17, ew - 46, 4, 2); g.fillStyle = 'rgba(255,255,255,.12)'; g.fill();
+  rr(g, ex + 46, ey + 17, (ew - 46) * Math.min(1, Math.max(0, t / G.C.end)), 4, 2); g.fillStyle = '#c9bfef'; g.fill();
+  // section label and who leads
+  const sec = [...G.C.secs].reverse().find(s => s.t <= t + 0.5);
+  if (sec && sec.label) { g.textAlign = 'center'; g.font = `600 13px ${FONT}`; g.fillStyle = 'rgba(255,255,255,.85)'; g.fillText(sec.label, VW / 2, ey + 44); }
+  // combo
+  if (G.combo >= 5) {
+    const mult = G.combo >= 25 ? 2 : G.combo >= 10 ? 1.5 : 1;
+    g.textAlign = 'center'; g.font = `400 34px ${FONT_D}`; g.fillStyle = C.paper; g.fillText(th(G.combo), VW / 2, 150);
+    g.font = `600 12px ${FONT}`; g.fillStyle = '#c9bfef'; g.fillText(`คอมโบ${mult > 1 ? ` ×${th(mult)}` : ''}`, VW / 2, 168);
+  }
+  if (t < G.fever) { g.textAlign = 'center'; g.font = `400 18px ${FONT_D}`; g.fillStyle = C.gold; g.fillText('วงเข้าขา ×๒', VW / 2, 200); }
+  else if (G.streak > 0) { g.textAlign = 'center'; g.font = `600 12px ${FONT}`; g.fillStyle = C.gold; g.fillText(`ตีพร้อมกันติด ${th(G.streak)}/${th(Rhy.FEVER_STREAK)}`, VW / 2, 200); }
+  // count-in
+  const c = G.C.count.find(q => t >= q.t && t < q.t + G.C.spb);
+  if (c) { g.textAlign = 'center'; g.font = `400 64px ${FONT_D}`; g.fillStyle = hexA(C.gold, 1 - (t - c.t) / G.C.spb); g.fillText(th(c.n), VW / 2, 320); }
+}
+function renderMus() {
+  const g = ctx, G = MS.G;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  if (!G) return;
+  g.drawImage(musBg, 0, 0);
+  let ox = 0; if (S.shake > 0) ox = (Math.random() - .5) * 6 * S.shake;
+  g.setTransform(scale, 0, 0, scale, ox * scale, 0);
+  const t = S.mode === 'play' && MS.synced ? mNow() : (MS.pausedAt ? (MS.pausedAt - MS.t0) / 1000 : Math.min(mNow(), 0));
+  const fever = t < G.fever;
+  if (fever) { const a = .12 + Math.sin(S.time * 8) * .05; g.fillStyle = `rgba(255,207,90,${a})`; g.fillRect(0, 0, VW, VH); }
+  // lane flashes, hit line, keys
+  for (let l = 0; l < 4; l++) {
+    const x = LANE_X[l], pink = l < 2, col = pink ? C.pink : C.mint;
+    if (MS.flash[l] > 0) { g.fillStyle = hexA(col, MS.flash[l] * .35); g.fillRect(x - LANE_W / 2, TOP_Y - 30, LANE_W, HIT_Y + 40 - (TOP_Y - 30)); }
+    g.strokeStyle = hexA(col, .9); g.lineWidth = 3; g.beginPath(); g.ellipse(x, HIT_Y, 30, 13, 0, 0, Math.PI * 2); g.stroke();
+    g.font = `600 14px ${FONT}`; g.textAlign = 'center'; g.fillStyle = hexA(col, .9); g.fillText(O.role ? (l % 2 ? 'ขวา' : 'ซ้าย') : LANE_KEY[l], x, HIT_Y + 34);
+  }
+  // notes: from now up to 'speed' seconds ahead
+  const sp = G.def.speed || 1.6, ppx = (HIT_Y - TOP_Y) / sp, yOf = n => HIT_Y - (n.t - t) * ppx;
+  const show = [];
+  for (let i = Math.max(0, G.next - 30); i < G.notes.length; i++) {
+    const n = G.notes[i];
+    if (n.t > t + sp + 0.1) break;
+    if (n.t < t - 0.3) continue;
+    if (n.res && n.res !== 'miss') continue;                 // hit notes disappear
+    show.push(n);
+  }
+  // the gold thread of a chord across the stage
+  const seen = new Set();
+  for (const n of show) {
+    if (n.sync < 0 || seen.has(n.sync)) continue; seen.add(n.sync);
+    const grp = show.filter(q => q.sync === n.sync), p = grp.find(q => q.who === 'pink'), m = grp.find(q => q.who === 'mint');
+    if (!p || !m) continue;
+    const y = yOf(n);
+    g.strokeStyle = hexA(C.gold, .55); g.lineWidth = 2; g.setLineDash([6, 6]);
+    g.beginPath(); g.moveTo(LANE_X[p.lane] + 30, y); g.quadraticCurveTo(VW / 2, y - 26, LANE_X[m.lane] - 30, y); g.stroke(); g.setLineDash([]);
+  }
+  for (const n of show) mDrawNote(g, n, yOf(n), n.res === 'miss' ? 0.35 : 1);
+  for (const f of MS.syncFx) { const y = HIT_Y; g.strokeStyle = hexA(C.gold, f.life / 0.6); g.lineWidth = 5; g.beginPath(); g.moveTo(LANE_X[1] + 30, y); g.quadraticCurveTo(VW / 2, y - 60, LANE_X[2] - 30, y); g.stroke(); }
+  for (let l = 0; l < 4; l++) { const j = MS.judge[l]; if (!j) continue; g.globalAlpha = Math.min(1, j.life * 3); g.font = `400 18px ${FONT_D}`; g.textAlign = 'center'; g.lineWidth = 4; g.strokeStyle = 'rgba(21,18,43,.85)'; g.strokeText(JUDGE_TXT[j.r], LANE_X[l], HIT_Y - 30 - (0.5 - j.life) * 30); g.fillStyle = JUDGE_COL[j.r]; g.fillText(JUDGE_TXT[j.r], LANE_X[l], HIT_Y - 30 - (0.5 - j.life) * 30); g.globalAlpha = 1; }
+  mDrawBand(g, G, t);
+  drawParts(g);
+  for (const f of MS.floats) { g.globalAlpha = Math.min(1, f.life * 2); g.textAlign = 'center'; g.font = `400 ${f.size}px ${FONT_D}`; g.lineWidth = 4; g.strokeStyle = 'rgba(21,18,43,.8)'; g.strokeText(f.text, f.x, f.y); g.fillStyle = f.col; g.fillText(f.text, f.x, f.y); g.globalAlpha = 1; }
+  g.setTransform(scale, 0, 0, scale, 0, 0);
+  mDrawHud(g, G, t);
+  if (O.role && !MS.synced && S.mode === 'play') { g.textAlign = 'center'; g.font = `600 15px ${FONT}`; g.fillStyle = C.gold; g.fillText('รอเพลงเริ่มพร้อมกัน…', VW / 2, 300); }
+  if (O.role && S.mode !== 'menu') drawNetNote(g);
+}
+
+/* ---------- title list ---------- */
+function renderMusLevels() {
+  let total = 0;
+  $('#mlevels').innerHTML = MLEVELS.map((lv, i) => {
+    const b = mBest(i), open = mOpen(i);
+    if (b) total += b.s;
+    const hs = b ? `<span class="st">${kStars(b.s)}</span> แม่น ${th(b.a || 0)}%` : open ? 'ยังไม่เคยเล่น' : 'ยังล็อกอยู่';
+    return `<button type="button" class="lv${b && b.s ? ' done' : ''}" data-m="${i}"${open ? '' : ' disabled'}><span class="n">${th(i + 1)}</span><span class="nm">${lv.name}</span><span class="hs">${hs}</span></button>`;
+  }).join('');
+  $('#mStarsAll').textContent = `ดาวรวม ${th(total)}/${th(MLEVELS.length * 3)}`;
+  let next = MLEVELS.findIndex((l, i) => mOpen(i) && !(mBest(i) && mBest(i).s >= 3));
+  if (next < 0) next = 0;
+  $('#bGo').dataset.m = next;
+  if (S.tab === 'mus') $('#bGo').textContent = mBest(next) ? `เล่น${SONG(next)}` : 'เริ่มบรรเลง';
+}
+$('#mlevels').addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (b && !b.disabled) startMus(+b.dataset.m); });
+
+/* ---------- online: each phone judges its own player; results go both ways, the host has the final say ---------- */
+function onlineStartMus(i) {
+  if (O.role !== 'host') return;
+  O.md = 'm'; O.lv = i; O.ep++; O.st = 'play'; O.seenDead = O.partner ? (O.partner.dead | 0) : 0; O.seenRq = O.partner ? (O.partner.rq | 0) : 0;
+  loadOnlineLevel(true);
+}
+$('#oLevelsM').addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (b && !b.disabled) onlineStartMus(+b.dataset.m); });
+function renderOnlineMus() {
+  $('#oLevelsM').innerHTML = MLEVELS.map((lv, i) => {
+    const b = mBest(i), open = mOpen(i);
+    return `<button type="button" class="lv${b && b.s ? ' done' : ''}" data-m="${i}"${open ? '' : ' disabled'}><span class="n">${th(i + 1)}</span><span class="nm">${lv.name}</span><span class="hs">${b ? `<span class="st">${kStars(b.s)}</span>` : open ? 'ยังไม่เคยเล่น' : 'ยังล็อกอยู่'}</span></button>`;
+  }).join('');
+}
+function mEncode() { const G = MS.G, t = mNow(); const o = { t: Math.round(t * 1000) / 1000, j: Rhy.recent(G, O.local, t) }; if (O.role === 'host') o.s = Rhy.summary(G); return o; }
+function mHostHears(pr) {
+  const G = MS.G;
+  if (!G || pr.ep !== O.ep || !pr.mw) return;
+  Rhy.merge(G, pr.mw.j);
+}
+function mGuestHears(pr) {
+  const G = MS.G;
+  if (!G || !pr.mw) return;
+  const m = pr.mw;
+  // start our clock on the host's song time the first time we hear it
+  if (!MS.synced && Number.isFinite(m.t)) { MS.t0 = performance.now() - m.t * 1000; MS.synced = true; MS.sched = m.t - 0.05; }
+  Rhy.merge(G, m.j);
+  const was = G.over, pv = Object.assign({}, G.stats), pc = G.combo;
+  if (m.s) Rhy.applySummary(G, m.s);
+  if (G.stats.sync > pv.sync) MS.syncFx.push({ t: 0, life: 0.6 });
+  if (G.stats.fevers > pv.fevers) mEvents(['fever']);
+  if (pc >= 10 && G.combo < pc && G.stats.miss > pv.miss) mEvents(['break']);
+  if (G.over && !was && !MS.endT && S.mode === 'play') { MS.endT = 1.6; mSave(); }
+}
+
+/* ---------- Tower mode (ต่อตึกด้วยกัน) ---------- */
+const WS = { G: null, li: 0, acc: 0, floats: [], debris: [], camY: 0, endT: 0, savedB: null, press: { pink: 0, mint: 0 }, req: { n: 0, id: -1, x: 0, t: 0 }, seenReq: -1, prev: null, hop: { pink: 0, mint: 0 } };
+const SITE = i => 'ไซต์ที่ ' + th(i + 1);
+const WKEY = { KeyW: 'pink', KeyS: 'pink', Space: 'pink', ArrowUp: 'mint', ArrowDown: 'mint', Enter: 'mint', NumpadEnter: 'mint' };
+const W_FH = Twr.FH, W_REST = 380;                                   // the floor being built rests this far down the screen
+if (!prog.w) prog.w = {};
+const wBest = i => prog.w[WLEVELS[i].name] || null;
+const wOpen = i => i === 0 || !!(wBest(i - 1) && wBest(i - 1).s >= 1);
+Object.assign(sfx, {
+  wdrop() { tone(620, .05, 'square', .03, 320); },
+  wland() { tone(150, .12, 'square', .06, 70); tone(90, .18, 'sine', .08, 50); },
+  wperf() { [880, 1320].forEach((f, i) => tone(f, .12, 'triangle', .05, 0, i * .05)); },
+  wseal() { tone(660, .1, 'triangle', .05); tone(990, .16, 'triangle', .05, 0, .07); },
+  wcrack() { tone(300, .18, 'sawtooth', .035, 120); tone(170, .1, 'square', .03, 90, .05); },
+  wmiss() { tone(520, .35, 'sine', .05, 120); tone(80, .25, 'sine', .09, 40, .35); },
+  what() { [523, 659, 784].forEach((f, i) => tone(f, .12, 'triangle', .05, 0, i * .06)); },
+  wtop() { [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, .22, 'triangle', .06, 0, i * .09)); },
+  wfall() { tone(220, .7, 'sawtooth', .045, 50); tone(60, .5, 'sine', .1, 30, .15); },
+  wwind() { tone(380, .55, 'sine', .02, 720); tone(300, .5, 'sine', .015, 520, .1); }
+});
+function wPress(who) { if (WS.G && S.mode === 'play') { WS.press[who] = Math.min(2, WS.press[who] + 1); audio(); } }
+
+/* ---------- flow ---------- */
+function loadTwr(i, net) {
+  WS.li = i; WS.G = Twr.load(WLEVELS[i], 1000 + i * 37 + Math.floor(Math.random() * 1000)); WS.G.net = net || null;
+  WS.acc = 0; WS.floats = []; WS.debris = []; WS.camY = 0; WS.endT = 0; WS.savedB = null; WS.press = { pink: 0, mint: 0 };
+  WS.req = { n: WS.req.n, id: -1, x: 0, t: 0 }; WS.seenReq = -1; WS.prev = wSnap(WS.G); WS.hop = { pink: 0, mint: 0 };
+  S.kind = 'twr'; app.classList.add('twr'); app.classList.remove('kit', 'def', 'drv', 'tak', 'mus');
+  S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
+  releaseK(); buildTwrBg(); wHud(true);
+}
+function startTwr(i) {
+  readNames(); audio();
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  loadTwr(i); showScreen(null); setMode('play');
+}
+function twrRestart() { if (O.role) { onlineRestart(); return; } loadTwr(WS.li); showScreen(null); setMode('play'); }
+function twrNext() {
+  if (O.role === 'host') { if (WS.li < WLEVELS.length - 1) onlineStartTwr(WS.li + 1); return; }
+  if (WS.li < WLEVELS.length - 1 && wOpen(WS.li + 1)) startTwr(WS.li + 1); else toTitle();
+}
+let wHudKey = '';
+function wHud(force) {
+  const k = String(WS.li); if (!force && k === wHudKey) return; wHudKey = k;
+  const lv = WLEVELS[WS.li];
+  $('#hNo').textContent = SITE(WS.li); $('#hName').textContent = lv.name; $('#hHint').textContent = lv.hint; $('#hHearts').textContent = '';
+}
+function wSave() {
+  if (WS.savedB) return WS.savedB;
+  const G = WS.G, lv = WLEVELS[WS.li], st = Twr.stars(G), f = Twr.floorsDone(G);
+  const b = prog.w[lv.name] || { s: 0, f: 0, m: 0 };
+  prog.w[lv.name] = { s: Math.max(b.s, st), f: Math.max(b.f || 0, f), m: Math.max(b.m || 0, G.score) };
+  store.set('prog2', prog);
+  return (WS.savedB = b);
+}
+function wResults() {
+  const G = WS.G, lv = WLEVELS[WS.li], st = Twr.stars(G), f = Twr.floorsDone(G), s = G.stats;
+  const b = wSave(), best = f > (b.f || 0) || (G.won && G.score > (b.m || 0));
+  setMode('clear'); releaseAll(); releaseK();
+  $('#cNo').textContent = `${SITE(WS.li)} · ${G.won ? 'สร้างเสร็จแล้ว' : 'หมวกหมด ปิดไซต์'}`;
+  $('#cName').textContent = lv.name;
+  $('#cStars').hidden = false;
+  $('#cStars').innerHTML = [0, 1, 2].map(i => `<span class="${i < st ? '' : 'off'}">★</span>`).join('');
+  const msg = G.won ? (s.crack === 0 ? 'ต่อสนิททุกชั้น ตึกตั้งตรงเป๊ะ ช่างคู่นี้ฝีมือดีมาก' : 'ต่อจนถึงยอดได้แล้ว รอบหน้าลองปิดรอยต่อให้ครบทุกชั้น')
+    : st >= 2 ? 'อีกนิดเดียวถึงยอด ลงเป๊ะพร้อมกันจะได้หมวกคืน'
+    : st === 1 ? 'ผ่านแล้ว ไซต์ถัดไปเปิดให้เล่นแล้ว'
+    : `ยังไม่ถึงดาวแรก ต้องต่อให้ได้ ${th(lv.stars[0])} ชั้น ปล่อยตอนขอบด้านในตรงกับชั้นล่างของตัวเอง`;
+  $('#cMsg').textContent = msg + (best && b.f ? ' · สถิติใหม่' : '');
+  $('#cStats').innerHTML = `<span>ชั้น <b>${th(f)}/${th(lv.top)}</b></span><span>แต้ม <b>${th(G.score)}</b></span><span>ลงเป๊ะ <b>${th(s.perfect)}</b> ครั้ง</span><span>ต่อสนิท <b>${th(s.seal)}</b> ชั้น ร่วง <b>${th(s.miss)}</b></span>`;
+  const last = WS.li >= WLEVELS.length - 1, guest = O.role === 'guest';
+  $('#bNext').textContent = 'ไซต์ถัดไป';
+  $('#bNext').hidden = guest || last || !wOpen(WS.li + 1);
+  $('#bAgain').hidden = guest;
+  $('#bAgain').textContent = O.role === 'host' ? 'เลือกด่านอื่น' : 'สร้างไซต์นี้ใหม่';
+  $('#bLevels2').hidden = !!O.role; $('#bLeave2').hidden = !O.role;
+  if (guest) $('#cMsg').textContent += ` · รอ${O.partnerName || 'อีกคน'}เลือกต่อ`;
+  showScreen('clear');
+}
+
+/* ---------- tick ---------- */
+const wTop = k => Twr.GROUND - k * W_FH;                              // world y of the top of floor k
+function wFloat(text, x, y, col, size = 16, life = 1.4) { WS.floats.push({ text, x, y, col, life, max: life, size }); }
+function wWall(who) { const P = WSCENE[WS.G.def.scene] || WSCENE.house; return who === 'pink' ? P.wallP : P.wallM; }
+function wDebris(who, x0, x1, ytop, vx) {
+  if (x1 - x0 < 1) return;
+  WS.debris.push({ x: x0, w: x1 - x0, y: ytop, vx: vx + (Math.random() - .5) * 40, vy: -60 - Math.random() * 60, rot: 0, vr: (Math.random() - .5) * 5, col: wWall(who), who });
+}
+// what a landing looked like: cut pieces fly off, a miss falls whole
+function wLandFx(who, l) {
+  const G = WS.G; if (!l) return;
+  const ytop = l.y - W_FH, o = l.o || 0;
+  if (l.miss) {
+    wDebris(who, l.x + o, l.x + l.w + o, ytop, G.wind * .5);
+    sfx.wmiss(); S.shake = .5;
+    wFloat('ร่วง! เสียหมวกหนึ่งใบ', l.x + l.w / 2 + o, ytop - 18, '#ff9a9a', 16);
+    return;
+  }
+  if (l.a > l.x + .5) wDebris(who, l.x + o, l.a + o, ytop, -70);
+  if (l.x + l.w > l.b + .5) wDebris(who, l.b + o, l.x + l.w + o, ytop, 70);
+  sfx.wland();
+  const cx = (l.a + l.b) / 2 + o;
+  burst(cx, l.y, 8, 'rgba(230,220,200,.8)', { speed: 70, up: 30, life: .4, size: 2.5, g: 200 });
+  if (l.perf) { sfx.wperf(); wFloat('เป๊ะ!', cx, ytop - 14, C.gold, 20, 1); burst(cx, ytop, 14, C.gold, { speed: 150, up: 60, life: .55, size: 3, g: 150 }); }
+}
+function wFloorFx(f, k) {
+  const G = WS.G, y = wTop(k), sx = f.pink.b + Twr.off(G, k, G.t);
+  if (f.seal) { sfx.wseal(); wFloat('ต่อสนิท', sx, y - 34, C.paper, 14, 1.1); burst(sx, y + W_FH / 2, 10, '#fff', { speed: 90, life: .4, size: 2, g: 0 }); }
+  else { sfx.wcrack(); wFloat('รอยต่อห่าง ตึกโยกขึ้น', sx + f.gap / 2, y - 34, '#ffb38a', 14, 1.4); S.shake = Math.max(S.shake, .25); }
+}
+function wEvents(ev) {
+  const G = WS.G;
+  for (const e of ev) {
+    const [k, who, p] = e.split(':');
+    if (k === 'drop') { sfx.wdrop(); WS.hop[who] = 1; }
+    else if (k === 'land' || k === 'miss') wLandFx(who, G.last[who]);
+    else if (k === 'seal' || k === 'crack') { const n = G.floors.length - 1; wFloorFx(G.floors[n], n); }
+    else if (k === 'both') wFloat('ลงเป๊ะทั้งคู่', VW / 2, wTop(G.floors.length - 1) - 60, C.gold, 18, 1.4);
+    else if (k === 'life') { sfx.what(); wFloat('ได้หมวกคืนหนึ่งใบ', VW / 2, wTop(G.floors.length - 1) - 84, '#ffe07a', 15, 1.6); }
+    else if (k === 'auto') { const b = G.blk[who]; wFloat('ปั้นจั่นปล่อยเอง', b ? b.x + b.w / 2 : VW / 2, (b ? b.y : wTop(G.n)) - 60, '#ffcfa0', 13, 1.2); }
+    else if (k === 'wind') { sfx.wwind(); wFloat(G.wind > 0 ? 'ลมเปลี่ยน พัดไปทางขวา →' : '← ลมเปลี่ยน พัดไปทางซ้าย', VW / 2, wTop(G.n) - 170, '#d8f2ff', 16, 1.8); }
+    else if (k === 'top') { sfx.wtop(); wTopFx(); }
+    else if (k === 'collapse') { sfx.wfall(); S.shake = 1.2; S.flash = .6; }
+    void p;
+  }
+}
+function wTopFx() {
+  const G = WS.G, y = wTop(G.floors.length - 1);
+  for (let i = 0; i < 4; i++) setTimeout(() => { if (S.kind === 'twr') burst(VW / 2 + (Math.random() - .5) * 300, y - 60 - Math.random() * 80, 30, [C.gold, C.pink, C.mint, '#fff'][i], { speed: 240, up: 60, life: 1.1, size: 3.5, g: 120 }); }, i * 220);
+  wFloat('สร้างเสร็จแล้ว!', VW / 2, y - 110, C.gold, 30, 2.4);
+}
+function wSnap(G) { return { lands: G.lands, k: { pink: G.last.pink ? G.last.pink.k : 0, mint: G.last.mint ? G.last.mint.k : 0 }, floors: G.floors.length, lives: G.lives, both: G.stats.both, auto: G.stats.auto, wind: G.wind, over: G.over, won: G.won }; }
+// the guest: effects from what changed in the host's snapshot
+function wGuestDiff() {
+  const G = WS.G, n = wSnap(G), p = WS.prev || n;
+  for (const who of ['pink', 'mint']) if (n.k[who] > p.k[who] && G.last[who]) wLandFx(who, G.last[who]);
+  for (let k = p.floors; k < n.floors; k++) if (G.floors[k]) wFloorFx(G.floors[k], k);
+  if (n.both > p.both) wEvents(['both']);
+  if (n.lives > p.lives) wEvents(['life']);
+  if (n.wind !== p.wind && n.floors > 1) wEvents(['wind']);
+  if (n.won && !p.won) wEvents(['top']);
+  else if (n.over && !p.over) wEvents(['collapse']);
+  WS.prev = n;
+}
+function wTick() {
+  const G = WS.G;
+  const take = who => { const p = WS.press[who] > 0; if (p) WS.press[who]--; return p; };
+  if (!O.role) wEvents(Twr.step(G, { pink: { drop: take('pink') }, mint: { drop: take('mint') } }));
+  else if (O.role === 'host') { const me = O.local; wEvents(Twr.step(G, { [me]: { drop: take(me) } })); }
+  else {
+    const req = Twr.guestStep(G, O.local, take(O.local));
+    if (req) { WS.req = { n: WS.req.n + 1, id: req.id, x: req.x, t: req.t }; sfx.wdrop(); WS.hop[O.local] = 1; }
+  }
+  if (G.over && !WS.endT) { WS.endT = G.won ? 2.8 : 2; wSave(); }
+}
+function twrFrame(dt, now) {
+  const G = WS.G;
+  if (S.mode === 'play' && G) {
+    WS.acc += dt;
+    while (WS.acc >= Twr.DT) { wTick(); WS.acc -= Twr.DT; if (S.mode !== 'play') { WS.acc = 0; break; } }
+    if (WS.endT > 0) { WS.endT -= dt; if (WS.endT <= 0) { WS.endT = -1; wResults(); if (O.role === 'host') O.st = 'clear'; } }
+  } else WS.acc = 0;
+  if (O.role) pumpOnline(now);
+  if (G) {
+    const target = Math.min(0, Twr.restY(G.won ? G.floors.length - 1 : G.n) - W_REST - (G.won ? 40 : 0));
+    WS.camY += (target - WS.camY) * Math.min(1, dt * 3.5);
+    for (const d of WS.debris) { d.vy += 1500 * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.rot += d.vr * dt; }
+    WS.debris = WS.debris.filter(d => d.y - WS.camY < VH + 80);
+    for (const k of ['pink', 'mint']) WS.hop[k] = Math.max(0, WS.hop[k] - dt * 5);
+  }
+  if (S.mode === 'play') S.banner = Math.max(0, S.banner - dt);
+  S.flash = Math.max(0, S.flash - dt * 2.2);
+  S.shake = Math.max(0, S.shake - dt * 3);
+  stepParts(dt);
+  for (const f of WS.floats) { f.life -= dt; f.y -= dt * 22; }
+  WS.floats = WS.floats.filter(f => f.life > 0);
+  if (G) wHud();
+  renderTwr();
+}
+
+/* ---------- drawing ---------- */
+const twrBg = document.createElement('canvas');
+const WSCENE = {
+  house: { sky: ['#9fd3ff', '#d4ecff', '#fff0d2'], far: '#a9cfa0', near: '#86b585', ground: '#8f6b48', wallP: '#f4bccb', wallM: '#ace6d3', trim: '#8a5a3c', win: '#5a4570', roof: '#b4553f', style: 'wood' },
+  shop: { sky: ['#9ccaf5', '#d6e9ff', '#ffe8cc'], far: '#a7aecf', near: '#8a91b6', ground: '#6e6b7c', wallP: '#f6c6d2', wallM: '#bdebdc', trim: '#5c5472', win: '#3e3a5e', roof: '#e3b54d', style: 'shop' },
+  wind: { sky: ['#86c9f2', '#c6ebff', '#f0fae6'], far: '#b2d993', near: '#8cc073', ground: '#7d9a52', wallP: '#f7c2cc', wallM: '#b3e9d6', trim: '#8a4e3a', win: '#4e4268', roof: '#a8473a', style: 'barn' },
+  sea: { sky: ['#73bdf0', '#b9e3ff', '#fff2d8'], far: '#3f8fc4', near: '#2f78ad', ground: '#ecd59c', wallP: '#f8d0da', wallM: '#c4f0e2', trim: '#6a7a9a', win: '#2e5a86', roof: '#e7eef6', style: 'condo' },
+  chedi: { sky: ['#ffd7a4', '#f6b48a', '#c587a6'], far: '#a7789a', near: '#86607e', ground: '#7a5a4a', wallP: '#f8ead6', wallM: '#f8ead6', trim: '#e2b04a', win: '#c99a3a', roof: '#f1c35a', style: 'chedi' }
+};
+function buildTwrBg() {
+  const G = WS.G; if (!G) return;
+  twrBg.width = cv.width; twrBg.height = cv.height;
+  const g = twrBg.getContext('2d'), P = WSCENE[G.def.scene] || WSCENE.house;
+  g.setTransform(scale, 0, 0, scale, 0, 0);
+  const sky = g.createLinearGradient(0, 0, 0, VH); sky.addColorStop(0, P.sky[0]); sky.addColorStop(.6, P.sky[1]); sky.addColorStop(1, P.sky[2]);
+  g.fillStyle = sky; g.fillRect(0, 0, VW, VH);
+}
+// scenery that slides down as the tower rises (parallax 'p'); y is where it sits when the camera is at the ground
+function wScenery(g, P, scene, cam) {
+  const R = rng(WS.li * 131 + 7);
+  // clouds all the way up
+  for (let i = 0; i < 26; i++) {
+    const cy = 120 - i * 150 + R() * 60, x = (R() * (VW + 200) - 100), y = cy - cam * .55, s = .6 + R() * .8;
+    if (y < -60 || y > VH + 40) continue;
+    g.fillStyle = 'rgba(255,255,255,.75)';
+    g.beginPath(); g.ellipse(x, y, 46 * s, 14 * s, 0, 0, Math.PI * 2); g.ellipse(x + 26 * s, y - 8 * s, 28 * s, 14 * s, 0, 0, Math.PI * 2); g.ellipse(x - 24 * s, y - 4 * s, 22 * s, 11 * s, 0, 0, Math.PI * 2); g.fill();
+  }
+  const fy = 380 - cam * .3;
+  if (fy < VH + 10) {
+    g.fillStyle = P.far;
+    if (scene === 'sea') { g.fillRect(0, fy + 20, VW, VH); g.fillStyle = 'rgba(255,255,255,.35)'; for (let i = 0; i < 12; i++) g.fillRect(R() * VW, fy + 30 + R() * 60, 30 + R() * 40, 2); }
+    else if (scene === 'shop') { for (let i = 0; i < 14; i++) { const x = i * 72 + R() * 20, h = 60 + R() * 110; g.fillRect(x, fy + 60 - h, 56, h + 200); } }
+    else if (scene === 'chedi') { g.beginPath(); g.moveTo(0, fy + 70); for (let x = 0; x <= VW; x += 60) g.lineTo(x, fy + 10 + Math.sin(x * .01 + 1) * 40 + R() * 20); g.lineTo(VW, VH + 200); g.lineTo(0, VH + 200); g.fill(); }
+    else { g.beginPath(); g.moveTo(0, fy + 60); for (let x = 0; x <= VW; x += 80) g.lineTo(x, fy + 30 + Math.sin(x * .008) * 30 + R() * 16); g.lineTo(VW, VH + 200); g.lineTo(0, VH + 200); g.fill(); }
+  }
+  const ny = 430 - cam * .6;
+  if (ny < VH + 10) {
+    g.fillStyle = P.near;
+    if (scene === 'sea') { g.fillStyle = P.ground; g.fillRect(0, ny + 30, VW, VH); for (const px of [120, 820]) { g.strokeStyle = '#7a5a3a'; g.lineWidth = 6; g.beginPath(); g.moveTo(px, ny + 40); g.quadraticCurveTo(px + 10, ny - 20, px + 4, ny - 60); g.stroke(); g.fillStyle = '#3f9a62'; for (let a = 0; a < 5; a++) { g.beginPath(); g.ellipse(px + 4 + Math.cos(a * 1.3) * 22, ny - 60 + Math.sin(a * 1.3) * 6, 26, 7, a * 1.3, 0, Math.PI * 2); g.fill(); } } }
+    else if (scene === 'wind') { g.beginPath(); g.moveTo(0, ny + 40); for (let x = 0; x <= VW; x += 120) g.lineTo(x, ny + 20 + Math.sin(x * .02) * 14); g.lineTo(VW, VH + 200); g.lineTo(0, VH + 200); g.fill(); for (const mx of [150, 800]) { g.fillStyle = '#efe6d6'; g.fillRect(mx - 4, ny - 50, 8, 80); g.save(); g.translate(mx, ny - 50); g.rotate(S.time * 2); for (let a = 0; a < 4; a++) { g.rotate(Math.PI / 2); g.fillRect(-3, 0, 6, 34); } g.restore(); } }
+    else if (scene === 'chedi') { g.beginPath(); g.moveTo(0, ny + 30); for (let x = 0; x <= VW; x += 90) g.lineTo(x, ny + 10 + Math.sin(x * .015 + 2) * 18); g.lineTo(VW, VH + 200); g.lineTo(0, VH + 200); g.fill(); for (const tx of [110, 850]) prang(g, tx, ny + 30, 30, 90, '#6e4a66'); }
+    else { g.beginPath(); g.moveTo(0, ny + 40); for (let x = 0; x <= VW; x += 100) g.lineTo(x, ny + 22 + Math.sin(x * .013 + 3) * 16); g.lineTo(VW, VH + 200); g.lineTo(0, VH + 200); g.fill(); }
+  }
+}
+function wHalf(g, P, who, x0, x1, ytop, k, ghost) {
+  const w = x1 - x0; if (w <= .5) return;
+  const pink = who === 'pink', style = P.style;
+  g.fillStyle = pink ? P.wallP : P.wallM; g.fillRect(x0, ytop, w, W_FH);
+  if (style === 'chedi') {
+    g.fillStyle = P.trim; g.fillRect(x0, ytop, w, 4); g.fillRect(x0, ytop + W_FH - 6, w, 2);
+    g.fillStyle = 'rgba(160,110,60,.18)'; for (let x = x0 + 10; x < x1 - 6; x += 18) g.fillRect(x, ytop + 10, 8, 14);
+  } else {
+    g.fillStyle = 'rgba(0,0,0,.08)'; g.fillRect(x0, ytop + W_FH - 5, w, 5);
+    if (style === 'wood' || style === 'barn') { g.fillStyle = 'rgba(120,70,40,.18)'; for (let yy = ytop + 9; yy < ytop + W_FH - 4; yy += 8) g.fillRect(x0, yy, w, 1.5); }
+    g.fillStyle = P.trim; g.fillRect(x0, ytop, w, 3);
+    const n = Math.floor((w - 6) / 26), sx = x0 + (w - n * 26) / 2;
+    for (let i = 0; i < n; i++) {
+      const wx = sx + i * 26 + 7;
+      if (style === 'shop' && k % 4 === 1) { g.fillStyle = i % 2 ? '#ff9fb6' : '#fff1f4'; g.fillRect(wx - 7, ytop + 3, 26, 7); g.fillStyle = P.win; g.fillRect(wx - 3, ytop + 13, 18, 16); continue; }
+      g.fillStyle = P.win; g.fillRect(wx, ytop + 10, 12, 15);
+      if (style === 'condo') { g.fillStyle = 'rgba(255,255,255,.55)'; g.fillRect(wx - 3, ytop + 25, 18, 3); }
+      g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(wx + 2, ytop + 12, 3, 6);
+    }
+  }
+  // whose half it is: a thin stripe on the outer edge
+  g.fillStyle = pink ? C.pink : C.mint; g.fillRect(pink ? x0 : x1 - 3, ytop + 3, 3, W_FH - 3);
+  if (ghost) { g.strokeStyle = pink ? C.pink : C.mint; g.lineWidth = 2; g.strokeRect(x0 + 1, ytop + 1, w - 2, W_FH - 2); }
+}
+function wRoof(g, P, scene, x0, x1, ytop) {
+  const cx = (x0 + x1) / 2, w = x1 - x0;
+  g.fillStyle = P.roof;
+  if (scene === 'chedi') {
+    g.beginPath(); g.ellipse(cx, ytop, w * .42, 16, 0, Math.PI, 0); g.fill();
+    for (let i = 0; i < 6; i++) { const ww = w * .3 * (1 - i / 7); g.fillRect(cx - ww / 2, ytop - 16 - i * 12, ww, 9); }
+    g.beginPath(); g.moveTo(cx - 6, ytop - 86); g.lineTo(cx, ytop - 150); g.lineTo(cx + 6, ytop - 86); g.fill();
+    g.fillStyle = '#fff3c4'; g.beginPath(); g.arc(cx, ytop - 150, 3, 0, Math.PI * 2); g.fill();
+  } else if (scene === 'sea') {
+    g.fillRect(x0 - 6, ytop - 10, w + 12, 10); g.fillStyle = '#9aa8be'; g.fillRect(cx - 2, ytop - 70, 4, 60); g.fillStyle = C.pink; g.beginPath(); g.moveTo(cx + 2, ytop - 70); g.lineTo(cx + 30, ytop - 62); g.lineTo(cx + 2, ytop - 54); g.fill();
+  } else if (scene === 'shop') {
+    g.fillRect(x0 - 8, ytop - 8, w + 16, 8); rr(g, cx - 70, ytop - 46, 140, 34, 8); g.fillStyle = '#fff6df'; g.fill(); g.strokeStyle = P.roof; g.lineWidth = 3; g.stroke();
+    g.fillStyle = '#5c5472'; g.font = `400 16px ${FONT_D}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('ร้านของเรา', cx, ytop - 28); g.textBaseline = 'alphabetic';
+  } else {
+    g.beginPath(); g.moveTo(x0 - 16, ytop); g.lineTo(cx, ytop - Math.min(90, w * .4)); g.lineTo(x1 + 16, ytop); g.closePath(); g.fill();
+    g.fillStyle = 'rgba(0,0,0,.12)'; g.beginPath(); g.moveTo(cx, ytop - Math.min(90, w * .4)); g.lineTo(x1 + 16, ytop); g.lineTo(cx, ytop); g.fill();
+  }
+}
+const W_MAST = { pink: 46, mint: 914 }, W_JIB = { pink: 92, mint: 108 };
+function wCrane(g, G, who, cam) {
+  const pink = who === 'pink', mx = W_MAST[who], jy = W_JIB[who], col = pink ? C.pink : C.mint, dk = pink ? C.pinkD : C.mintD;
+  // mast down to the ground, braces sliding past as the camera rises
+  const base = Twr.GROUND + 40 - cam;
+  g.strokeStyle = '#e2b84a'; g.lineWidth = 2.5;
+  g.beginPath(); g.moveTo(mx - 9, jy); g.lineTo(mx - 9, Math.min(VH + 10, base)); g.moveTo(mx + 9, jy); g.lineTo(mx + 9, Math.min(VH + 10, base)); g.stroke();
+  g.lineWidth = 1.5; g.beginPath();
+  const ph = ((-cam) % 26 + 26) % 26;
+  for (let y = jy + 30 + ph - 26; y < Math.min(VH + 10, base); y += 26) { g.moveTo(mx - 9, y); g.lineTo(mx + 9, y + 13); g.lineTo(mx - 9, y + 26); }
+  g.stroke();
+  // jib out toward the middle and a short counter-jib with its weight
+  const far = pink ? 640 : 320;
+  g.strokeStyle = '#e2b84a'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(mx, jy); g.lineTo(far, jy); g.moveTo(mx, jy + 10); g.lineTo(far, jy + 10); g.stroke();
+  g.lineWidth = 1.2; g.beginPath(); for (let x = mx; pink ? x < far : x > far; x += pink ? 18 : -18) { g.moveTo(x, jy); g.lineTo(x + (pink ? 9 : -9), jy + 10); g.lineTo(x + (pink ? 18 : -18), jy); } g.stroke();
+  g.fillStyle = '#7a7690'; g.fillRect(pink ? mx - 44 : mx + 14, jy - 2, 30, 16);
+  g.strokeStyle = '#e2b84a'; g.lineWidth = 2; g.beginPath(); g.moveTo(mx, jy - 16); g.lineTo(pink ? far - 60 : far + 60, jy); g.moveTo(mx, jy - 16); g.lineTo(pink ? mx - 30 : mx + 30, jy); g.stroke();
+  // cabin with the player inside
+  rr(g, mx - 22, jy + 12, 44, 36, 7); g.fillStyle = '#fff7e6'; g.fill(); g.strokeStyle = dk; g.lineWidth = 2; g.stroke();
+  g.fillStyle = 'rgba(140,200,255,.45)'; g.fillRect(mx - 18, jy + 16, 36, 16);
+  g.save(); g.translate(mx, jy + 46 - WS.hop[who] * 3); g.scale(1.05, 1.05); drawPlayer(g, { id: who, x: -11, y: -28, w: 22, h: 28, face: pink ? 1 : -1, sq: WS.hop[who] * .5, walk: 0 }, S.time); g.restore();
+  // trolley, cable and hook
+  const b = G.blk[who];
+  const tx = b ? clampX(b.x + b.w / 2, pink) : (pink ? 420 : 540);
+  g.fillStyle = '#5c5472'; g.fillRect(tx - 9, jy + 8, 18, 8);
+  const swinging = b && b.st === 'swing';
+  const hy = swinging ? b.y - W_FH - cam : jy + 34;
+  g.strokeStyle = '#3e3a52'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(tx - 4, jy + 16); g.lineTo(tx - 4, hy - 8); g.moveTo(tx + 4, jy + 16); g.lineTo(tx + 4, hy - 8); g.stroke();
+  if (swinging) { g.beginPath(); g.moveTo(tx, hy - 8); g.lineTo(b.x + 6, hy); g.moveTo(tx, hy - 8); g.lineTo(b.x + b.w - 6, hy); g.stroke(); }
+  // the crane's patience: a ring that empties, red at the end
+  if (swinging) {
+    const left = Math.max(0, b.fuse - b.t), fr = left / b.fuse;
+    g.lineWidth = 3; g.strokeStyle = 'rgba(21,17,46,.35)'; g.beginPath(); g.arc(tx, hy - 16, 7, 0, Math.PI * 2); g.stroke();
+    g.strokeStyle = left < 1.5 ? (Math.sin(S.time * 18) > 0 ? '#ff5d5d' : '#ffd0d0') : col; g.beginPath(); g.arc(tx, hy - 16, 7, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * fr); g.stroke();
+  }
+  // wind flag at the tip of the jib
+  if (G.def.wind) {
+    const fx = far, fy = jy - 2, wv = G.wind / G.def.wind, len = 14 + Math.abs(wv) * 22;
+    g.strokeStyle = '#5c5472'; g.lineWidth = 2; g.beginPath(); g.moveTo(fx, fy); g.lineTo(fx, fy - 26); g.stroke();
+    g.fillStyle = col; g.beginPath(); g.moveTo(fx, fy - 26);
+    const fl = Math.sin(S.time * (6 + Math.abs(wv) * 8)) * 3;
+    g.lineTo(fx + Math.sign(G.wind || 1) * len, fy - 21 + fl); g.lineTo(fx, fy - 15); g.fill();
+  }
+}
+const clampX = (x, pink) => (pink ? Math.min(630, Math.max(80, x)) : Math.max(330, Math.min(880, x)));
+function wHudDraw(g, G) {
+  const lv = G.def, done = Twr.floorsDone(G);
+  // floors and hard hats
+  rr(g, 10, 10, 170, 64, 12); g.fillStyle = 'rgba(21,17,46,.78)'; g.fill();
+  g.textAlign = 'left'; g.font = `400 12px ${FONT}`; g.fillStyle = '#c9bfef'; g.fillText('ชั้น', 22, 29);
+  g.font = `400 26px ${FONT_D}`; g.fillStyle = C.paper; g.fillText(`${th(done)}`, 22, 62);
+  g.font = `400 14px ${FONT_D}`; g.fillStyle = '#c9bfef'; g.fillText(`/${th(lv.top)}`, 22 + g.measureText(th(done)).width * 26 / 14 + 4, 62);
+  for (let i = 0; i < Twr.LIVES; i++) {
+    const x = 112 + i * 22, y = 50, on = i < G.lives;
+    g.fillStyle = on ? '#ffd23f' : 'rgba(255,255,255,.15)';
+    g.beginPath(); g.arc(x, y, 9, Math.PI, 0); g.fill(); g.fillRect(x - 12, y - 1, 24, 4);
+    if (on) { g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(x - 2, y - 9, 4, 8); }
+  }
+  g.font = `600 10px ${FONT}`; g.fillStyle = '#c9bfef'; g.textAlign = 'right'; g.fillText('หมวก', 168, 29);
+  // progress to the top with the star marks
+  const px = VW / 2 - 150, pw = 300, py = 14;
+  rr(g, px - 12, py - 6, pw + 24, 40, 12); g.fillStyle = 'rgba(21,17,46,.78)'; g.fill();
+  rr(g, px, py + 10, pw, 10, 5); g.fillStyle = 'rgba(255,255,255,.12)'; g.fill();
+  rr(g, px, py + 10, Math.max(10, pw * done / lv.top), 10, 5); g.fillStyle = G.won ? C.gold : '#9fe3c9'; g.fill();
+  for (let i = 0; i < 3; i++) {
+    const x = px + pw * lv.stars[i] / lv.top, got = done >= lv.stars[i];
+    g.font = `400 ${i === 2 ? 15 : 13}px ${FONT}`; g.textAlign = 'center'; g.fillStyle = got ? C.gold : 'rgba(255,255,255,.45)'; g.fillText('★', Math.min(x, px + pw - 4), py + 6);
+  }
+  g.font = `600 10px ${FONT}`; g.fillStyle = '#c9bfef'; g.textAlign = 'left'; g.fillText('ถึงยอด', px, py + 4);
+  // score, sway and wind
+  rr(g, VW - 180, 10, 170, 64, 12); g.fillStyle = 'rgba(21,17,46,.78)'; g.fill();
+  g.textAlign = 'right'; g.font = `400 12px ${FONT}`; g.fillStyle = '#c9bfef'; g.fillText('แต้ม', VW - 22, 29);
+  g.font = `400 22px ${FONT_D}`; g.fillStyle = C.gold; g.fillText(th(G.score), VW - 22, 56);
+  g.textAlign = 'left'; g.font = `600 10px ${FONT}`; g.fillStyle = '#c9bfef'; g.fillText('ตึกโยก', VW - 168, 29);
+  for (let i = 0; i < Twr.WOB_MAX; i++) { g.fillStyle = i < G.wobble ? (G.wobble >= 4 ? '#ff7b6b' : '#ffc65a') : 'rgba(255,255,255,.14)'; g.fillRect(VW - 168 + i * 9, 36, 7, 8); }
+  if (G.def.wind) {
+    const a = G.wind > 0 ? '→' : '←', n = Math.max(1, Math.round(Math.abs(G.wind) / G.def.wind * 3));
+    g.font = `600 11px ${FONT}`; g.fillStyle = '#d8f2ff'; g.fillText('ลม ' + a.repeat(n), VW - 168, 62);
+  }
+}
+function renderTwr() {
+  const g = ctx, G = WS.G;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  if (!G) return;
+  g.drawImage(twrBg, 0, 0);
+  let ox = 0, oy = 0; if (S.shake > 0) { ox = (Math.random() - .5) * 8 * S.shake; oy = (Math.random() - .5) * 6 * S.shake; }
+  g.setTransform(scale, 0, 0, scale, ox * scale, oy * scale);
+  const P = WSCENE[G.def.scene] || WSCENE.house, cam = WS.camY, t = G.t;
+  wScenery(g, P, G.def.scene, cam);
+  // ground and foundation
+  const gy = Twr.GROUND - cam;
+  if (gy < VH + 10) {
+    g.fillStyle = P.ground; g.fillRect(0, gy, VW, VH - gy + 20);
+    g.fillStyle = 'rgba(0,0,0,.12)'; g.fillRect(0, gy, VW, 4);
+    const f0 = G.floors[0]; g.fillStyle = '#9b97a8'; g.fillRect(f0.pink.a - 18, gy, f0.mint.b - f0.pink.a + 36, 18); g.fillStyle = '#b8b4c4'; g.fillRect(f0.pink.a - 18, gy, f0.mint.b - f0.pink.a + 36, 4);
+  }
+  // the tower: each floor leans by its own height; a half being placed leans with the floor under it
+  g.save(); g.translate(0, -cam);
+  const lo = Math.max(1, Math.floor((Twr.GROUND - (cam + VH + 60)) / W_FH));
+  for (let k = lo; k < G.floors.length; k++) {
+    const f = G.floors[k]; if (!f) continue;
+    const o = Twr.off(G, k, t), y = wTop(k);
+    if (y - cam < -W_FH - 200) break;
+    wHalf(g, P, 'pink', f.pink.a + o, f.pink.b + o, y, k);
+    wHalf(g, P, 'mint', f.mint.a + o, f.mint.b + o, y, k);
+    if (!f.seal && f.gap > 0) {                                    // the two inner edges are broken where they failed to meet
+      g.strokeStyle = 'rgba(70,35,35,.6)'; g.lineWidth = 2; g.beginPath();
+      for (const [x, s] of [[f.pink.b + o - 1, -1], [f.mint.a + o + 1, 1]]) { g.moveTo(x, y + 3); for (let j = 1; j <= 5; j++) g.lineTo(x + (j % 2 ? s * 4 : 0), y + 3 + j * (W_FH - 6) / 5); }
+      g.stroke();
+    }
+  }
+  const top = G.floors.length - 1;
+  // halves already down on the floor being built
+  if (!G.won) for (const who of ['pink', 'mint']) { const c = G.cur[who]; if (c) { const o = Twr.off(G, G.n - 1, t); wHalf(g, P, who, c.a + o, c.b + o, wTop(G.n), G.n); } }
+  if (G.won) { const f = G.floors[top], o = Twr.off(G, top, t); wRoof(g, P, G.def.scene, f.pink.a + o, f.mint.b + o, wTop(top)); }
+  // where each half belongs: a faint outline on its own floor below while it swings
+  for (const who of ['pink', 'mint']) {
+    const b = G.blk[who]; if (!b || b.st !== 'swing' || O.role && who !== O.local) continue;
+    const below = G.floors[G.n - 1] && G.floors[G.n - 1][who]; if (!below) continue;
+    const o = Twr.off(G, G.n - 1, t);
+    g.strokeStyle = hexA(who === 'pink' ? C.pink : C.mint, .55); g.setLineDash([5, 4]); g.lineWidth = 2;
+    g.beginPath(); g.moveTo(below.a + o, wTop(G.n - 1) - 1); g.lineTo(below.b + o, wTop(G.n - 1) - 1); g.stroke(); g.setLineDash([]);
+  }
+  // swinging and falling halves
+  for (const who of ['pink', 'mint']) { const b = G.blk[who]; if (b) wHalf(g, P, who, b.x, b.x + b.w, b.y - W_FH, G.n, true); }
+  // pieces flying off
+  for (const d of WS.debris) { g.save(); g.translate(d.x + d.w / 2, d.y + W_FH / 2); g.rotate(d.rot); g.fillStyle = d.col; g.fillRect(-d.w / 2, -W_FH / 2, d.w, W_FH); g.fillStyle = d.who === 'pink' ? C.pink : C.mint; g.fillRect(-d.w / 2, -W_FH / 2, d.w, 3); g.restore(); }
+  drawParts(g);
+  for (const f of WS.floats) { g.globalAlpha = Math.min(1, f.life * 2.5); g.textAlign = 'center'; g.font = `400 ${f.size}px ${FONT_D}`; g.lineWidth = 4; g.strokeStyle = 'rgba(21,18,43,.8)'; g.strokeText(f.text, f.x, f.y); g.fillStyle = f.col; g.fillText(f.text, f.x, f.y); g.globalAlpha = 1; }
+  g.restore();
+  // cranes on top (they stand still while the tower sways under them)
+  wCrane(g, G, 'mint', cam); wCrane(g, G, 'pink', cam);
+  if (S.flash > 0) { g.fillStyle = `rgba(255,255,255,${S.flash * .4})`; g.fillRect(0, 0, VW, VH); }
+  g.setTransform(scale, 0, 0, scale, 0, 0);
+  wHudDraw(g, G);
+  if (S.banner > 0 && Twr.floorsDone(G) === 0) {
+    const a = Math.min(1, S.banner * 1.5);
+    g.globalAlpha = a; rr(g, VW / 2 - 230, 196, 460, 58, 14); g.fillStyle = 'rgba(21,17,46,.82)'; g.fill();
+    g.textAlign = 'center'; g.font = `400 20px ${FONT_D}`; g.fillStyle = C.gold; g.fillText(G.def.name, VW / 2, 222);
+    g.font = `600 12px ${FONT}`; g.fillStyle = C.paper; g.fillText(O.role ? 'กดปุ่มปล่อยตอนครึ่งตึกของคุณตรงกับเส้นประ' : 'ชมพูกด W  ·  มิ้นต์กด ↑  ·  ปล่อยตอนตรงกับเส้นประ', VW / 2, 243);
+    g.globalAlpha = 1;
+  }
+  if (O.role && S.mode !== 'menu') drawNetNote(g);
+}
+
+/* ---------- touch: one big button each ---------- */
+const wpad = $('#wpad');
+wpad.addEventListener('pointerdown', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  e.preventDefault(); audio();
+  const who = O.role ? O.local : b.closest('.side').dataset.p;
+  b.classList.add('on'); setTimeout(() => b.classList.remove('on'), 140);
+  wPress(who);
+});
+wpad.addEventListener('contextmenu', e => e.preventDefault());
+
+/* ---------- title list ---------- */
+function renderTwrLevels() {
+  let total = 0;
+  $('#wlevels').innerHTML = WLEVELS.map((lv, i) => {
+    const b = wBest(i), open = wOpen(i);
+    if (b) total += b.s;
+    const hs = b ? `<span class="st">${kStars(b.s)}</span> ${th(b.f || 0)}/${th(lv.top)} ชั้น` : open ? 'ยังไม่เคยสร้าง' : 'ยังล็อกอยู่';
+    return `<button type="button" class="lv${b && b.s ? ' done' : ''}" data-w="${i}"${open ? '' : ' disabled'}><span class="n">${th(i + 1)}</span><span class="nm">${lv.name}</span><span class="hs">${hs}</span></button>`;
+  }).join('');
+  $('#wStarsAll').textContent = `ดาวรวม ${th(total)}/${th(WLEVELS.length * 3)}`;
+  let next = WLEVELS.findIndex((l, i) => wOpen(i) && !(wBest(i) && wBest(i).s >= 3));
+  if (next < 0) next = 0;
+  $('#bGo').dataset.w = next;
+  if (S.tab === 'twr') $('#bGo').textContent = wBest(next) ? `สร้าง${SITE(next)}` : 'เริ่มก่อสร้าง';
+}
+$('#wlevels').addEventListener('click', e => { const b = e.target.closest('[data-w]'); if (b && !b.disabled) startTwr(+b.dataset.w); });
+
+/* ---------- online: the guest swings its own crane and says where it let go; the host lands everything ---------- */
+function onlineStartTwr(i) {
+  if (O.role !== 'host') return;
+  O.md = 'w'; O.lv = i; O.ep++; O.st = 'play'; O.seenDead = O.partner ? (O.partner.dead | 0) : 0; O.seenRq = O.partner ? (O.partner.rq | 0) : 0;
+  loadOnlineLevel(true);
+}
+$('#oLevelsW').addEventListener('click', e => { const b = e.target.closest('[data-w]'); if (b && !b.disabled) onlineStartTwr(+b.dataset.w); });
+function renderOnlineTwr() {
+  $('#oLevelsW').innerHTML = WLEVELS.map((lv, i) => {
+    const b = wBest(i), open = wOpen(i);
+    return `<button type="button" class="lv${b && b.s ? ' done' : ''}" data-w="${i}"${open ? '' : ' disabled'}><span class="n">${th(i + 1)}</span><span class="nm">${lv.name}</span><span class="hs">${b ? `<span class="st">${kStars(b.s)}</span>` : open ? 'ยังไม่เคยสร้าง' : 'ยังล็อกอยู่'}</span></button>`;
+  }).join('');
+}
+function wEncode() {
+  const G = WS.G;
+  if (O.role === 'host') return Twr.encode(G);
+  const b = G.blk[O.local];
+  return { x: b && b.st === 'swing' ? Math.round(b.x * 10) / 10 : null, id: b ? b.id : -1, d: WS.req.id >= 0 ? [WS.req.n, WS.req.id, WS.req.x, WS.req.t] : null };
+}
+function wHostHears(pr) {
+  const G = WS.G;
+  if (!G || pr.ep !== O.ep || !pr.ww || typeof pr.ww !== 'object') return;
+  const m = pr.ww, rid = O.local === 'pink' ? 'mint' : 'pink';
+  if (Number.isFinite(m.x)) Twr.remoteX(G, rid, m.x, m.id);
+  const d = Array.isArray(m.d) ? m.d : null, n = d ? d[0] | 0 : 0;
+  // the guest clears its request on every new level, so anything here is a real drop for this one
+  if (d && n > WS.seenReq) { WS.seenReq = n; Twr.dropAt(G, rid, +d[2], d[1] | 0, +d[3]); }
+}
+function wGuestHears(pr) {
+  const G = WS.G;
+  if (!G || !pr.ww) return;
+  Twr.apply(G, pr.ww, O.local);
+  wGuestDiff();
+  if (G.over && !WS.endT && S.mode === 'play') { WS.endT = G.won ? 2.8 : 2; wSave(); }
+}
+
 /* ---------- Fullscreen ---------- */
 const isIPhone = /iPhone|iPod/.test(navigator.userAgent);
 const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement || null;
@@ -3598,7 +4493,7 @@ function boot(data) {
   requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
   if (inClaude()) setTimeout(roomApi, 300);
 }
-try { Object.defineProperty(window, '__tsr', { value: { S, KS, DS, RS, TS, O, KK, KT }, configurable: true }); } catch (e) {}
+try { Object.defineProperty(window, '__tsr', { value: { S, KS, DS, RS, TS, MS, WS, O, KK, KT, Twr }, configurable: true }); } catch (e) {}
 try { if (window.claude && window.claude.hot && window.claude.hot.snapshot) window.claude.hot.snapshot(() => ({ names: S.names, li: S.li })); } catch (e) {}
 if (window.claude && window.claude.hot && window.claude.hot.ready) window.claude.hot.ready(boot);
 else boot((window.claude && window.claude.hot && window.claude.hot.data) || {});
