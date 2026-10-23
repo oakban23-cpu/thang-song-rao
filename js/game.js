@@ -18,10 +18,10 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem('thangsongrao:' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem('thangsongrao:' + k, JSON.stringify(v)); } catch (e) {} }
 };
-const ALL = [LEVELS, LEVELS2, LEVELS3].flatMap((set, c) => set.map((l, i) => Object.assign({ ch: c + 1, n: i + 1 }, l)));
-const CHAPTERS = [1, 2, 3];
-const CH_NAME = { 1: 'ฝึกมือ', 2: 'ใช้หัว', 3: 'โลกแปลก' };
-const CH_NEXT = { 1: 'บทที่ ๒ แต่ละด่านมีทางผ่านทางเดียว ต้องวางแผนลำดับก่อนลงมือ', 2: 'บทที่ ๓ โลกเริ่มแปลก มีด้ายแดงผูกกันไว้ เงาย้อนเวลา และหินสลับร่าง' };
+const ALL = [LEVELS, LEVELS2, LEVELS3, LEVELS4].flatMap((set, c) => set.map((l, i) => Object.assign({ ch: c + 1, n: i + 1 }, l)));
+const CHAPTERS = [1, 2, 3, 4];
+const CH_NAME = { 1: 'ฝึกมือ', 2: 'ใช้หัว', 3: 'โลกแปลก', 4: 'กลไกโบราณ' };
+const CH_NEXT = { 1: 'บทที่ ๒ แต่ละด่านมีทางผ่านทางเดียว ต้องวางแผนลำดับก่อนลงมือ', 2: 'บทที่ ๓ โลกเริ่มแปลก มีด้ายแดงผูกกันไว้ เงาย้อนเวลา และหินสลับร่าง', 3: 'บทที่ ๔ เครื่องจักรโบราณตื่นแล้ว มีพัดลม กระดานหก ประตูมิติ และพื้นผุ' };
 let prog = store.get('prog2', null);
 if (!prog || !prog.u) {
   prog = { u: { 1: 0, 2: 0 }, h: {} };
@@ -80,7 +80,10 @@ const sfx = {
   win() { [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, .2, 'triangle', .07, 0, i * .09)); },
   bell() { tone(1318, .9, 'sine', .07); tone(1975, .6, 'sine', .03, 0, .01); tone(659, 1.1, 'sine', .04); },
   ghost() { tone(880, .5, 'sine', .05, 330); tone(1320, .4, 'triangle', .02, 440, .05); },
-  swap() { tone(300, .18, 'sawtooth', .05, 900); tone(900, .18, 'sawtooth', .04, 300, .12); }
+  swap() { tone(300, .18, 'sawtooth', .05, 900); tone(900, .18, 'sawtooth', .04, 300, .12); },
+  boing() { tone(180, .28, 'sine', .08, 620); tone(360, .2, 'triangle', .04, 900, .03); },
+  portal() { tone(500, .3, 'sine', .05, 1500); tone(1500, .25, 'sine', .03, 500, .08); },
+  crumble() { tone(140, .18, 'sawtooth', .04, 70); tone(90, .2, 'square', .03, 50, .05); }
 };
 
 /* ---------- Helpers ---------- */
@@ -292,6 +295,7 @@ function drawToggles(g, L) {
 }
 function drawLifts(g, L) {
   for (const l of L.lifts) {
+    if (l.see) continue;
     const cx = l.x + l.w / 2, col = IDC[l.id];
     g.strokeStyle = hexA(col, .28); g.setLineDash([3, 6]); g.lineWidth = 2;
     g.beginPath(); g.moveTo(cx, Math.min(l.y0, l.y1) + 4); g.lineTo(cx, Math.max(l.y0, l.y1) + 4); g.stroke(); g.setLineDash([]);
@@ -407,6 +411,82 @@ function drawSwaps(g, L, t) {
       g.fillStyle = col; g.beginPath(); g.arc(ex, ey, 2.4, 0, Math.PI * 2); g.fill();
     }
     g.lineCap = 'butt'; g.globalAlpha = 1;
+  }
+}
+/* chapter 4 machines */
+function drawFans(g, L, t) {
+  for (const f of L.fans) {
+    const x0 = f.x * T, w = f.w * T, base = (f.y + 1) * T, top = (f.y + 1 - f.h) * T, cx = x0 + w / 2;
+    if (f.on) {
+      g.save(); g.beginPath(); g.rect(x0, top - 10, w, base - top + 10); g.clip();
+      for (let k = 0; k < 6 * f.w; k++) {
+        const lx = x0 + 5 + ((k * 13.7) % (w - 10)), ph = ((t * 1.4 + k * 0.37) % 1);
+        const ly = base - 10 - ph * (base - top + 6);
+        g.strokeStyle = `rgba(215,242,255,${0.6 * (1 - ph)})`; g.lineWidth = 2.2;
+        g.beginPath(); g.moveTo(lx, ly); g.quadraticCurveTo(lx + 4 * Math.sin(t * 6 + k), ly - 9, lx, ly - 18); g.stroke();
+      }
+      const gl = g.createLinearGradient(0, base, 0, top);
+      gl.addColorStop(0, 'rgba(170,220,255,.22)'); gl.addColorStop(1, 'rgba(170,220,255,0)');
+      g.fillStyle = gl; g.fillRect(x0, top, w, base - top);
+      g.restore();
+    } else {
+      g.strokeStyle = 'rgba(170,220,255,.14)'; g.setLineDash([3, 7]); g.lineWidth = 1.5;
+      g.strokeRect(x0 + 3, top, w - 6, base - top - 10); g.setLineDash([]);
+    }
+    rr(g, x0 + 2, base - 11, w - 4, 11, 3); g.fillStyle = '#4a4560'; g.fill();
+    g.fillStyle = '#2b2740'; g.fillRect(x0 + 5, base - 9, w - 10, 6);
+    const rot = f.spin * 18;
+    g.strokeStyle = f.on ? '#cfe9ff' : '#7c7698'; g.lineWidth = 2;
+    for (let k = 0; k < f.w; k++) {
+      const bx = x0 + T * k + T / 2;
+      for (let b = 0; b < 3; b++) { const a = rot + b * 2.09; g.beginPath(); g.moveTo(bx, base - 6); g.lineTo(bx + Math.cos(a) * 9, base - 6 + Math.sin(a) * 2.2); g.stroke(); }
+    }
+    f.ids.forEach((id, k) => { const nx = x0 + w - 8 - k * 14; g.fillStyle = C.door; g.beginPath(); g.arc(nx, base - 16, 6.5, 0, Math.PI * 2); g.fill(); numeral(g, id, nx, base - 16, IDC[id], 10); });
+  }
+}
+function drawSeesaws(g, L) {
+  for (const s of L.seesaws) {
+    const x0 = s.x, x1 = s.x + s.w, ya = s.a.y, yb = s.b.y, mid = (x0 + x1) / 2, my = (ya + yb) / 2;
+    g.fillStyle = '#5e3a22'; g.beginPath(); g.moveTo(mid - 12, s.y); g.lineTo(mid + 12, s.y); g.lineTo(mid, my + 4); g.closePath(); g.fill();
+    g.save(); g.translate(mid, my); g.rotate(Math.atan2(yb - ya, x1 - x0));
+    const len = Math.hypot(x1 - x0, yb - ya);
+    rr(g, -len / 2, 0, len, 8, 3); g.fillStyle = '#8b5a35'; g.fill();
+    g.fillStyle = '#b07a4a'; g.fillRect(-len / 2 + 2, 0, len - 4, 2);
+    g.fillStyle = C.gold; for (const e of [-1, 1]) { g.beginPath(); g.arc(e * (len / 2 - 8), 4, 2.4, 0, Math.PI * 2); g.fill(); }
+    g.restore();
+    g.fillStyle = '#3a2418'; g.beginPath(); g.arc(mid, my + 4, 3, 0, Math.PI * 2); g.fill();
+  }
+}
+const PORTAL_COL = [['#b38cff', '#ff9ad5'], ['#5ec8ff', '#a6e05a'], ['#ffb347', '#ff6f9c']];
+function drawPortals(g, L, t) {
+  L.portals.forEach((q, i) => {
+    const [c1, c2] = PORTAL_COL[i % PORTAL_COL.length];
+    for (const s of [q.a, q.b]) {
+      const cx = s.x * T + T / 2, cy = s.y * T, rx = 12, ry = 28;
+      if (q.on) {
+        const gl = g.createRadialGradient(cx, cy, 2, cx, cy, 34);
+        gl.addColorStop(0, hexA(c1, .35 + q.flash * .4)); gl.addColorStop(1, hexA(c1, 0));
+        g.fillStyle = gl; g.fillRect(cx - 34, cy - 34, 68, 68);
+        g.fillStyle = 'rgba(20,10,40,.75)'; g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); g.fill();
+        for (let k = 0; k < 3; k++) { g.strokeStyle = k % 2 ? c2 : c1; g.lineWidth = 2; g.beginPath(); g.ellipse(cx, cy, rx - k * 3.5, ry - k * 7, 0, t * (2 + k) + k, t * (2 + k) + k + 4); g.stroke(); }
+      } else {
+        g.strokeStyle = 'rgba(160,150,190,.35)'; g.lineWidth = 2; g.setLineDash([4, 5]); g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
+      }
+      g.strokeStyle = q.on ? c1 : '#5b5480'; g.lineWidth = 3; g.beginPath(); g.ellipse(cx, cy, rx + 2, ry + 2, 0, 0, Math.PI * 2); g.stroke();
+      if (q.id) { g.fillStyle = C.door; g.beginPath(); g.arc(cx, cy - ry - 8, 6.5, 0, Math.PI * 2); g.fill(); numeral(g, q.id, cx, cy - ry - 8, IDC[q.id], 10); }
+    }
+  });
+}
+function drawCrumbles(g, L, t) {
+  for (const c of L.crumbles) {
+    const px = c.x * T, py = c.y * T;
+    if (c.gone) { g.strokeStyle = 'rgba(232,210,180,.25)'; g.setLineDash([3, 4]); g.lineWidth = 1; g.strokeRect(px + 1, py + 1, T - 2, T - 2); g.setLineDash([]); continue; }
+    const sh = c.t > 0 ? (Math.random() - .5) * 3 : 0;
+    g.fillStyle = '#c9a98a'; g.fillRect(px + sh, py, T, T);
+    g.fillStyle = '#a8876a'; g.fillRect(px + sh, py + T - 5, T, 5);
+    g.fillStyle = '#e3cba8'; g.fillRect(px + sh, py, T, 3);
+    g.strokeStyle = 'rgba(70,40,25,.6)'; g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(px + 6 + sh, py + 4); g.lineTo(px + 13 + sh, py + 14); g.lineTo(px + 9 + sh, py + 24); g.moveTo(px + 22 + sh, py + 5); g.lineTo(px + 18 + sh, py + 16); g.lineTo(px + 26 + sh, py + 26); g.stroke();
   }
 }
 function drawThread(g, W) {
@@ -583,6 +663,10 @@ function render() {
   drawToggles(g, L);
   drawBells(g, L, t);
   drawSwaps(g, L, t);
+  drawFans(g, L, t);
+  drawPortals(g, L, t);
+  drawCrumbles(g, L, t);
+  drawSeesaws(g, L);
   drawLifts(g, L);
   drawExit(g, W, t);
   drawHearts(g, L, t);
@@ -702,7 +786,7 @@ function showClear() {
   const total = chList.reduce((s, l) => s + (l.map.join('').match(/\*/g) || []).length, 0);
   const got = chList.reduce((s, l) => s + (prog.h[l.name] || 0), 0);
   $('#cNo').textContent = endCh ? `จบบทที่ ${th(lv.ch)} · ${CH_NAME[lv.ch]}` : `ผ่าน${lvLabel(S.li)}`;
-  $('#cName').textContent = endAll ? 'ถึงบ้านแล้ว' : endCh ? (lv.ch === 1 ? 'บทต่อไปต้องคิดหนักขึ้น' : 'บทต่อไปแปลกกว่าเดิม') : lv.name;
+  $('#cName').textContent = endAll ? 'ถึงบ้านแล้ว' : endCh ? (lv.ch === 1 ? 'บทต่อไปต้องคิดหนักขึ้น' : lv.ch === 2 ? 'บทต่อไปแปลกกว่าเดิม' : 'บทต่อไปมีเครื่องจักรโบราณ') : lv.name;
   $('#cMsg').textContent = endAll
     ? `${S.names.pink} กับ ${S.names.mint} ไขปริศนาครบทุกด่านด้วยกัน เก็บหัวใจบทนี้ได้ ${th(got)} จาก ${th(total)} ดวง`
     : endCh ? `${S.names.pink} กับ ${S.names.mint} ผ่านบทที่ ${th(lv.ch)} ครบแล้ว ${CH_NEXT[lv.ch] || ''}`
@@ -736,11 +820,11 @@ function renderLevels() {
     }).join('');
   }
   let cont = ALL.findIndex((l, i) => isOpen(i) && prog.h[l.name] == null);
-  if (cont < 0) cont = firstOf(3);
+  if (cont < 0) cont = firstOf(4);
   const started = Object.keys(prog.h).length > 0;
   $('#bGo').textContent = !started ? 'ออกเดินทาง' : `เล่นต่อ ${lvLabel(cont)}`;
   $('#bGo').dataset.i = cont;
-  $('#bCh2').dataset.i = firstOf(3);
+  $('#bCh2').dataset.i = firstOf(4);
   renderKitLevels();
   renderDefLevels();
   renderDrvLevels();
@@ -770,6 +854,9 @@ function tick() {
     else if (k === 'bell') sfx.bell();
     else if (k === 'ghost') { sfx.ghost(); const gh = S.W.L.ghost[id]; if (gh) burst(gh.x + gh.w / 2, gh.y + gh.h / 2, 12, id === 'pink' ? C.pink : C.mint, { speed: 70, life: .6, size: 2.5, g: -60 }); }
     else if (k === 'swap') swapFx();
+    else if (k === 'boing') sfx.boing();
+    else if (k === 'portal') sfx.portal();
+    else if (k === 'crumble') sfx.crumble();
     else if (k === 'open' || k === 'close') sfx.door();
     else if (k === 'heart') { sfx.heart(); updateHud(); for (const h of S.W.L.hearts) if (h.got && !h.fx) { h.fx = 1; burst(h.x, h.y, 10, C.gold, { speed: 90, life: .5, size: 2.5, g: 100 }); } }
   }
@@ -857,7 +944,7 @@ window.addEventListener('pointercancel', endTouch);
 pad.addEventListener('contextmenu', e => e.preventDefault());
 
 for (const ch of CHAPTERS) $('#levels' + ch).addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (b && !b.disabled) startLevel(+b.dataset.i); });
-$('#bCh2').addEventListener('click', () => startLevel(firstOf(3)));
+$('#bCh2').addEventListener('click', () => startLevel(firstOf(4)));
 $('#bTip').addEventListener('click', () => { const n = curLevel().name; tipsShown[n] = (tipsShown[n] || 0) + 1; renderTips(); });
 $('#bGo').addEventListener('click', goFromTitle);
 $('#bRestart').addEventListener('click', () => { if (S.mode === 'play' || S.mode === 'dying') restart(); });
@@ -1110,6 +1197,9 @@ function guestHears(pr) {
     if (typeof pr.w.d === 'string' && O.lastD && pr.w.d !== O.lastD) sfx.door();
     O.lastD = pr.w.d || '';
     if (S.W.swapFx) { S.W.swapFx = false; swapFx(); }
+    S.W.launchFx = false;
+    for (const s of S.W.L.seesaws) { if (s.seenTilt != null && s.seenTilt !== s.tilt) sfx.boing(); s.seenTilt = s.tilt; }
+    for (const c of S.W.L.crumbles) { if (c.seenGone != null && c.seenGone !== c.gone) sfx.crumble(); c.seenGone = c.gone; }
     for (const k of ['pink', 'mint']) {
       const gh = S.W.L.ghost[k];
       if (gh && gh.fresh) { gh.fresh = false; sfx.ghost(); }

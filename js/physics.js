@@ -5,12 +5,13 @@ const Phys = (() => {
   const PW = 22, PH = 28, BS = 30;
   const PUSH_LIGHT = 95, PUSH_HEAVY = 80, LIFT_SPEED = 110, LIFT_H = 10;
   const DT = 1 / 120, COYOTE = 0.08, JBUF = 0.12, HOLD = 0.3, PULL_MAX = 3, SWING_V = 260;
+  const FAN_V = 230, FAN_ACC = 2600, CRUMBLE_T = 0.5, CRUMBLE_BACK = 3.5, LAUNCH = 830, SEE_RISE = 40, SEE_V = 900;
 
   const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
   const approach = (v, t, d) => (v < t ? Math.min(t, v + d) : Math.max(t, v - d));
 
   function load(def) {
-    const L = { grid: [], doors: [], bridges: [], plates: [], toggles: [], hearts: [], boxes: [], hazards: [], lifts: [], bells: [], swaps: [], exit: null, spawn: {}, doorAt: {}, bridgeAt: {}, on: {}, tog: {}, hold: {}, ids: new Set(),
+    const L = { crumbleBack: def.crumbleBack != null ? def.crumbleBack : CRUMBLE_BACK, grid: [], doors: [], bridges: [], plates: [], toggles: [], hearts: [], boxes: [], hazards: [], lifts: [], bells: [], swaps: [], fans: [], seesaws: [], portals: [], crumbles: [], crumbleAt: {}, exit: null, spawn: {}, doorAt: {}, bridgeAt: {}, on: {}, tog: {}, hold: {}, ids: new Set(),
       thread: def.thread ? def.thread * T : 0, echoT: def.echo || 4, dark: !!def.dark, ghost: { pink: null, mint: null }, rec: { pink: null, mint: null } };
     for (let y = 0; y < ROWS; y++) {
       const row = (def.map[y] || '').padEnd(COLS, '.');
@@ -32,15 +33,29 @@ const Phys = (() => {
         else if (c === '@') L.exit = { x: x * T, y: (y - 1) * T, w: 2 * T, h: 2 * T };
         else if (c === 'q') L.bells.push({ x, y, armed: { pink: true, mint: true }, ring: 0 });
         else if (c === 'X') L.swaps.push({ x, y, armed: true, flash: 0 });
+        else if (c === 'r') { t = 'r'; const cr = { x, y, t: 0, gone: false, back: 0 }; L.crumbles.push(cr); L.crumbleAt[x + '_' + y] = cr; }
         L.grid[y].push(t);
       }
     }
     L.lifts = (def.lifts || []).map(l => ({ x: l.x * T, w: l.w * T, y0: l.y * T, y1: l.y2 * T, y: l.y * T, id: l.id, dy: 0, dx: 0 }));
-    for (const o of [...L.doors, ...L.bridges, ...L.plates, ...L.toggles, ...L.lifts]) L.ids.add(o.id);
+    // fans blow a column of air upward; a seesaw has two pads, landing on the raised one throws whoever stands on the other; portals come in pairs
+    L.fans = (def.fans || []).map(f => ({ x: f.x, y: f.y, h: f.h, w: f.w || 1, ids: f.ids || (f.id ? [f.id] : []), inv: !!f.inv, on: !(f.ids || f.id), spin: 0 }));
+    for (const q of def.seesaws || []) {
+      const S = { x: q.x * T, w: q.w * T, y: (q.y + 1) * T, tilt: q.tilt || -1, flips: 0, a: null, b: null };
+      const pw = Math.floor(S.w / 2) - 2;
+      S.a = { x: S.x, w: pw, y: 0, see: S, side: -1, dy: 0, dx: 0, y0: 0, y1: 0 };
+      S.b = { x: S.x + S.w - pw, w: pw, y: 0, see: S, side: 1, dy: 0, dx: 0, y0: 0, y1: 0 };
+      for (const pad of [S.a, S.b]) { pad.y = padY(S, pad); pad.y0 = S.y - SEE_RISE; pad.y1 = S.y; }
+      L.seesaws.push(S); L.lifts.push(S.a, S.b);
+    }
+    L.portals = (def.portals || []).map(q => ({ a: { x: q.a[0], y: q.a[1] }, b: { x: q.b[0], y: q.b[1] }, id: q.id || 0, inv: !!q.inv, on: !q.id, flash: 0 }));
+    for (const o of [...L.doors, ...L.bridges, ...L.plates, ...L.toggles, ...L.lifts, ...L.portals]) if (o.id) L.ids.add(o.id);
+    for (const f of L.fans) for (const id of f.ids) L.ids.add(id);
     const mk = (id, s) => ({ id, kind: id, isPlayer: true, x: s.x, y: s.y, w: PW, h: PH, vx: 0, vy: 0, ground: null, coy: 0, buf: 0, face: id === 'pink' ? 1 : -1, sq: 0, dx: 0, dy: 0, inDoor: false, walk: 0 });
-    return { L, pink: mk('pink', L.spawn.P), mint: mk('mint', L.spawn.M), t: 0, heartsGot: 0, heartsTotal: L.hearts.length, inDoor: 0, dead: null, swapN: 0, swapTo: null, taut: false };
+    return { L, pink: mk('pink', L.spawn.P), mint: mk('mint', L.spawn.M), t: 0, heartsGot: 0, heartsTotal: L.hearts.length, inDoor: 0, dead: null, swapN: 0, swapTo: null, taut: false, launchN: { pink: 0, mint: 0 } };
   }
 
+  function padY(S, pad) { return S.y - (pad.side === S.tilt ? 0 : SEE_RISE); }
   function tileSolid(L, x, y, body) {
     if (x < 0 || x >= COLS || y < 0) return true;
     if (y >= ROWS) return false;
@@ -50,6 +65,7 @@ const Phys = (() => {
     if (t === 'b') return L.bridgeAt[x + '_' + y].on;
     if (t === 'p') return body.kind !== 'pink';
     if (t === 'm') return body.kind !== 'mint';
+    if (t === 'r') return !L.crumbleAt[x + '_' + y].gone;
     return false;
   }
 
@@ -104,10 +120,28 @@ const Phys = (() => {
     let best = null;
     for (const r of hits) if (!best || r.y < best.top) best = { top: r.y, sup: r.tile ? { type: 'tile' } : { type: 'box', ref: r } };
     for (const s of oneWays(W, b)) {
-      if (prevBottom <= s.top + 0.01 && b.y + b.h > s.top && b.x + b.w > s.x && b.x < s.x + s.w && (!best || s.top < best.top)) best = s;
+      if (prevBottom <= s.top + 0.01 && b.y + b.h > s.top && b.x + b.w > s.x && b.x < s.x + s.w && (!best || s.top < best.top || (s.sup.ref && s.sup.ref.see && s.top <= best.top))) best = s;
     }
     if (best) { b.y = best.top - b.h; b.vy = 0; return best.sup; }
     return null;
+  }
+
+  function fanAt(L, b) {
+    const cx = b.x + b.w / 2;
+    for (const f of L.fans) {
+      if (!f.on) continue;
+      const base = (f.y + 1) * T, top = (f.y + 1 - f.h) * T;
+      if (cx > f.x * T + 2 && cx < (f.x + f.w) * T - 2 && b.y + b.h > top - 6 && b.y < base) return { f, top };
+    }
+    return null;
+  }
+  // inside a fan: rise to the top of the column and hover there
+  function fall(L, b) {
+    const fz = fanAt(L, b);
+    b.inFan = !!fz;
+    if (!fz) { b.vy = Math.min(b.vy + G * DT, MAXFALL); return; }
+    const feet = b.y + b.h, hov = fz.top - 6, tgt = feet > hov + 3 ? -FAN_V : feet < hov - 3 ? 90 : 0;
+    b.vy = approach(b.vy, tgt, FAN_ACC * DT);
   }
 
   function updateBox(W, b, inp) {
@@ -128,7 +162,7 @@ const Phys = (() => {
     }
     b.push = push;
     if (b.ground && b.ground.ref && b.ground.ref.dy) moveY(W, b, b.ground.ref.dy);
-    b.vy = Math.min(b.vy + G * DT, MAXFALL);
+    if (b.heavy) b.vy = Math.min(b.vy + G * DT, MAXFALL); else fall(L, b);
     if (push && b.ground) moveX(L, b, push * (b.heavy ? PUSH_HEAVY : PUSH_LIGHT) * DT);
     b.ground = moveY(W, b, b.vy * DT);
   }
@@ -151,7 +185,8 @@ const Phys = (() => {
       ev.push('jump:' + p.id);
     }
     const fallV = p.vy;
-    p.vy = Math.min(p.vy + G * DT, MAXFALL);
+    p.launch = false;
+    fall(L, p);
     if (moveX(L, p, p.vx * DT)) p.vx = 0;
     const air = !p.ground;
     p.ground = moveY(W, p, p.vy * DT);
@@ -258,6 +293,43 @@ const Phys = (() => {
     }
   }
 
+  const portRect = s => ({ x: s.x * T + 7, y: (s.y - 1) * T + 2, w: T - 14, h: 2 * T - 2 });
+  function stepPortals(W, list, ev) {
+    const L = W.L;
+    for (const b of list) {
+      const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+      let hit = null;
+      for (const q of L.portals) {
+        if (!q.on) continue;
+        for (const [from, to] of [[q.a, q.b], [q.b, q.a]]) { const r = portRect(from); if (cx > r.x && cx < r.x + r.w && cy > r.y && cy < r.y + r.h) hit = { q, from, to }; }
+      }
+      if (!hit) { b.portLock = false; continue; }
+      if (b.portLock) continue;
+      const { q, from, to } = hit;
+      b.x = to.x * T + T / 2 - b.w / 2 + (cx - (from.x * T + T / 2));
+      b.y = b.y + (to.y - from.y) * T;
+      b.ground = null; b.portLock = true; q.flash = 1;
+      if (b.isPlayer) b.net = null;
+      ev.push('portal');
+    }
+  }
+  function stepCrumbles(W, weighed, ev) {
+    const L = W.L;
+    for (const c of L.crumbles) {
+      const r = { x: c.x * T, y: c.y * T, w: T, h: T };
+      if (c.gone) {
+        c.back -= DT;
+        if (c.back <= 0 && !weighed.some(b => overlaps(b, r))) { c.gone = false; c.t = 0; ev.push('crumble'); }
+        continue;
+      }
+      const on = weighed.some(b => b.ground && Math.abs(b.y + b.h - c.y * T) < 3 && b.x + b.w > c.x * T + 2 && b.x < c.x * T + T - 2);
+      if (on) { c.t += DT; if (c.t >= CRUMBLE_T) { c.gone = true; c.back = L.crumbleBack || 1e9; ev.push('crumble'); } }
+      else c.t = Math.max(0, c.t - DT * 0.5);
+    }
+  }
+
+  // online guest: the host says our player was thrown by a seesaw
+  function launch(W, id) { const p = W[id]; p.vy = -LAUNCH; p.ground = null; p.launch = true; }
   function step(W, inp) {
     const L = W.L, ev = [];
     W.t += DT;
@@ -306,7 +378,25 @@ const Phys = (() => {
         b.anim = approach(b.anim, b.on ? 1 : 0, DT * 8);
       }
       for (const pl of L.plates) pl.anim = approach(pl.anim, pl.down ? 1 : 0, DT * 12);
+      for (const f of L.fans) { f.on = f.ids.length ? f.ids.some(id => on[id]) !== f.inv : true; if (f.on) f.spin += DT; }
+      for (const q of L.portals) { q.on = q.id ? !!on[q.id] !== q.inv : true; q.flash = Math.max(0, q.flash - DT * 2); }
+      for (const S of L.seesaws) {
+        // something new arriving on the raised pad slams it down and throws everyone on the other pad
+        const up = S.tilt < 0 ? S.b : S.a, low = up === S.a ? S.b : S.a;
+        const arrived = bodies.some(b => b.ground && b.ground.ref === up && b.seePad !== up);
+        if (arrived) {
+          S.tilt = -S.tilt; S.flips++; ev.push('boing');
+          for (const b of bodies) if (b.ground && b.ground.ref === low) {
+            if (net && b === remote) W.launchN[b.id]++;
+            else { b.vy = -LAUNCH; b.ground = null; b.launch = true; }
+          }
+        }
+        for (const b of bodies) b.seePad = b.ground && b.ground.ref && b.ground.ref.see ? b.ground.ref : null;
+        for (const pad of [S.a, S.b]) { const oy = pad.y, ty = padY(S, pad); pad.y = Math.abs(ty - pad.y) <= SEE_V * DT ? ty : pad.y + Math.sign(ty - pad.y) * SEE_V * DT; pad.dy = pad.y - oy; }
+      }
+      if (L.crumbles.length) stepCrumbles(W, weighed, ev);
       for (const l of L.lifts) {
+        if (l.see) continue;
         const tgt = on[l.id] ? l.y1 : l.y0, oy = l.y, s = LIFT_SPEED * DT;
         l.y = Math.abs(tgt - l.y) <= s ? tgt : l.y + Math.sign(tgt - l.y) * s;
         l.dy = l.y - oy;
@@ -324,6 +414,7 @@ const Phys = (() => {
       p.dx = p.x - p.ox; p.dy = p.y - p.oy;
     }
     thread(W);
+    if (L.portals.length) stepPortals(W, P.filter(p => p !== remote).concat(guest ? [] : L.boxes), ev);
     if (!guest && L.swaps.length) stepSwaps(W, ev);
     for (const p of P) {
       if (p === remote) continue;
@@ -352,5 +443,5 @@ const Phys = (() => {
     return ev;
   }
 
-  return { T, COLS, ROWS, VW, VH, DT, PW, PH, BS, LIFT_H, load, step, overlaps, approach, ghosts };
+  return { T, COLS, ROWS, VW, VH, DT, PW, PH, BS, LIFT_H, LAUNCH, load, step, overlaps, approach, ghosts, fanAt, portRect, launch };
 })();

@@ -43,7 +43,9 @@ const Net = (() => {
       n: W.inDoor || 0,
       g: WHO.map(k => { const g = L.ghost[k]; return g ? [r1(g.x), r1(g.y), g.face] : 0; }),
       r: WHO.map(k => (L.rec[k] ? Math.round(Math.min(1, L.rec[k].t / L.echoT) * 100) : -1)),
-      sw: W.swapN ? [W.swapN, r1(W.swapTo.x), r1(W.swapTo.y)] : 0
+      sw: W.swapN ? [W.swapN, r1(W.swapTo.x), r1(W.swapTo.y)] : 0,
+      fn: bits(L.fans.map(f => f.on)), po: bits(L.portals.map(q => q.on)), ss: L.seesaws.map(q => q.tilt), ln: [W.launchN.pink, W.launchN.mint],
+      cr: bits(L.crumbles.map(c => c.gone)), cs: bits(L.crumbles.map(c => c.t > 0))
     };
   }
 
@@ -88,6 +90,15 @@ const Net = (() => {
     L.bridges.forEach((b, i) => { b.on = bit(w.br, i, b.on); });
     L.plates.forEach((p, i) => { p.down = bit(w.pd, i, p.down); p.load = Array.isArray(w.pl) ? +w.pl[i] || 0 : p.load; });
     if (Array.isArray(w.tg)) { L.tog = {}; w.tg.forEach(id => { L.tog[id] = true; }); }
+    L.fans.forEach((f, i) => { f.on = bit(w.fn, i, f.on); });
+    if (Array.isArray(w.ss)) L.seesaws.forEach((q, i) => { if (w.ss[i] === 1 || w.ss[i] === -1) q.tilt = w.ss[i]; });
+    if (Array.isArray(w.ln) && W.net) {
+      const k = W.net.local, n = w.ln[k === 'pink' ? 0 : 1] | 0;
+      if (W.launchSeen == null) W.launchSeen = n;
+      if (n > W.launchSeen) { W.launchSeen = n; Phys.launch(W, k); W.launchFx = true; }
+    }
+    L.portals.forEach((q, i) => { q.on = bit(w.po, i, q.on); });
+    L.crumbles.forEach((c, i) => { c.gone = bit(w.cr, i, c.gone); c.t = bit(w.cs, i, c.t > 0) ? Math.max(c.t, 0.01) : 0; });
     let got = 0;
     L.hearts.forEach((h, i) => { h.got = bit(w.h, i, h.got); if (h.got) got++; });
     W.heartsGot = got;
@@ -141,6 +152,8 @@ const Net = (() => {
       g.dx = g.x - ox; g.dy = g.y - oy;
     }
     for (const s of L.swaps) s.flash = Math.max(0, s.flash - DT * 2);
+    for (const f of L.fans) if (f.on) f.spin += DT;
+    for (const q of L.portals) q.flash = Math.max(0, q.flash - DT * 2);
     for (const d of L.doors) d.anim = approach(d.anim, d.open ? 1 : 0, DT * 7);
     for (const b of L.bridges) b.anim = approach(b.anim, b.on ? 1 : 0, DT * 8);
     for (const p of L.plates) p.anim = approach(p.anim, p.down ? 1 : 0, DT * 12);

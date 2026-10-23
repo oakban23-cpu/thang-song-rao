@@ -2,8 +2,8 @@
 const vm = require('vm'), fs = require('fs'), path = require('path');
 const ctx = {}; vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'physics.js'), 'utf8') + ';this.Phys=Phys;', ctx);
-vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'levels.js'), 'utf8') + ';this.LEVELS=LEVELS;this.LEVELS2=LEVELS2;this.LEVELS3=typeof LEVELS3!=="undefined"?LEVELS3:[];', ctx);
-const { Phys, LEVELS, LEVELS2, LEVELS3 } = ctx;
+vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'levels.js'), 'utf8') + ';this.LEVELS=LEVELS;this.LEVELS2=LEVELS2;this.LEVELS3=typeof LEVELS3!=="undefined"?LEVELS3:[];this.LEVELS4=typeof LEVELS4!=="undefined"?LEVELS4:[];', ctx);
+const { Phys, LEVELS, LEVELS2, LEVELS3, LEVELS4 } = ctx;
 const T = 32;
 const idle = () => ({ left: false, right: false, jump: false, jp: false });
 const VERBOSE = process.argv.includes('-v');
@@ -201,5 +201,5 @@ if (require.main === module) for (const def of LEVELS2) {
   console.log((r.ok ? 'PASS ' : 'FAIL ') + def.name + (r.ok ? ` (${(r.steps / 120).toFixed(1)}s, hearts ${r.W.heartsGot}/${r.W.heartsTotal})` : ' — ' + r.why));
   if (!r.ok) fails++;
 }
-module.exports = { hopTo, cx, Phys, LEVELS, LEVELS2, LEVELS3, play, go, hold, jump, wait, until, par, box, stone, T, idle };
+module.exports = { hopTo, cx, Phys, LEVELS, LEVELS2, LEVELS3, LEVELS4, play, go, hold, jump, wait, until, par, box, stone, T, idle };
 if (require.main === module) { console.log(fails ? fails + ' FAILED' : 'ALL SOLVED'); process.exit(fails ? 1 : 0); }

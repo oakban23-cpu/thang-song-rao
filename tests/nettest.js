@@ -5,8 +5,9 @@ const ctx = {}; vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'physics.js'), 'utf8') + ';this.Phys=Phys;', ctx);
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'net.js'), 'utf8') + ';this.Net=Net;', ctx);
 const { Phys, Net } = ctx;
-const { LEVELS2, LEVELS3, T, idle } = B;
+const { LEVELS2, LEVELS3, LEVELS4, T, idle } = B;
 const P3 = require('./bot3.js').plans;
+const P4 = require('./bot4.js').plans;
 const DELAY = +(process.argv.find(a => a.startsWith('--ms=')) || '--ms=100').slice(5);
 const src = fs.readFileSync(path.join(__dirname, 'bot.js'), 'utf8');
 let plansSrc = src.slice(src.indexOf('const plans = {'), src.indexOf('};\n\nlet fails') + 2);
@@ -48,7 +49,7 @@ function playNet(def, plan) {
 }
 let fails = 0;
 const only = (process.argv.find(a => a.startsWith('--lvl=')) || '').slice(6);
-const suites = [[LEVELS2, plans], [LEVELS3, P3]];
+const suites = [[LEVELS2, plans], [LEVELS3, P3], [LEVELS4, P4]];
 for (const [defs, pl] of suites) for (const def of defs.filter(d => !only || d.name === only)) {
   const r = playNet(def, pl[def.name]);
   console.log((r.ok ? 'PASS ' : 'FAIL ') + def.name + (r.ok ? ` (${r.secs.toFixed(1)}s @${DELAY}ms)` : ' — ' + r.why));
