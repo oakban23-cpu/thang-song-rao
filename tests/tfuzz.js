@@ -3,9 +3,9 @@
 const vm = require('vm'), fs = require('fs'), path = require('path');
 const ctx = {}; vm.createContext(ctx);
 const JS = fs.existsSync(path.join(__dirname, 'game.js')) ? __dirname : path.join(__dirname, '..', 'js');   // coop/ (dev) or tests/ (repo)
-for (const f of ['kitchen', 'klevels', 'defense', 'dlevels', 'drive', 'rlevels']) vm.runInContext(fs.readFileSync(path.join(JS, f + '.js'), 'utf8'), ctx);
-vm.runInContext('this.Kit=Kit;this.Def=Def;this.Drv=Drv;this.KL=KLEVELS;this.DL=DLEVELS;this.RL=RLEVELS;', ctx);
-const { Kit, Def, Drv, KL, DL, RL } = ctx;
+for (const f of ['kitchen', 'klevels', 'defense', 'dlevels', 'drive', 'rlevels', 'takraw', 'tlevels']) vm.runInContext(fs.readFileSync(path.join(JS, f + '.js'), 'utf8'), ctx);
+vm.runInContext('this.Kit=Kit;this.Def=Def;this.Drv=Drv;this.Tak=Tak;this.KL=KLEVELS;this.DL=DLEVELS;this.RL=RLEVELS;this.TL=TLEVELS;', ctx);
+const { Kit, Def, Drv, Tak, KL, DL, RL, TL } = ctx;
 const RUNS = +process.argv[2] || 6;
 let seed = 1; const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
 const found = new Map();
@@ -136,6 +136,31 @@ for (const def of RL) {
     }
   }
   console.log(`drive   ${def.name.padEnd(18)} ${RUNS} random drives, ended ${ends}, crashes ${crashes}, wedged checks ${maxStuck}`);
+}
+// ---- takraw
+for (const def of TL) {
+  let ends = 0, goals = 0;
+  for (let run = 0; run < RUNS; run++) {
+    seed = 4000 + run * 61 + def.name.length;
+    const G = Tak.load(def), wp = walker(), wm = walker();
+    let last = 0;
+    for (let k = 0; k < (def.time + 3) / Tak.DT && !G.over; k++) {
+      const inp = { pink: wp(k, 0.05), mint: wm(k, 0.05) };
+      try { Tak.step(G, inp); } catch (e) { report(`takraw ${def.name}: exception ${e.message}`, e.stack.split('\n')[1]); break; }
+      const b = G.ball;
+      if (![b.x, b.y, b.vx, b.vy].every(Number.isFinite)) report(`takraw ${def.name}: NaN ball`, `run ${run}`);
+      if (b.x < 0 || b.x > Tak.VW || b.y < -150 || b.y > Tak.GROUND + 1) report(`takraw ${def.name}: ball off the court`, `${b.x | 0},${b.y | 0}`);
+      for (const p of [G.pink, G.mint]) {
+        if (![p.x, p.y, p.vx, p.vy].every(Number.isFinite)) report(`takraw ${def.name}: NaN player`, '');
+        if (p.x < 0 || p.x + p.w > Tak.VW || p.y + p.h > Tak.GROUND + 0.01) report(`takraw ${def.name}: player off the court`, `${p.x | 0},${p.y | 0}`);
+      }
+      if (G.score < last) report(`takraw ${def.name}: score went down`, `${last} -> ${G.score}`);
+      last = G.score;
+    }
+    if (G.over) ends++; else report(`takraw ${def.name}: round never ended`, `run ${run}`);
+    goals += G.ev.goals;
+  }
+  console.log(`takraw  ${def.name.padEnd(18)} ${RUNS} random rounds, ended ${ends}, goals by mashing ${goals}`);
 }
 console.log('\n--- findings ---');
 for (const [k, v] of found) console.log(`${k}  ×${v.n}  (${v.info})`);

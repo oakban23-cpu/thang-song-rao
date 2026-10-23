@@ -35,9 +35,10 @@ const heartsIn = i => (ALL[i].map.join('').match(/\*/g) || []).length;
 const isOpen = i => ALL[i].n - 1 <= (prog.u[ALL[i].ch] || 0);
 const lvLabel = i => `ด่าน ${th(ALL[i].ch)}-${th(ALL[i].n)}`;
 const firstOf = ch => ALL.findIndex(l => l.ch === ch);
-const curLevel = () => (S.kind === 'kit' ? KLEVELS[KS.li] : S.kind === 'def' ? DLEVELS[DS.li] : S.kind === 'drv' ? RLEVELS[RS.li] : ALL[S.li]);
-const curLabel = () => (S.kind === 'kit' ? kLabel(KS.li) : S.kind === 'def' ? NIGHT(DS.li) : S.kind === 'drv' ? ROUTE(RS.li) : lvLabel(S.li));
-const topDown = () => S.kind === 'kit' || S.kind === 'def' || S.kind === 'drv';
+const curLevel = () => (S.kind === 'kit' ? KLEVELS[KS.li] : S.kind === 'def' ? DLEVELS[DS.li] : S.kind === 'drv' ? RLEVELS[RS.li] : S.kind === 'tak' ? TLEVELS[TS.li] : ALL[S.li]);
+const curLabel = () => (S.kind === 'kit' ? kLabel(KS.li) : S.kind === 'def' ? NIGHT(DS.li) : S.kind === 'drv' ? ROUTE(RS.li) : S.kind === 'tak' ? COURT(TS.li) : lvLabel(S.li));
+// the modes driven by the kitchen-style controls (joystick + buttons); takraw is side-on but uses them too
+const topDown = () => S.kind === 'kit' || S.kind === 'def' || S.kind === 'drv' || S.kind === 'tak';
 
 /* ---------- DOM ---------- */
 const app = $('#app'), stage = $('#stage'), cv = $('#cv'), ctx = cv.getContext('2d');
@@ -119,6 +120,7 @@ function fit() {
   if (S.kind === 'kit') buildKitBg();
   if (S.kind === 'def') buildDefBg();
   if (S.kind === 'drv') buildDrvBg();
+  if (S.kind === 'tak') buildTakBg();
 }
 
 /* ---------- Background + static tiles ---------- */
@@ -722,7 +724,7 @@ function readNames() {
 }
 function releaseAll() { for (const id of ['pink', 'mint']) for (const k of ['left', 'right', 'jump']) { KB[id][k] = false; TC[id][k] = false; } JP.pink = JP.mint = false; document.querySelectorAll('.pad button.on').forEach(b => b.classList.remove('on')); touches.clear(); }
 function loadLevel(i, fresh) {
-  S.kind = 'adv'; app.classList.remove('kit', 'def', 'drv');
+  S.kind = 'adv'; app.classList.remove('kit', 'def', 'drv', 'tak');
   S.li = i; S.W = Phys.load(ALL[i]); S.parts = []; S.deadId = null; S.flash = 0; S.shake = 0; JP.pink = JP.mint = false;
   if (fresh) { S.deaths = 0; S.elapsed = 0; S.banner = 4.2; }
   buildBg(); updateHud();
@@ -736,6 +738,7 @@ function restart() {
   if (S.kind === 'kit') { kitRestart(); return; }
   if (S.kind === 'def') { defRestart(); return; }
   if (S.kind === 'drv') { drvRestart(); return; }
+  if (S.kind === 'tak') { takRestart(); return; }
   if (!S.W) return;
   if (O.role) { onlineRestart(); return; }
   S.deaths++; loadLevel(S.li, false); showScreen(null); setMode('play');
@@ -752,7 +755,7 @@ function renderTips() {
 function pause() {
   if (S.mode !== 'play') return;
   setMode('paused'); releaseAll(); releaseK(); engine(false, 0);
-  O.lastInp = null; KS.lastInp = {}; DS.lastInp = {}; RS.lastInp = {};
+  O.lastInp = null; KS.lastInp = {}; DS.lastInp = {}; RS.lastInp = {}; TS.lastInp = {};
   const lv = curLevel();
   $('#pNo').textContent = curLabel() + ' · ' + lv.name;
   $('#pHint').textContent = lv.hint;
@@ -805,6 +808,7 @@ function next() {
   if (S.kind === 'kit') { kitNext(); return; }
   if (S.kind === 'def') { defNext(); return; }
   if (S.kind === 'drv') { drvNext(); return; }
+  if (S.kind === 'tak') { takNext(); return; }
   if (O.role === 'host') { if (S.li < ALL.length - 1) onlineStart(S.li + 1); return; }
   if (S.li >= ALL.length - 1) toTitle(); else startLevel(S.li + 1);
 }
@@ -829,8 +833,9 @@ function renderLevels() {
   renderKitLevels();
   renderDefLevels();
   renderDrvLevels();
+  renderTakLevels();
 }
-function goFromTitle() { if (S.tab === 'kit') startKitchen(+$('#bGo').dataset.k || 0); else if (S.tab === 'def') startDefense(+$('#bGo').dataset.d || 0); else if (S.tab === 'drv') startDrive(+$('#bGo').dataset.r || 0); else startLevel(+$('#bGo').dataset.i || 0); }
+function goFromTitle() { if (S.tab === 'kit') startKitchen(+$('#bGo').dataset.k || 0); else if (S.tab === 'def') startDefense(+$('#bGo').dataset.d || 0); else if (S.tab === 'drv') startDrive(+$('#bGo').dataset.r || 0); else if (S.tab === 'tak') startTak(+$('#bGo').dataset.t || 0); else startLevel(+$('#bGo').dataset.i || 0); }
 /* ---------- Main loop ---------- */
 let last = performance.now(), acc = 0;
 function tick() {
@@ -870,6 +875,7 @@ function frame(now) {
   if (S.kind === 'kit') { kitFrame(dt, now); requestAnimationFrame(frame); return; }
   if (S.kind === 'def') { defFrame(dt, now); requestAnimationFrame(frame); return; }
   if (S.kind === 'drv') { drvFrame(dt, now); requestAnimationFrame(frame); return; }
+  if (S.kind === 'tak') { if (eng) engine(false, 0); takFrame(dt, now); requestAnimationFrame(frame); return; }
   if (eng) engine(false, 0);
   if (S.mode === 'play') {
     acc += dt;
@@ -955,7 +961,7 @@ $('#bRestart2').addEventListener('click', restart);
 $('#bLevels').addEventListener('click', toTitle);
 $('#bLevels2').addEventListener('click', toTitle);
 $('#bNext').addEventListener('click', next);
-$('#bAgain').addEventListener('click', () => { if (O.role === 'host') openOnlineRoom(); else if (S.kind === 'kit') startKitchen(KS.li); else if (S.kind === 'def') startDefense(DS.li); else if (S.kind === 'drv') startDrive(RS.li); else startLevel(S.li); });
+$('#bAgain').addEventListener('click', () => { if (O.role === 'host') openOnlineRoom(); else if (S.kind === 'kit') startKitchen(KS.li); else if (S.kind === 'def') startDefense(DS.li); else if (S.kind === 'drv') startDrive(RS.li); else if (S.kind === 'tak') startTak(TS.li); else startLevel(S.li); });
 [nPink, nMint].forEach(i => i.addEventListener('input', readNames));
 snd.addEventListener('change', () => { S.sound = snd.checked; store.set('sound', S.sound); });
 
@@ -1096,7 +1102,7 @@ function renderOnlineRoom() {
       return `<button type="button" class="lv${prog.h[lv.name] != null ? ' done' : ''}" data-i="${i}"${locked ? ' disabled' : ''}><span class="n">${th(lv.n)}</span><span class="nm">${lv.name}</span><span class="hs">${locked ? 'ยังล็อกอยู่' : prog.h[lv.name] != null ? 'ผ่านแล้ว' : 'ยังไม่เคยผ่าน'}</span></button>`;
     }).join('');
   }
-  if (show) { renderOnlineKit(); renderOnlineDef(); renderOnlineDrv(); }
+  if (show) { renderOnlineKit(); renderOnlineDef(); renderOnlineDrv(); renderOnlineTak(); }
 }
 function onlineStart(i) {
   if (O.role !== 'host') return;
@@ -1111,6 +1117,13 @@ function loadOnlineLevel(fresh) {
   audio();
   if (fresh && O.role === 'host') O.freshEp = O.ep;
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  if (O.md === 't') {
+    const keepBanner = TS.G && TS.li === O.lv && !fresh;
+    loadTak(O.lv, { role: O.role, local: O.local });
+    if (keepBanner) S.banner = 0;
+    O.loadedEp = O.ep; showScreen(null); setMode('play');
+    return;
+  }
   if (O.md === 'r') {
     const keepBanner = RS.G && RS.li === O.lv && !fresh;
     loadDrive(O.lv, { role: O.role, local: O.local });
@@ -1132,7 +1145,7 @@ function loadOnlineLevel(fresh) {
     O.loadedEp = O.ep; showScreen(null); setMode('play');
     return;
   }
-  S.kind = 'adv'; app.classList.remove('kit', 'def', 'drv');
+  S.kind = 'adv'; app.classList.remove('kit', 'def', 'drv', 'tak');
   const changed = S.li !== O.lv || fresh;
   S.li = O.lv; S.W = Phys.load(ALL[O.lv]);
   S.W.net = { role: O.role, local: O.local };
@@ -1178,12 +1191,12 @@ function onPeers(change) {
 function dropRemoteInput() {
   if (O.role !== 'host') return;
   KS.remote.act = KS.remote.use = false; DS.remote.act = DS.remote.use = false;
-  RS.remote.s = RS.remote.p = 0; RS.remote.act = false;
+  RS.remote.s = RS.remote.p = 0; RS.remote.act = false; TS.remote.fresh = false;
   if (S.W && S.W.mint) S.W.mint.netInp = null;
 }
 function hostHears(pr) {
   // a guest that rejoined starts its counters from zero again: take a fresh baseline
-  if (pr.sid && pr.sid !== O.partnerSid) { O.partnerSid = pr.sid; O.firstSeen = false; KS.seenKa = DS.seenKa = RS.seenKa = -1; }
+  if (pr.sid && pr.sid !== O.partnerSid) { O.partnerSid = pr.sid; O.firstSeen = false; KS.seenKa = DS.seenKa = RS.seenKa = TS.seenKa = -1; }
   if (!O.firstSeen) { O.firstSeen = true; O.seenDead = pr.dead | 0; O.seenRq = pr.rq | 0; }
   if ((pr.dead | 0) > O.seenDead || (pr.rq | 0) > O.seenRq) {
     O.seenDead = pr.dead | 0; O.seenRq = pr.rq | 0;
@@ -1192,17 +1205,19 @@ function hostHears(pr) {
   if (S.kind === 'kit') { if (O.md === 'k') kHostHears(pr); return; }
   if (S.kind === 'def') { if (O.md === 'd') dHostHears(pr); return; }
   if (S.kind === 'drv') { if (O.md === 'r') rHostHears(pr); return; }
+  if (S.kind === 'tak') { if (O.md === 't') tHostHears(pr); return; }
   if (S.W && pr.ep === O.ep && pr.p && S.W.net) Net.applyPlayer(S.W, 'mint', pr.p, performance.now());
 }
 function guestHears(pr) {
   const lv = pr.lv | 0, ep = pr.ep | 0;
   if (pr.st === 'lobby') { if (S.mode !== 'menu' || scr.online.hidden) openOnlineRoom(); else renderOnlineRoom(); return; }
-  const md = pr.md === 'k' || pr.md === 'd' || pr.md === 'r' ? pr.md : 'a';
-  const nLv = md === 'k' ? KLEVELS.length : md === 'd' ? DLEVELS.length : md === 'r' ? RLEVELS.length : ALL.length, kind = md === 'k' ? 'kit' : md === 'd' ? 'def' : md === 'r' ? 'drv' : 'adv', cur = md === 'k' ? KS.li : md === 'd' ? DS.li : md === 'r' ? RS.li : S.li;
+  const md = pr.md === 'k' || pr.md === 'd' || pr.md === 'r' || pr.md === 't' ? pr.md : 'a';
+  const nLv = md === 'k' ? KLEVELS.length : md === 'd' ? DLEVELS.length : md === 'r' ? RLEVELS.length : md === 't' ? TLEVELS.length : ALL.length, kind = md === 'k' ? 'kit' : md === 'd' ? 'def' : md === 'r' ? 'drv' : md === 't' ? 'tak' : 'adv', cur = md === 'k' ? KS.li : md === 'd' ? DS.li : md === 'r' ? RS.li : md === 't' ? TS.li : S.li;
   if (lv >= 0 && lv < nLv && (ep !== O.loadedEp)) { const ch = (pr.fs | 0) === ep || O.loadedEp < 0 || md !== O.md || lv !== cur || S.kind !== kind; O.ep = ep; O.lv = lv; O.md = md; loadOnlineLevel(ch); }
   if (md === 'k') { if (S.kind === 'kit' && ep === O.loadedEp) kGuestHears(pr); return; }
   if (md === 'd') { if (S.kind === 'def' && ep === O.loadedEp) dGuestHears(pr); return; }
   if (md === 'r') { if (S.kind === 'drv' && ep === O.loadedEp) rGuestHears(pr); return; }
+  if (md === 't') { if (S.kind === 'tak' && ep === O.loadedEp) tGuestHears(pr); return; }
   if (!S.W || !S.W.net || ep !== O.loadedEp) return;
   if (pr.p) Net.applyPlayer(S.W, 'pink', pr.p, performance.now());
   if (pr.w) {
@@ -1239,6 +1254,11 @@ function pumpOnline(now) {
     if (DS.G && DS.G.net && live) {
       o.p = Def.encodePlayer(DS.G, O.local, DS.lastInp || {}, DS.act);
       if (O.role === 'host') o.dw = Def.encode(DS.G);
+    }
+  } else if (S.kind === 'tak') {
+    if (TS.G && TS.G.net && live) {
+      o.p = Tak.encodePlayer(TS.G, O.local, O.role === 'guest' ? TS.kick : null);
+      if (O.role === 'host') o.tw = Tak.encode(TS.G);
     }
   } else if (S.kind === 'drv') {
     if (RS.G && RS.G.net && live) {
@@ -1318,7 +1338,7 @@ function kInput(id) {
   return { mx, my, act, use: !!(a.use || t.use) };
 }
 function releaseK() {
-  for (const id of ['pink', 'mint']) { Object.assign(KK[id], { u: 0, d: 0, l: 0, r: 0, act: 0, use: 0 }); Object.assign(KT[id], { x: 0, y: 0, act: 0, use: 0 }); }
+  for (const id of ['pink', 'mint']) { Object.assign(KK[id], { u: 0, d: 0, l: 0, r: 0, act: 0, use: 0, jp: 0 }); Object.assign(KT[id], { x: 0, y: 0, act: 0, use: 0, jp: 0 }); }
   kjoys.clear(); kbtns.clear();
   document.querySelectorAll('.kpad .on').forEach(b => b.classList.remove('on'));
   document.querySelectorAll('.kpad .knob').forEach(k => { k.style.transform = ''; });
@@ -1328,7 +1348,7 @@ function kitKey(e, down) {
   if (!m || (e.target && e.target.tagName === 'INPUT')) return false;
   e.preventDefault();
   const id = O.role ? O.local : m[0], k = m[1];
-  if (down) { if (e.repeat) return true; if (k === 'act') KK[id].act++; else KK[id][k] = 1; }
+  if (down) { if (e.repeat) return true; if (k === 'act') KK[id].act++; else KK[id][k] = 1; if (k === 'u' || k === 'use') KK[id].jp = (KK[id].jp || 0) + 1; }
   else if (k !== 'act') KK[id][k] = 0;
   return true;
 }
@@ -1354,7 +1374,7 @@ kpad.addEventListener('pointerdown', e => {
   if (b) {
     e.preventDefault();
     const id = padId(b);
-    if (b.dataset.k === 'act') KT[id].act++; else KT[id].use = 1;
+    if (b.dataset.k === 'act') KT[id].act++; else { KT[id].use = 1; KT[id].jp = (KT[id].jp || 0) + 1; }
     b.classList.add('on'); kbtns.set(e.pointerId, { b, id }); audio();
   }
 });
@@ -1374,7 +1394,7 @@ function kSnap(G) { return { money: G.money, failed: G.failed, orders: G.orders.
 function loadKitchen(i, net) {
   KS.li = i; KS.G = Kit.load(KLEVELS[i]); KS.G.net = net || null;
   KS.acc = 0; KS.floats = []; KS.act = { n: KS.act.n, ref: null, uref: null }; KS.seenKa = -1; KS.remote = { act: false, ref: null, use: false, uref: null }; KS.endT = 0; KS.savedB = null; KS.prev = kSnap(KS.G);
-  S.kind = 'kit'; app.classList.add('kit'); app.classList.remove('def', 'drv'); setPadLabels('kit');
+  S.kind = 'kit'; app.classList.add('kit'); app.classList.remove('def', 'drv', 'tak'); setPadLabels('kit');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
   releaseK(); buildKitBg(); kHud();
 }
@@ -1806,14 +1826,15 @@ function renderKitchen() {
 S.tab = ['adv', 'kit', 'def', 'drv'].includes(store.get('tab', 'adv')) ? store.get('tab', 'adv') : 'adv';
 function setTab(t) {
   S.tab = t; store.set('tab', t);
-  for (const k of ['adv', 'kit', 'def', 'drv']) app.classList.toggle('tab-' + k, t === k);
+  for (const k of ['adv', 'kit', 'def', 'drv', 'tak']) app.classList.toggle('tab-' + k, t === k);
   document.querySelectorAll('.tab').forEach(b => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
   renderLevels();
   if (S.mode === 'menu' && !O.role) {
     if (t === 'kit') { loadKitchen(+$('#bGo').dataset.k || 0); S.banner = 0; }
     else if (t === 'def') { loadDefense(+$('#bGo').dataset.d || 0); S.banner = 0; }
     else if (t === 'drv') { loadDrive(+$('#bGo').dataset.r || 0); S.banner = 0; }
-    else if (S.kind !== 'adv') { S.kind = 'adv'; app.classList.remove('kit', 'def', 'drv'); buildBg(); }
+    else if (t === 'tak') { loadTak(+$('#bGo').dataset.t || 0); S.banner = 0; }
+    else if (S.kind !== 'adv') { S.kind = 'adv'; app.classList.remove('kit', 'def', 'drv', 'tak'); buildBg(); }
   }
 }
 document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
@@ -1904,6 +1925,7 @@ Object.assign(sfx, {
 function setPadLabels(kind) {
   const act = kind === 'def' ? 'ท่า<br>พิเศษ' : 'หยิบ<br>วาง';
   document.querySelectorAll('.kpad .kb.act').forEach(b => { b.innerHTML = act; });
+  document.querySelectorAll('.kpad .kb.use').forEach(b => { b.innerHTML = 'ใช้'; });
 }
 
 /* ---------- flow ---------- */
@@ -1911,7 +1933,7 @@ function dSnap(G) { return { coins: G.coins, ph: G.ph, wi: G.wi, sn: [G.pink.snR
 function loadDefense(i, net) {
   DS.li = i; DS.G = Def.load(DLEVELS[i]); DS.G.net = net || null;
   DS.acc = 0; DS.floats = []; DS.rings = []; DS.act = { n: DS.act.n, uref: null }; DS.seenKa = -1; DS.remote = { act: false, use: false, uref: null }; DS.endT = 0; DS.savedB = null; DS.prev = null;
-  S.kind = 'def'; app.classList.add('def'); app.classList.remove('kit', 'drv');
+  S.kind = 'def'; app.classList.add('def'); app.classList.remove('kit', 'drv', 'tak');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
   setPadLabels('def'); releaseK(); buildDefBg(); dHud(true);
 }
@@ -2553,7 +2575,7 @@ function loadDrive(i, net) {
   RS.li = i; RS.G = Drv.load(RLEVELS[i]); RS.G.net = net || null;
   RS.acc = 0; RS.floats = []; RS.act = { n: RS.act.n }; RS.seenKa = -1; RS.remote = { s: 0, p: 0, act: false }; RS.endT = 0; RS.savedB = null; RS.prev = null;
   RS.cam.x = RS.G.car.x; RS.cam.y = RS.G.car.y;
-  S.kind = 'drv'; app.classList.add('drv'); app.classList.remove('kit', 'def');
+  S.kind = 'drv'; app.classList.add('drv'); app.classList.remove('kit', 'def', 'tak');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
   releaseK(); setDrvPadLabels(); buildDrvBg(); rHud(true);
 }
@@ -3043,6 +3065,476 @@ function rGuestHears(pr) {
   if (G.over && !was && !RS.endT && S.mode === 'play') { RS.endT = 1.6; sfx.whistle(); rSave(); }
 }
 
+/* ---------- Takraw mode (ตะกร้อลอดห่วง) ---------- */
+const TS = { G: null, li: 0, acc: 0, floats: [], kick: { n: 0, req: null }, lastInp: {}, seenKa: -1, remote: { req: null, fresh: false }, endT: 0, savedB: null, prev: null, rimT: 0, myKickT: 0 };
+const COURT = i => 'สนาม ' + th(i + 1);
+const KICKNAME = { shot: 'ลูกยิง', back: 'ลูกส้นหลัง', head: 'ลูกโหม่ง', lucky: 'ลูกฟลุก' };
+if (!prog.t) prog.t = {};
+const tBest = i => prog.t[TLEVELS[i].name] || null;
+const tOpen = i => i === 0 || !!(tBest(i - 1) && tBest(i - 1).s >= 1);
+Object.assign(sfx, {
+  tkick() { tone(170, .06, 'square', .06, 90); tone(900, .03, 'triangle', .03, 500); },
+  tpass() { tone(230, .08, 'triangle', .07, 430); tone(160, .05, 'square', .03, 90); },
+  tshot() { tone(190, .08, 'square', .07, 110); tone(700, .25, 'sawtooth', .025, 1500, .02); },
+  thead() { tone(330, .08, 'sine', .07, 520); },
+  trim() { tone(1250, .18, 'triangle', .04, 1180); tone(1880, .12, 'sine', .02); },
+  tgoal() { [784, 988, 1175, 1568].forEach((f, i) => tone(f, .16, 'triangle', .06, 0, i * .07)); tone(220, .5, 'sawtooth', .02, 330, .1); },
+  tdrop() { tone(95, .2, 'sine', .09, 55); },
+  tnope() { tone(200, .22, 'square', .04, 150); },
+  tserve() { tone(1500, .08, 'sine', .04, 1800); },
+  twhiff() { tone(520, .05, 'sine', .02, 300); }
+});
+function tKickSound(kind) { if (kind === 'pass') sfx.tpass(); else if (kind === 'shot' || kind === 'back') sfx.tshot(); else if (kind === 'whiff') sfx.twhiff(); else sfx.tkick(); }
+// takraw buttons: move with left/right, jump with up or the jump button, kick with the action button
+// a jump press is counted so that a tap shorter than one frame still jumps
+function tInput(id) {
+  const k = kInput(id), a = KK[id], t = KT[id];
+  const jp = (a.jp || 0) > 0 || (t.jp || 0) > 0;
+  if (a.jp > 0) a.jp--; if (t.jp > 0) t.jp--;
+  return { mx: k.mx, my: k.use || jp ? -1 : k.my, act: k.act };
+}
+function tSetPad() {
+  document.querySelectorAll('.kpad .kb.act').forEach(b => { b.innerHTML = 'เตะ'; });
+  document.querySelectorAll('.kpad .kb.use').forEach(b => { b.innerHTML = 'กระ<br>โดด'; });
+}
+
+/* ---------- flow ---------- */
+function tSnap(G) { return Object.assign({ score: G.score }, G.ev); }
+function loadTak(i, net) {
+  TS.li = i; TS.G = Tak.load(TLEVELS[i]); TS.G.net = net || null;
+  TS.acc = 0; TS.floats = []; TS.kick = { n: TS.kick.n, req: null }; TS.seenKa = -1; TS.remote = { req: null, fresh: false };
+  TS.endT = 0; TS.savedB = null; TS.prev = tSnap(TS.G); TS.lastInp = {}; TS.rimT = 0;
+  S.kind = 'tak'; app.classList.add('tak'); app.classList.remove('kit', 'def', 'drv');
+  S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
+  releaseK(); tSetPad(); buildTakBg(); tHud(true);
+}
+function startTak(i) {
+  readNames(); audio();
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  loadTak(i); showScreen(null); setMode('play');
+}
+function takRestart() { if (O.role) { onlineRestart(); return; } loadTak(TS.li); showScreen(null); setMode('play'); }
+function takNext() {
+  if (O.role === 'host') { if (TS.li < TLEVELS.length - 1) onlineStartTak(TS.li + 1); return; }
+  if (TS.li < TLEVELS.length - 1 && tOpen(TS.li + 1)) startTak(TS.li + 1); else toTitle();
+}
+let tHudKey = '';
+function tHud(force) {
+  const k = String(TS.li);
+  if (!force && k === tHudKey) return;
+  tHudKey = k;
+  const lv = TLEVELS[TS.li];
+  $('#hNo').textContent = COURT(TS.li); $('#hName').textContent = lv.name; $('#hHint').textContent = lv.hint; $('#hHearts').textContent = '';
+}
+function tSave() {
+  if (TS.savedB) return TS.savedB;
+  const G = TS.G, lv = TLEVELS[TS.li], st = Tak.stars(G);
+  const b = prog.t[lv.name] || { s: 0, m: 0 };
+  prog.t[lv.name] = { s: Math.max(b.s, st), m: Math.max(b.m, G.score) };
+  store.set('prog2', prog);
+  return (TS.savedB = b);
+}
+function tResults() {
+  const G = TS.G, lv = TLEVELS[TS.li], st = Tak.stars(G);
+  const b = tSave();
+  const best = G.score > b.m;
+  setMode('clear'); releaseAll(); releaseK();
+  $('#cNo').textContent = `${COURT(TS.li)} · หมดเวลา`;
+  $('#cName').textContent = lv.name;
+  $('#cStars').hidden = false;
+  $('#cStars').innerHTML = [0, 1, 2].map(i => `<span class="${i < st ? '' : 'off'}">★</span>`).join('');
+  const msg = st === 3 ? 'ส่งกันเข้าขาสุดๆ ห่วงแทบไม่ว่างเลย' : st === 2 ? 'เล่นเข้าขากันดี ลองส่งกันหลายทอดก่อนยิง แต้มจะคูณเพิ่ม' : st === 1 ? 'ผ่านแล้ว สนามถัดไปเปิดให้เล่นแล้ว' : `ยังไม่ถึงดาวแรก ต้องได้ ${th(lv.stars[0])} แต้ม ลองให้คนหนึ่งส่ง อีกคนกระโดดยิง`;
+  $('#cMsg').textContent = msg + (best && G.score > 0 && b.m ? ' · สถิติใหม่' : '');
+  $('#cStats').innerHTML = `<span>แต้ม <b>${th(G.score)}</b></span><span>ลูกเข้าห่วง <b>${th(G.ev.goals)}</b></span><span>ลูกดีสุด <b>${th(G.ev.best)}</b> แต้ม</span><span>ลูกตก <b>${th(G.ev.drops)}</b> ครั้ง</span>`;
+  const last = TS.li >= TLEVELS.length - 1, guest = O.role === 'guest';
+  $('#bNext').textContent = 'สนามถัดไป';
+  $('#bNext').hidden = guest || last || !tOpen(TS.li + 1);
+  $('#bAgain').hidden = guest;
+  $('#bAgain').textContent = O.role === 'host' ? 'เลือกด่านอื่น' : 'เล่นสนามนี้อีกรอบ';
+  $('#bLevels2').hidden = !!O.role; $('#bLeave2').hidden = !O.role;
+  if (guest) $('#cMsg').textContent += ` · รอ${O.partnerName || 'อีกคน'}เลือกต่อ`;
+  showScreen('clear');
+}
+
+/* ---------- tick ---------- */
+function tFloat(text, x, y, col, size = 16, life = 1.6) { TS.floats.push({ text, x, y, col, life, max: life, size }); }
+function tBurst(x, y, n, cols, sp, life = .7) { for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, v = sp * (.4 + Math.random() * .8); S.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - sp * .3, life, max: life, col: cols[i % cols.length], s: 3 + Math.random() * 3, type: 'dot', g: 400 }); } }
+function tGoalFx(G, l) {
+  sfx.tgoal();
+  const mult = 1 + Tak.MULT_STEP * Math.min(l.passes, Tak.MULT_MAX);
+  tFloat(`+${th(l.pts)}`, l.x, l.y - 46, C.gold, 30, 1.8);
+  tFloat(`${KICKNAME[l.kind] || 'ลูกยิง'}${l.passes > 1 ? ` · ส่ง ${th(l.passes)} ทอด ×${th(mult)}` : ''}`, l.x, l.y - 18, C.paper, 14, 1.8);
+  tBurst(l.x, l.y + 20, 26, [C.gold, C.pink, C.mint, '#fff'], 220, .9);
+}
+function tEvents(ev) {
+  const G = TS.G;
+  for (const e of ev) {
+    const [k, a, b, c] = e.split(':');
+    if (k === 'kick') { tKickSound(b); tBurst(G.ball.x, G.ball.y, 5, ['#f5e2b0'], 70, .3); }
+    else if (k === 'head') sfx.thead();
+    else if (k === 'rim') { if (TS.rimT <= 0) { sfx.trim(); TS.rimT = .12; } }
+    else if (k === 'goal') tGoalFx(G, G.last);
+    else if (k === 'nopass') { sfx.tnope(); const h = Tak.litHoop(G); tFloat('ยังไม่ผ่านเท้าเพื่อน ไม่นับแต้ม', h.cx, h.y - 30, '#ff9a9a', 14); }
+    else if (k === 'dark') { sfx.tnope(); const h = G.hoops.find(q => !q.lit) || G.hoops[0]; tFloat('ห่วงไฟดับ ไม่นับแต้ม', h.cx, h.y - 30, '#ff9a9a', 14); }
+    else if (k === 'drop') { sfx.tdrop(); const x = G.ball.dropX || G.ball.x; tFloat('ลูกตก', x, Tak.GROUND - 34, '#ffb0a0', 15); tBurst(x, Tak.GROUND, 10, ['#c9a77a', '#e0c79a'], 90, .5); S.shake = .25; }
+    else if (k === 'serve') sfx.tserve();
+    else if (k === 'jump') sfx.jump(a);
+    void c;
+  }
+}
+// guest: effects from the host's counters
+function tGuestDiff() {
+  const G = TS.G, n = tSnap(G), p = TS.prev || n;
+  if (n.goals > p.goals && G.last) tGoalFx(G, G.last);
+  if (n.drops > p.drops) tEvents(['drop']);
+  if (n.nopass > p.nopass) tEvents(['nopass']);
+  if (n.dark > p.dark) tEvents(['dark']);
+  if (n.rims > p.rims) tEvents(['rim']);
+  if (n.heads > p.heads) sfx.thead();
+  if (n.kicks > p.kicks && TS.myKickT <= 0) sfx.tkick();
+  TS.prev = n;
+}
+function tTick(now) {
+  const G = TS.G;
+  TS.rimT -= Tak.DT; TS.myKickT -= Tak.DT;
+  if (!O.role) {
+    tEvents(Tak.step(G, { pink: tInput('pink'), mint: tInput('mint') }));
+  } else if (O.role === 'host') {
+    const li = tInput(O.local), rid = O.local === 'pink' ? 'mint' : 'pink';
+    TS.lastInp = li;
+    Tak.smoothPlayer(G, rid, now);
+    const ev = Tak.step(G, { [O.local]: li });
+    if (TS.remote.fresh) { TS.remote.fresh = false; Tak.remoteKick(G, rid, TS.remote.req, ev); }
+    tEvents(ev);
+  } else {
+    const me = G[O.local], hid = O.local === 'pink' ? 'mint' : 'pink', li = tInput(O.local);
+    TS.lastInp = li;
+    if (!G.over) {
+      if (Tak.stepPlayer(G, me, li, Tak.DT)) sfx.jump(O.local);
+      if (li.act && me.cd <= 0) {
+        const b = G.ball, dir = Math.abs(li.mx) > .3 ? Math.sign(li.mx) : 0;
+        if (b.live && Tak.inReach(me, b.x, b.y)) {
+          TS.kick.n++;
+          TS.kick.req = { bx: Math.round(b.x), by: Math.round(b.y), px: Math.round(me.x), py: Math.round(me.y), dir, air: !me.ground };
+          me.cd = .2; me.kickT = .24; me.kickK = Tak.kickKind(G, me, dir, !me.ground); TS.myKickT = .3;
+          tKickSound(me.kickK);
+        } else { me.cd = .12; me.kickT = .18; me.kickK = 'whiff'; }
+      }
+    }
+    G[hid].kickT = Math.max(0, G[hid].kickT - Tak.DT);
+    Tak.smoothPlayer(G, hid, now);
+    Tak.smooth(G, now);
+    tGuestDiff();
+  }
+  if (G.over && !TS.endT) { TS.endT = 1.4; sfx.whistle(); tSave(); }
+}
+function takFrame(dt, now) {
+  const G = TS.G;
+  if (S.mode === 'play' && G) {
+    TS.acc += dt;
+    while (TS.acc >= Tak.DT) { tTick(now); TS.acc -= Tak.DT; if (S.mode !== 'play') { TS.acc = 0; break; } }
+    if (TS.endT > 0) { TS.endT -= dt; if (TS.endT <= 0) { TS.endT = -1; tResults(); if (O.role === 'host') O.st = 'clear'; } }
+  } else TS.acc = 0;
+  if (O.role) pumpOnline(now);
+  if (S.mode === 'play') S.banner = Math.max(0, S.banner - dt);
+  S.flash = Math.max(0, S.flash - dt * 2.2);
+  S.shake = Math.max(0, S.shake - dt * 3);
+  stepParts(dt);
+  for (const f of TS.floats) { f.life -= dt; f.y -= dt * 26; }
+  TS.floats = TS.floats.filter(f => f.life > 0);
+  if (G) tHud();
+  renderTak(dt);
+}
+
+/* ---------- drawing ---------- */
+const takBg = document.createElement('canvas');
+const SCENE = {
+  temple: { sky: ['#ffd7a0', '#ffad84', '#d9789a'], far: '#b9708a', near: '#8a4a68', ground: '#d6ae86', ground2: '#c19672', line: 'rgba(255,255,255,.45)' },
+  tree: { sky: ['#bfe6ff', '#d8f0e6', '#f3f7d6'], far: '#9cc3a6', near: '#6f9f7a', ground: '#b9c27c', ground2: '#a3ad68', line: 'rgba(255,255,255,.5)' },
+  fair: { sky: ['#8fd2ff', '#c9e9ff', '#ffe6bd'], far: '#b2a6d9', near: '#8d7fc0', ground: '#d8b27c', ground2: '#c39d69', line: 'rgba(255,255,255,.5)' },
+  beach: { sky: ['#7cc8ff', '#b9e4ff', '#eef8ff'], far: '#8fb6cf', near: '#5d8fae', ground: '#efd59d', ground2: '#ddc184', line: 'rgba(255,255,255,.6)' },
+  night: { sky: ['#110e2c', '#2a1d4d', '#4a2a5e'], far: '#3a2a5c', near: '#2a1d44', ground: '#5b4a3c', ground2: '#4d3e33', line: 'rgba(255,230,180,.35)' }
+};
+function tRoof(g, cx, base, w, h, col) {
+  g.fillStyle = col;
+  g.fillRect(cx - w * .42, base - h * .45, w * .84, h * .45);
+  g.beginPath(); g.moveTo(cx - w * .62, base - h * .42); g.lineTo(cx, base - h); g.lineTo(cx + w * .62, base - h * .42); g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(cx - w * .5, base - h * .7); g.lineTo(cx, base - h * 1.18); g.lineTo(cx + w * .5, base - h * .7); g.closePath(); g.fill();
+  g.lineWidth = 3; g.strokeStyle = col; g.lineCap = 'round';
+  for (const s of [-1, 1]) { g.beginPath(); g.moveTo(cx + s * w * .6, base - h * .44); g.quadraticCurveTo(cx + s * w * .72, base - h * .5, cx + s * w * .7, base - h * .64); g.stroke(); }
+  g.beginPath(); g.moveTo(cx, base - h * 1.18); g.quadraticCurveTo(cx + 6, base - h * 1.28, cx + 2, base - h * 1.36); g.stroke();
+}
+function buildTakBg() {
+  const G = TS.G; if (!G) return;
+  takBg.width = cv.width; takBg.height = cv.height;
+  const g = takBg.getContext('2d'), def = G.def, P = SCENE[def.scene] || SCENE.temple, R = rng(TS.li * 7717 + 5), GY = Tak.GROUND;
+  g.setTransform(scale, 0, 0, scale, 0, 0);
+  const sky = g.createLinearGradient(0, 0, 0, GY);
+  sky.addColorStop(0, P.sky[0]); sky.addColorStop(.6, P.sky[1]); sky.addColorStop(1, P.sky[2]);
+  g.fillStyle = sky; g.fillRect(0, 0, VW, VH);
+  if (def.scene === 'night') {
+    for (let i = 0; i < 110; i++) { g.fillStyle = `rgba(255,244,220,${.2 + R() * .6})`; const s = R() < .1 ? 2 : 1.2; g.fillRect(R() * VW, R() * GY * .7, s, s); }
+    g.fillStyle = '#ffeccc'; g.beginPath(); g.arc(820, 70, 20, 0, Math.PI * 2); g.fill();
+  } else {
+    const sx = def.scene === 'temple' ? 760 : 150, sy = def.scene === 'temple' ? 150 : 70;
+    const glow = g.createRadialGradient(sx, sy, 8, sx, sy, 110); glow.addColorStop(0, 'rgba(255,250,220,.9)'); glow.addColorStop(1, 'rgba(255,250,220,0)');
+    g.fillStyle = glow; g.fillRect(sx - 110, sy - 110, 220, 220);
+    for (let i = 0; i < 4; i++) { const cx = R() * VW, cy = 60 + R() * 120, w = 60 + R() * 70; g.fillStyle = 'rgba(255,255,255,.55)'; g.beginPath(); g.ellipse(cx, cy, w, 14, 0, 0, Math.PI * 2); g.ellipse(cx + w * .3, cy - 10, w * .5, 14, 0, 0, Math.PI * 2); g.fill(); }
+  }
+  // far scenery
+  if (def.scene === 'temple') {
+    for (let i = 0; i < 3; i++) prang(g, 120 + i * 360 + R() * 60, GY - 30, 46 + R() * 20, 190 + R() * 60, P.far);
+    tRoof(g, 250, GY, 230, 150, P.near); tRoof(g, 760, GY, 200, 130, P.near);
+  } else if (def.scene === 'tree') {
+    g.fillStyle = P.far; for (let i = 0; i < 9; i++) { g.beginPath(); g.arc(R() * VW, GY - 40 - R() * 50, 50 + R() * 40, 0, Math.PI * 2); g.fill(); }
+    g.fillStyle = '#6b4a2e'; g.fillRect(40, 120, 34, GY - 120); g.fillRect(880, 140, 30, GY - 140);
+    g.strokeStyle = '#6b4a2e'; g.lineWidth = 12; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(60, 200); g.quadraticCurveTo(150, 150, 250, 140); g.stroke();
+    g.beginPath(); g.moveTo(895, 210); g.quadraticCurveTo(880, 160, 860, 120); g.stroke();
+  } else if (def.scene === 'fair') {
+    g.strokeStyle = P.far; g.lineWidth = 4; const wx = 790, wy = 250, wr = 150;
+    g.beginPath(); g.arc(wx, wy, wr, 0, Math.PI * 2); g.stroke();
+    for (let k = 0; k < 12; k++) { const a = k * Math.PI / 6; g.beginPath(); g.moveTo(wx, wy); g.lineTo(wx + Math.cos(a) * wr, wy + Math.sin(a) * wr); g.stroke(); g.fillStyle = P.near; g.fillRect(wx + Math.cos(a) * wr - 9, wy + Math.sin(a) * wr, 18, 14); }
+    g.beginPath(); g.moveTo(wx - 60, GY); g.lineTo(wx, wy); g.lineTo(wx + 60, GY); g.stroke();
+    for (let i = 0; i < 4; i++) { const x = 40 + i * 140, w = 110; g.fillStyle = P.near; g.fillRect(x, GY - 70, w, 70); for (let s = 0; s < 6; s++) { g.fillStyle = s % 2 ? '#ff7a8a' : '#fff4e0'; g.beginPath(); g.moveTo(x - 6 + s * (w + 12) / 6, GY - 70); g.lineTo(x - 6 + (s + 1) * (w + 12) / 6, GY - 70); g.lineTo(x + w / 2, GY - 100); g.closePath(); g.fill(); } }
+  } else if (def.scene === 'beach') {
+    g.fillStyle = '#3d9ad6'; g.fillRect(0, GY - 110, VW, 110);
+    g.fillStyle = '#6dbbe8'; for (let i = 0; i < 26; i++) g.fillRect(R() * VW, GY - 110 + R() * 100, 20 + R() * 40, 2);
+    g.fillStyle = '#ffffff'; g.globalAlpha = .7; g.fillRect(0, GY - 8, VW, 4); g.globalAlpha = 1;
+    g.strokeStyle = '#7a5a3a'; g.lineWidth = 9; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(70, GY); g.quadraticCurveTo(60, 330, 110, 230); g.stroke();
+    g.fillStyle = '#3f8f4a'; for (let k = 0; k < 6; k++) { const a = -Math.PI / 2 + (k - 2.5) * .55; g.beginPath(); g.ellipse(110 + Math.cos(a) * 46, 230 + Math.sin(a) * 18 + 10, 50, 10, a, 0, Math.PI * 2); g.fill(); }
+  } else if (def.scene === 'night') {
+    tRoof(g, 200, GY, 240, 170, P.near); tRoof(g, 780, GY, 220, 150, P.near);
+    for (let i = 0; i < 3; i++) prang(g, 470 + (i - 1) * 140, GY - 40, 40, 160, P.far);
+  }
+  // ground
+  const gg = g.createLinearGradient(0, GY, 0, VH); gg.addColorStop(0, P.ground); gg.addColorStop(1, P.ground2);
+  g.fillStyle = gg; g.fillRect(0, GY, VW, VH - GY);
+  g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(0, GY, VW, 2);
+  for (let i = 0; i < 60; i++) { g.fillStyle = 'rgba(0,0,0,.08)'; g.fillRect(R() * VW, GY + 6 + R() * (VH - GY - 8), 3 + R() * 6, 1.5); }
+  g.strokeStyle = P.line; g.lineWidth = 2;
+  for (const h of G.hoops) { g.beginPath(); g.ellipse(h.x0, GY + 22, 110 + (h.swing || 0) * .6, 13, 0, 0, Math.PI * 2); g.stroke(); }
+  g.beginPath(); g.moveTo(30, GY + 40); g.lineTo(VW - 30, GY + 40); g.stroke();
+  // tree branches the ball bounces off
+  for (const br of G.branches) {
+    g.fillStyle = '#3f7d3a'; g.beginPath(); g.arc(br.x, br.y, br.r + 4, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#5ea24f';
+    for (let k = 0; k < 9; k++) { const a = R() * Math.PI * 2, d = R() * br.r * .7; g.beginPath(); g.arc(br.x + Math.cos(a) * d, br.y + Math.sin(a) * d, br.r * (.28 + R() * .2), 0, Math.PI * 2); g.fill(); }
+    g.fillStyle = '#8a6a3a'; for (let k = 0; k < 4; k++) { g.beginPath(); g.ellipse(br.x - br.r * .5 + R() * br.r, br.y + br.r * .3 + R() * br.r * .4, 2.5, 7, .4, 0, Math.PI * 2); g.fill(); }
+  }
+}
+// strings of flags / lights across the top
+function tDrawScenery(g, G, time) {
+  const sc = G.def.scene;
+  if (sc === 'fair' || sc === 'night' || sc === 'temple') {
+    for (const [x0, x1, y] of [[0, 330, 70], [630, 960, 70]]) {
+      g.strokeStyle = 'rgba(60,40,40,.5)'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(x0, y); g.quadraticCurveTo((x0 + x1) / 2, y + 40, x1, y); g.stroke();
+      for (let k = 1; k < 10; k++) {
+        const t = k / 10, x = x0 + (x1 - x0) * t, yy = y + 40 * 2 * t * (1 - t) * 1 + Math.sin(time * 2 + k) * 1.5;
+        if (sc === 'night') { const on = (Math.sin(time * 3 + k * 1.7) + 1) / 2; g.fillStyle = `rgba(255,${190 + 40 * on | 0},120,${.5 + on * .5})`; g.beginPath(); g.arc(x, yy + 6, 4, 0, Math.PI * 2); g.fill(); }
+        else { g.fillStyle = ['#ff6f9c', '#ffcf5a', '#4fe0bf', '#8fb8ff'][k % 4]; g.beginPath(); g.moveTo(x - 7, yy); g.lineTo(x + 7, yy); g.lineTo(x, yy + 14); g.closePath(); g.fill(); }
+      }
+    }
+  }
+  if (G.def.wind) {                                                     // flag on a pole shows the wind
+    const px = 918, py = 300, w = G.wind / G.def.wind.amp;
+    g.fillStyle = '#e8e2d6'; g.fillRect(px - 2, py, 4, Tak.GROUND - py);
+    const len = 22 + Math.abs(w) * 26, dir = w >= 0 ? 1 : -1, flap = Math.sin(time * (6 + Math.abs(w) * 8)) * (4 + Math.abs(w) * 3);
+    g.fillStyle = '#ff5a6a'; g.beginPath(); g.moveTo(px, py + 2); g.quadraticCurveTo(px + dir * len / 2, py + 2 + flap, px + dir * len, py + 8 + flap * .5); g.lineTo(px + dir * len, py + 14 + flap * .5); g.quadraticCurveTo(px + dir * len / 2, py + 18 - flap, px, py + 20); g.closePath(); g.fill();
+  }
+}
+function tDrawHoopBack(g, G, h, time) {
+  const lit = h.lit, rx = Tak.HR;
+  g.strokeStyle = 'rgba(80,55,35,.85)'; g.lineWidth = 2;
+  const top = h.swing ? -40 : -10, pivot = h.x0;
+  g.beginPath(); g.moveTo(pivot, top); g.lineTo(h.cx, h.y - 34); g.stroke();
+  g.beginPath(); g.moveTo(h.cx, h.y - 34); g.lineTo(h.cx - rx, h.y); g.moveTo(h.cx, h.y - 34); g.lineTo(h.cx + rx, h.y); g.stroke();
+  if (lit && G.hoops.length > 1) {
+    const glow = g.createRadialGradient(h.cx, h.y, 10, h.cx, h.y, 90); glow.addColorStop(0, 'rgba(255,214,120,.45)'); glow.addColorStop(1, 'rgba(255,214,120,0)');
+    g.fillStyle = glow; g.fillRect(h.cx - 90, h.y - 90, 180, 180);
+  }
+  // the two rear rings of the three-ring hoop
+  g.lineWidth = 3;
+  for (const s of [-1, 1]) { g.strokeStyle = lit ? (s < 0 ? '#e85a4a' : '#4aa0e8') : '#6b6680'; g.beginPath(); g.ellipse(h.cx + s * 16, h.y - 5, 22, 6, 0, Math.PI, Math.PI * 2); g.stroke(); }
+  g.strokeStyle = lit ? '#ffcf5a' : '#7c7698'; g.beginPath(); g.ellipse(h.cx, h.y, rx, 9, 0, Math.PI, Math.PI * 2); g.stroke();
+  // net
+  g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 1;
+  for (let k = 0; k <= 6; k++) { const t = k / 6, x0 = h.cx - rx + 2 * rx * t, x1 = h.cx - 16 + 32 * t; g.beginPath(); g.moveTo(x0, h.y); g.lineTo(x1, h.y + 40); g.stroke(); }
+  for (let k = 1; k <= 3; k++) { const yy = h.y + k * 10, w = rx - (rx - 16) * k / 4; g.beginPath(); g.ellipse(h.cx, yy, w, 4, 0, 0, Math.PI * 2); g.stroke(); }
+}
+function tDrawHoopFront(g, G, h, time) {
+  const lit = h.lit, rx = Tak.HR;
+  g.lineWidth = 3.5; g.strokeStyle = lit ? '#ffcf5a' : '#7c7698';
+  g.beginPath(); g.ellipse(h.cx, h.y, rx, 9, 0, 0, Math.PI); g.stroke();
+  for (const s of [-1, 1]) { g.fillStyle = lit ? '#fff1c0' : '#9a94b0'; g.beginPath(); g.arc(h.cx + s * rx, h.y, 3, 0, Math.PI * 2); g.fill(); }
+  if (G.hoops.length > 1 && G.def.litT) {                               // time left before the light moves
+    const per = G.def.litT, left = per - (G.t % per);
+    if (lit) { g.strokeStyle = 'rgba(255,207,90,.9)'; g.lineWidth = 4; g.beginPath(); g.arc(h.cx, h.y + 14, 52, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * left / per); g.stroke();
+      g.font = `600 13px ${FONT}`; g.textAlign = 'center'; g.fillStyle = C.gold; g.fillText(th(Math.ceil(left)), h.cx, h.y + 82); }
+  }
+}
+function tDrawBall(g, G, time) {
+  const b = G.ball, r = Tak.BR;
+  const hgt = Math.max(0, Tak.GROUND - b.y), sh = Math.max(.15, 1 - hgt / 420);
+  g.fillStyle = `rgba(0,0,0,${.25 * sh})`; g.beginPath(); g.ellipse(b.x, Tak.GROUND + 3, 14 * sh + 4, 3.5 * sh + 1, 0, 0, Math.PI * 2); g.fill();
+  let alpha = 1, y = b.y;
+  if (!b.live) { alpha = .55 + .45 * Math.abs(Math.sin(time * 6)); y += Math.sin(time * 4) * 4; }
+  g.globalAlpha = alpha;
+  const gr = g.createRadialGradient(b.x - 4, y - 4, 2, b.x, y, r); gr.addColorStop(0, '#fbe6a6'); gr.addColorStop(1, '#c8902f');
+  g.fillStyle = gr; g.beginPath(); g.arc(b.x, y, r, 0, Math.PI * 2); g.fill();
+  g.save(); g.beginPath(); g.arc(b.x, y, r, 0, Math.PI * 2); g.clip();
+  g.translate(b.x, y); g.rotate(b.spin); g.strokeStyle = 'rgba(122,78,20,.85)'; g.lineWidth = 1.6;
+  for (let k = 0; k < 3; k++) { g.rotate(Math.PI / 3); g.beginPath(); g.ellipse(0, 0, r, r * .42, 0, 0, Math.PI * 2); g.stroke(); }
+  g.restore();
+  g.strokeStyle = '#7a4e14'; g.lineWidth = 1.2; g.beginPath(); g.arc(b.x, y, r, 0, Math.PI * 2); g.stroke();
+  g.globalAlpha = 1;
+  if (!b.live) {                                                        // serve countdown ring
+    g.strokeStyle = 'rgba(255,255,255,.8)'; g.lineWidth = 2.5; g.beginPath(); g.arc(b.x, y, r + 7, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0, Math.min(1, b.wait / 1.6))); g.stroke();
+  }
+  if (b.y < 0 && b.live) {                                             // above the top edge: little arrow
+    g.fillStyle = 'rgba(255,255,255,.85)'; g.beginPath(); g.moveTo(b.x, 6); g.lineTo(b.x - 7, 18); g.lineTo(b.x + 7, 18); g.closePath(); g.fill();
+  }
+}
+function tDrawLanding(g, G, time) {
+  const b = G.ball;
+  if (!b.live || b.vy < -50 && b.y > 200) return;
+  const pr = Tak.predict(G, Tak.GROUND - Tak.BR, 2.5);
+  const a = Math.max(.15, Math.min(.6, 1.2 - pr.t));
+  g.strokeStyle = `rgba(255,255,255,${a})`; g.lineWidth = 2; g.setLineDash([4, 5]);
+  g.beginPath(); g.ellipse(pr.x, Tak.GROUND + 4, 18, 5, 0, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
+}
+function tDrawPlayer(g, G, p, time) {
+  const k = 1.55, cx = p.x + p.w / 2, by = p.y + p.h, pink = p.id === 'pink';
+  if (p.kickT > 0) {                                                    // the kicking leg
+    const dur = p.kickK === 'whiff' ? .18 : .24, u = 1 - p.kickT / dur;
+    const b = G.ball, side = p.kickK === 'shot' || p.kickK === 'back' || p.kickK === 'whiff' ? p.face : (Math.sign(b.x - cx) || p.face);
+    const air = p.kickK === 'shot' || p.kickK === 'back';
+    const a0 = air ? .6 : .9, a1 = air ? -1.5 : -.5, ang = a0 + (a1 - a0) * Math.min(1, u * 1.6);
+    const hx = cx + side * 4, hy = by - 14, len = 28;
+    const fx = hx + side * Math.cos(ang) * len, fy = hy + Math.sin(ang) * len;
+    g.strokeStyle = pink ? C.pinkD : C.mintD; g.lineWidth = 9; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(hx, hy); g.lineTo(fx, fy); g.stroke();
+    g.fillStyle = pink ? C.pink : C.mint; g.beginPath(); g.arc(fx, fy, 6, 0, Math.PI * 2); g.fill();
+    if (u < .7 && p.kickK !== 'whiff') { g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 2; g.beginPath(); g.arc(hx, hy, len + 6, side > 0 ? a1 : Math.PI - a0, side > 0 ? a0 : Math.PI - a1); g.stroke(); }
+  }
+  g.save(); g.translate(cx, by); g.scale(k, k);
+  drawPlayer(g, { id: p.id, x: -11, y: -28, w: 22, h: 28, face: p.face, sq: p.sq, walk: p.walk }, time);
+  g.restore();
+}
+function tDrawHud(g, G, time) {
+  const lv = TLEVELS[TS.li], st = Tak.stars(G);
+  rr(g, 10, 10, 182, 66, 12); g.fillStyle = 'rgba(21,17,46,.72)'; g.fill();
+  g.textAlign = 'left'; g.font = `400 12px ${FONT}`; g.fillStyle = '#c9bfef'; g.fillText('แต้ม', 22, 30);
+  g.font = `400 30px ${FONT_D}`; g.fillStyle = C.gold; g.fillText(th(G.score), 22, 64);
+  g.textAlign = 'right'; g.font = `400 15px ${FONT}`; g.fillStyle = C.gold; g.fillText([0, 1, 2].map(i => (i < st ? '★' : '☆')).join(''), 182, 32);
+  if (st < 3) { g.font = `400 11px ${FONT}`; g.fillStyle = '#c9bfef'; g.fillText(`ดาวถัดไป ${th(lv.stars[st])}`, 182, 52); }
+  rr(g, VW - 122, 10, 112, 66, 12); g.fillStyle = 'rgba(21,17,46,.72)'; g.fill();
+  g.textAlign = 'right'; g.font = `400 12px ${FONT}`; g.fillStyle = '#c9bfef'; g.fillText('เวลา', VW - 22, 30);
+  const low = G.left < 15 && Math.sin(time * 8) > 0;
+  g.font = `400 28px ${FONT_D}`; g.fillStyle = low ? '#ff6b6b' : C.paper; g.fillText(th(fmt(Math.ceil(G.left))), VW - 22, 64);
+  // the exchange multiplier
+  const ch = G.chain;
+  g.textAlign = 'center';
+  if (ch.passes > 0) {
+    const mult = 1 + Tak.MULT_STEP * Math.min(ch.passes, Tak.MULT_MAX);
+    rr(g, VW / 2 - 92, 12, 184, 40, 20); g.fillStyle = 'rgba(21,17,46,.72)'; g.fill();
+    g.font = `400 20px ${FONT_D}`; g.fillStyle = C.gold; g.fillText(`ส่งต่อ ×${th(mult)}`, VW / 2, 40);
+    for (let k = 0; k < Tak.MULT_MAX; k++) { g.fillStyle = k < ch.passes ? C.gold : 'rgba(255,255,255,.25)'; g.beginPath(); g.arc(VW / 2 - 18 + k * 12, 58, 3.5, 0, Math.PI * 2); g.fill(); }
+  } else if (ch.last && G.ball.live) {
+    g.font = `600 13px ${FONT}`; const t = 'ส่งให้เพื่อนก่อน ถึงจะยิงได้แต้ม', w = g.measureText(t).width + 28;
+    rr(g, VW / 2 - w / 2, 16, w, 28, 14); g.fillStyle = 'rgba(21,17,46,.66)'; g.fill();
+    g.fillStyle = '#ffd9e6'; g.fillText(t, VW / 2, 35);
+  }
+  if (G.def.wind) {
+    const w = G.wind / G.def.wind.amp, x = VW - 66, y = 92;
+    rr(g, x - 56, y - 14, 112, 28, 14); g.fillStyle = 'rgba(21,17,46,.6)'; g.fill();
+    g.font = `600 12px ${FONT}`; g.fillStyle = '#c9e6ff'; g.textAlign = 'left'; g.fillText('ลม', x - 46, y + 4);
+    const len = 8 + Math.abs(w) * 30, d = Math.sign(w) || 1, ax = x + 8;
+    g.strokeStyle = '#c9e6ff'; g.lineWidth = 3; g.beginPath(); g.moveTo(ax - d * len / 2, y); g.lineTo(ax + d * len / 2, y); g.stroke();
+    g.fillStyle = '#c9e6ff'; g.beginPath(); g.moveTo(ax + d * (len / 2 + 7), y); g.lineTo(ax + d * len / 2, y - 6); g.lineTo(ax + d * len / 2, y + 6); g.closePath(); g.fill();
+  }
+}
+function renderTak(dt) {
+  const g = ctx, G = TS.G;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  if (!G) return;
+  g.drawImage(takBg, 0, 0);
+  let ox = 0, oy = 0;
+  if (S.shake > 0) { ox = (Math.random() - .5) * 6 * S.shake; oy = (Math.random() - .5) * 6 * S.shake; }
+  g.setTransform(scale, 0, 0, scale, ox * scale, oy * scale);
+  const time = S.time;
+  tDrawScenery(g, G, time);
+  tDrawLanding(g, G, time);
+  for (const h of G.hoops) tDrawHoopBack(g, G, h, time);
+  for (const id of ['mint', 'pink']) tDrawPlayer(g, G, G[id], time);
+  tDrawBall(g, G, time);
+  for (const h of G.hoops) tDrawHoopFront(g, G, h, time);
+  drawParts(g);
+  for (const f of TS.floats) {
+    const a = Math.min(1, f.life / (f.max * .5));
+    g.globalAlpha = a; g.textAlign = 'center'; g.font = `${f.size > 20 ? 400 : 600} ${f.size}px ${f.size > 20 ? FONT_D : FONT}`;
+    g.lineWidth = 4; g.strokeStyle = 'rgba(21,18,43,.8)'; g.strokeText(f.text, f.x, f.y); g.fillStyle = f.col; g.fillText(f.text, f.x, f.y);
+    g.globalAlpha = 1;
+  }
+  g.setTransform(scale, 0, 0, scale, 0, 0);
+  tDrawHud(g, G, time);
+  drawBanner(g);
+  if (O.role && S.mode !== 'menu') drawNetNote(g);
+  if (S.flash > 0) { g.fillStyle = `rgba(255,80,110,${S.flash * .25})`; g.fillRect(0, 0, VW, VH); }
+}
+
+/* ---------- title list ---------- */
+function renderTakLevels() {
+  let total = 0;
+  $('#tlevels').innerHTML = TLEVELS.map((lv, i) => {
+    const b = tBest(i), open = tOpen(i);
+    if (b) total += b.s;
+    const hs = b ? `<span class="st">${kStars(b.s)}</span> ${th(b.m)} แต้ม` : open ? 'ยังไม่เคยลงสนาม' : 'ยังล็อกอยู่';
+    return `<button type="button" class="lv${b && b.s ? ' done' : ''}" data-t="${i}"${open ? '' : ' disabled'}><span class="n">${th(i + 1)}</span><span class="nm">${lv.name}</span><span class="hs">${hs}</span></button>`;
+  }).join('');
+  $('#tStarsAll').textContent = `ดาวรวม ${th(total)}/${th(TLEVELS.length * 3)}`;
+  let next = TLEVELS.findIndex((l, i) => tOpen(i) && !(tBest(i) && tBest(i).s >= 3));
+  if (next < 0) next = 0;
+  $('#bGo').dataset.t = next;
+  if (S.tab === 'tak') $('#bGo').textContent = tBest(next) ? `เล่น${COURT(next)}` : 'ลงสนาม';
+}
+$('#tlevels').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (b && !b.disabled) startTak(+b.dataset.t); });
+
+/* ---------- online ---------- */
+function onlineStartTak(i) {
+  if (O.role !== 'host') return;
+  O.md = 't'; O.lv = i; O.ep++; O.st = 'play'; O.seenDead = O.partner ? (O.partner.dead | 0) : 0; O.seenRq = O.partner ? (O.partner.rq | 0) : 0;
+  loadOnlineLevel(true);
+}
+$('#oLevelsT').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (b && !b.disabled) onlineStartTak(+b.dataset.t); });
+function renderOnlineTak() {
+  $('#oLevelsT').innerHTML = TLEVELS.map((lv, i) => {
+    const b = tBest(i), open = tOpen(i);
+    return `<button type="button" class="lv${b && b.s ? ' done' : ''}" data-t="${i}"${open ? '' : ' disabled'}><span class="n">${th(i + 1)}</span><span class="nm">${lv.name}</span><span class="hs">${b ? `<span class="st">${kStars(b.s)}</span>` : open ? 'ยังไม่เคยลงสนาม' : 'ยังล็อกอยู่'}</span></button>`;
+  }).join('');
+}
+function tHostHears(pr) {
+  const G = TS.G;
+  if (!G || pr.ep !== O.ep || !pr.p) return;
+  const rid = O.local === 'pink' ? 'mint' : 'pink';
+  Tak.applyPlayer(G, rid, pr.p, performance.now());
+  const ka = pr.p.ka | 0;
+  if (TS.seenKa < 0) TS.seenKa = ka;
+  if (ka > TS.seenKa) { TS.seenKa = ka; TS.remote.req = pr.p.kq; TS.remote.fresh = true; }
+}
+function tGuestHears(pr) {
+  const G = TS.G;
+  if (!G) return;
+  const hid = O.local === 'pink' ? 'mint' : 'pink';
+  if (pr.p) Tak.applyPlayer(G, hid, pr.p, performance.now());
+  if (pr.tw) {
+    const was = G.over;
+    Tak.apply(G, pr.tw, performance.now());
+    if (G.over && !was && !TS.endT && S.mode === 'play') { TS.endT = 1.4; sfx.whistle(); tSave(); }
+  }
+}
+
 /* ---------- Fullscreen ---------- */
 const isIPhone = /iPhone|iPod/.test(navigator.userAgent);
 const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement || null;
@@ -3106,7 +3598,7 @@ function boot(data) {
   requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
   if (inClaude()) setTimeout(roomApi, 300);
 }
-try { Object.defineProperty(window, '__tsr', { value: { S, KS, DS, RS, O, KK, KT }, configurable: true }); } catch (e) {}
+try { Object.defineProperty(window, '__tsr', { value: { S, KS, DS, RS, TS, O, KK, KT }, configurable: true }); } catch (e) {}
 try { if (window.claude && window.claude.hot && window.claude.hot.snapshot) window.claude.hot.snapshot(() => ({ names: S.names, li: S.li })); } catch (e) {}
 if (window.claude && window.claude.hot && window.claude.hot.ready) window.claude.hot.ready(boot);
 else boot((window.claude && window.claude.hot && window.claude.hot.data) || {});

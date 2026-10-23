@@ -1,9 +1,9 @@
 {
   "name": "thang-song-rao",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "private": true,
-  "description": "เกมสองคน ผจญภัย ครัววุ่นวาย ป้องกันบ้าน และขับรถคู่",
+  "description": "เกมสองคน ผจญภัย ครัววุ่นวาย ป้องกันบ้าน ขับรถคู่ และตะกร้อลอดห่วง",
   "scripts": {
-    "test": "node tests/lint.js && node tests/test.js && node tests/bot.js && node tests/cheese.js && node tests/bot3.js && node tests/cheese3.js && node tests/bot4.js && node tests/cheese4.js && node tests/nettest.js && node tests/fuzz.js 30 6 && node tests/ktest.js && node tests/kbot.js && node tests/dtest.js && node tests/dbot.js && node tests/rtest.js && node tests/rbot.js && node tests/tfuzz.js 3"
+    "test": "node tests/lint.js && node tests/test.js && node tests/bot.js && node tests/cheese.js && node tests/bot3.js && node tests/cheese3.js && node tests/bot4.js && node tests/cheese4.js && node tests/nettest.js && node tests/fuzz.js 30 6 && node tests/ktest.js && node tests/kbot.js && node tests/dtest.js && node tests/dbot.js && node tests/rtest.js && node tests/rbot.js && node tests/ttest.js && node tests/tbot.js && node tests/tnet.js && node tests/tfuzz.js 3"
   }
 }
