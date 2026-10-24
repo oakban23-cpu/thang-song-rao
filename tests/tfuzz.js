@@ -1,12 +1,13 @@
-// Random play on every kitchen, defense night, driving route, takraw court, song, building site, race course, river, house and kite field:
+// Random play on every kitchen, defense night, driving route, takraw court, song, building site, race course, river, house, kite field,
+// cinema showing, meal, night in one bed and window to climb:
 // nothing may throw, go NaN, leave the map,
 // sink into walls, duplicate an item, or fail to end the round.
 const vm = require('vm'), fs = require('fs'), path = require('path');
 const ctx = {}; vm.createContext(ctx);
 const JS = fs.existsSync(path.join(__dirname, 'game.js')) ? __dirname : path.join(__dirname, '..', 'js');   // coop/ (dev) or tests/ (repo)
-for (const f of ['kitchen', 'klevels', 'defense', 'dlevels', 'drive', 'rlevels', 'takraw', 'tlevels', 'rhythm', 'mlevels', 'tower', 'wlevels', 'leg', 'llevels', 'boat', 'blevels', 'move', 'vlevels', 'kite', 'ilevels']) vm.runInContext(fs.readFileSync(path.join(JS, f + '.js'), 'utf8'), ctx);
-vm.runInContext('this.Kit=Kit;this.Def=Def;this.Drv=Drv;this.Tak=Tak;this.KL=KLEVELS;this.DL=DLEVELS;this.RL=RLEVELS;this.TL=TLEVELS;this.Rhy=Rhy;this.ML=MLEVELS;this.Twr=Twr;this.WL=WLEVELS;this.Leg=Leg;this.LL=LLEVELS;this.Boat=Boat;this.BL=BLEVELS;this.Mov=Mov;this.VL=VLEVELS;this.Kite=Kite;this.IL=ILEVELS;', ctx);
-const { Kit, Def, Drv, Tak, KL, DL, RL, TL, Rhy, ML, Twr, WL, Leg, LL, Boat, BL, Mov, VL, Kite, IL } = ctx;
+for (const f of ['kitchen', 'klevels', 'defense', 'dlevels', 'drive', 'rlevels', 'takraw', 'tlevels', 'rhythm', 'mlevels', 'tower', 'wlevels', 'leg', 'llevels', 'boat', 'blevels', 'move', 'vlevels', 'kite', 'ilevels', 'cinema', 'clevels', 'fart', 'flevels', 'bed', 'hlevels', 'climb', 'nlevels']) vm.runInContext(fs.readFileSync(path.join(JS, f + '.js'), 'utf8'), ctx);
+vm.runInContext('this.Kit=Kit;this.Def=Def;this.Drv=Drv;this.Tak=Tak;this.KL=KLEVELS;this.DL=DLEVELS;this.RL=RLEVELS;this.TL=TLEVELS;this.Rhy=Rhy;this.ML=MLEVELS;this.Twr=Twr;this.WL=WLEVELS;this.Leg=Leg;this.LL=LLEVELS;this.Boat=Boat;this.BL=BLEVELS;this.Mov=Mov;this.VL=VLEVELS;this.Kite=Kite;this.IL=ILEVELS;this.Cin=Cin;this.CL=CLEVELS;this.Fart=Fart;this.FL=FLEVELS;this.Bed=Bed;this.HL=HLEVELS;this.Win=Win;this.NL=NLEVELS;', ctx);
+const { Kit, Def, Drv, Tak, KL, DL, RL, TL, Rhy, ML, Twr, WL, Leg, LL, Boat, BL, Mov, VL, Kite, IL, Cin, CL, Fart, FL, Bed, HL, Win, NL } = ctx;
 const RUNS = +process.argv[2] || 6;
 let seed = 1; const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
 const found = new Map();
@@ -393,6 +394,141 @@ for (const def of IL) {
     downs += G.stats.snaps + G.stats.cuts + G.stats.crashes;
   }
   console.log(`kite    ${def.name.padEnd(18)} ${RUNS} random flights (half online), ended ${ends}, came down ${downs} times, stars after a launch and random play ${st1}`);
+}
+
+const JUNK2 = [null, 7, 'x', {}, [1, 2], { t: NaN, st: 'zz', x: 1e9 }, { c: ['a', 1e9, 9], tp: [7, 'q', -5], l: ['x', 2], P: 1e9, f: [[1, 'a']], mq: [1, 2, 'sit', 'z'] }, { s: 3, dd: 1.5, ed: 'no', H: [NaN] }];
+const junk = () => JUNK2[Math.floor(rnd() * JUNK2.length)];
+// ---- cinema: random leaning and popcorn, half online (the guest leans itself, its presses arrive late; junk)
+for (const def of CL) {
+  let ends = 0, kicked = 0, st1 = 0;
+  for (let run = 0; run < RUNS; run++) {
+    seed = 9000 + run * 37 + def.name.length;
+    const online = run % 2 === 1, G = Cin.load(def), U = online ? Cin.load(def) : null, q = [];
+    let hold = { pink: false, mint: false }, until = 0, gl = 0, last = 0, lv = 0;
+    try {
+      for (let k = 0; k < Math.round((def.time + Cin.START + 1) / Cin.DT) && !G.over; k++) {
+        if (k >= until) { hold = { pink: rnd() < 0.6, mint: rnd() < 0.6 }; until = k + 10 + Math.floor(rnd() * 150); }
+        const inp = { pink: { lean: hold.pink, shield: rnd() < 0.004 }, mint: { lean: hold.mint, shield: rnd() < 0.004 } };
+        if (!online) Cin.step(G, inp);
+        else {
+          gl = Cin.leanStep(gl, hold.mint && U.st === 'run', U);
+          Cin.step(U, { mint: { lean: hold.mint, leanV: gl }, pink: { lean: U.held.pink } }, true);
+          q.push({ at: G.t + 0.05 + rnd() * 0.2, lv: gl, s: inp.mint.shield });
+          let sh = false; while (q.length && q[0].at <= G.t) { const m = q.shift(); lv = m.lv; sh = sh || m.s; }
+          Cin.step(G, { pink: inp.pink, mint: { lean: hold.mint, leanV: lv, shield: sh } });
+          if (k % 4 === 0) Cin.apply(U, JSON.parse(JSON.stringify(Cin.encode(G))), 'mint');
+          if (rnd() < 0.003) Cin.apply(U, junk(), 'mint');
+          if (!fin(U.lean.pink, U.lean.mint, U.score, U.t)) report(`cinema ${def.name}: guest went strange`, `${U.lean.pink} ${U.score}`);
+        }
+        if (!fin(G.lean.pink, G.lean.mint, G.score, G.kiss, G.shield.pink, G.shield.mint) || G.lean.pink < 0 || G.lean.pink > 1 || G.lean.mint < 0 || G.lean.mint > 1) report(`cinema ${def.name}: bad numbers`, `${G.lean.pink} ${G.lean.mint} ${G.score}`);
+        if (G.score < 0 || G.strikes > Cin.STRIKES) report(`cinema ${def.name}: score or strikes out of range`, `${G.score} ${G.strikes}`);
+        if (G.kissing && !(G.lean.pink >= Cin.KISS_AT && G.lean.mint >= Cin.KISS_AT)) report(`cinema ${def.name}: kissing apart`, `${G.lean.pink} ${G.lean.mint}`);
+        last = G.score;
+      }
+    } catch (e) { report(`cinema ${def.name}: threw`, e.stack.split('\n').slice(0, 2).join(' ')); }
+    if (G.over) ends++; if (G.kicked) kicked++; if (Cin.stars(G) > 0) st1++;
+  }
+  console.log(`cinema  ${def.name.padEnd(18)} ${RUNS} random showings (half online), ended ${ends}, shown out ${kicked}, stars from random leaning ${st1}`);
+}
+// ---- no farting: random gas and covers, half online (presses carry their times and arrive late; junk)
+for (const def of FL) {
+  let ends = 0, ruined = 0, st1 = 0;
+  for (let run = 0; run < RUNS; run++) {
+    seed = 9500 + run * 41 + def.name.length;
+    const online = run % 2 === 1, G = Fart.load(def), U = online ? Fart.load(def) : null, q = [];
+    let hold = false, until = 0, last = 0;
+    try {
+      for (let k = 0; k < Math.round((def.time + Fart.START + 1) / Fart.DT) && !G.over; k++) {
+        if (k >= until) { hold = rnd() < 0.3; until = k + 10 + Math.floor(rnd() * 200); }
+        const t = G.t, inp = { gas: { hold, release: rnd() < 0.006 ? t : null }, cover: { cough: rnd() < 0.006 ? t : null, chair: rnd() < 0.002 ? t : null } };
+        if (!online) Fart.step(G, inp);
+        else {
+          Fart.step(U, { cover: inp.cover }, true);
+          for (const kk of ['cough', 'chair']) if (inp.cover[kk] != null) q.push({ at: G.t + 0.05 + rnd() * 0.25, kk, t: inp.cover[kk] });
+          const cov = {}; while (q.length && q[0].at <= G.t) { const m = q.shift(); cov[m.kk] = m.t; }
+          Fart.step(G, { gas: inp.gas, cover: cov });
+          if (k % 4 === 0) Fart.apply(U, JSON.parse(JSON.stringify(Fart.encode(G))), 'cover');
+          if (rnd() < 0.003) Fart.apply(U, junk(), rnd() < .5 ? 'cover' : 'gas');
+          if (!fin(U.P, U.strain, U.odd, U.score, U.t)) report(`fart ${def.name}: guest went strange`, `${U.P} ${U.score}`);
+        }
+        if (!fin(G.P, G.strain, G.odd, G.score) || G.P < 0 || G.P > 100 || G.strain < 0 || G.strain > 100 || G.odd < 0 || G.odd > 100) report(`fart ${def.name}: bad numbers`, `${G.P} ${G.strain} ${G.odd}`);
+        if (G.score < last) report(`fart ${def.name}: points went down`, `${last} → ${G.score}`);
+        last = G.score;
+      }
+    } catch (e) { report(`fart ${def.name}: threw`, e.stack.split('\n').slice(0, 2).join(' ')); }
+    if (G.over) ends++; if (G.ruined) ruined++; if (Fart.stars(G) > 0) st1++;
+  }
+  console.log(`fart    ${def.name.padEnd(18)} ${RUNS} random meals (half online), ended ${ends}, ruined ${ruined}, stars from random play ${st1}`);
+}
+// ---- one blanket: random moving, pulling and slapping, half online (the guest moves itself, soft snapshots; junk)
+for (const def of HL) {
+  let ends = 0, failed = 0, st1 = 0;
+  for (let run = 0; run < RUNS; run++) {
+    seed = 9900 + run * 29 + def.name.length;
+    const online = run % 2 === 1, G = Bed.load(def), U = online ? Bed.load(def) : null, q = [];
+    const wp = walker(), wm = walker(), rate = [0.003, 0.01, 0.03][run % 3];
+    let pull = { pink: false, mint: false }, until = 0, last = 0, gi = { mx: 0, pull: false };
+    try {
+      for (let k = 0; k < Math.round((def.time + Bed.START + 1) / Bed.DT) && !G.over; k++) {
+        if (k >= until) { pull = { pink: rnd() < 0.3, mint: rnd() < 0.3 }; until = k + 10 + Math.floor(rnd() * 150); }
+        const a = wp(k, rate), b = wm(k, rate), inp = { pink: { mx: a.mx, pull: pull.pink, act: a.act }, mint: { mx: b.mx, pull: pull.mint, act: b.act } };
+        if (!online) Bed.step(G, inp);
+        else {
+          Bed.step(U, { mint: { mx: b.mx, pull: pull.mint }, pink: { mx: 0, pull: U.pull.pink } }, true);
+          q.push({ at: G.t + 0.05 + rnd() * 0.2, m: inp.mint });
+          let act = false; while (q.length && q[0].at <= G.t) { const m = q.shift().m; gi = { mx: m.mx, pull: m.pull }; act = act || m.act; }
+          Bed.step(G, { pink: inp.pink, mint: { mx: gi.mx, pull: gi.pull, act } });
+          if (k % 4 === 0) Bed.apply(U, JSON.parse(JSON.stringify(Bed.encode(G))), true);
+          if (rnd() < 0.003) Bed.apply(U, junk(), rnd() < .5);
+          if (!fin(U.x.pink, U.x.mint, U.c, U.score, U.t)) report(`bed ${def.name}: guest went strange`, `${U.x.pink} ${U.c}`);
+        }
+        if (!fin(G.x.pink, G.x.mint, G.c, G.H.pink, G.H.mint, G.Z.pink, G.Z.mint, G.score, G.stink)) report(`bed ${def.name}: bad numbers`, `${G.x.pink} ${G.c}`);
+        if (G.x.pink < Bed.HB - 1e-6 || G.x.mint > Bed.BW - Bed.HB + 1e-6 || G.x.mint - G.x.pink < Bed.GAP - 1e-6) report(`bed ${def.name}: sleepers out of place`, `${G.x.pink} ${G.x.mint}`);
+        if ([G.H.pink, G.H.mint, G.Z.pink, G.Z.mint].some(v => v < 0 || v > 100)) report(`bed ${def.name}: meters out of range`, `${G.H.pink} ${G.Z.pink}`);
+        if (G.score < last - 1e-9) report(`bed ${def.name}: points went down`, `${last} → ${G.score}`);
+        last = G.score;
+      }
+    } catch (e) { report(`bed ${def.name}: threw`, e.stack.split('\n').slice(0, 2).join(' ')); }
+    if (G.over) ends++; if (G.failed) failed++; if (Bed.stars(G) > 0) st1++;
+  }
+  console.log(`bed     ${def.name.padEnd(18)} ${RUNS} random nights (half online), ended ${ends}, ruined ${failed}, stars from random play ${st1}`);
+}
+// ---- the window: random walking, climbing and sheet work, half online (either side as the guest; junk)
+for (const def of NL) {
+  let ends = 0, won = 0, st1 = 0;
+  const h = Win.her(def);
+  for (let run = 0; run < RUNS; run++) {
+    seed = 10300 + run * 31 + def.name.length;
+    const online = run % 2 === 1, guest = run % 4 === 1 ? 'climb' : 'top', G = Win.load(def), U = online ? Win.load(def) : null, q = [], rq = { seen: -1, mx: 0, my: 0 };
+    const w = walker(), rate = [0.003, 0.01, 0.03][run % 3];
+    let ty = 0, until = 0, presses = 0;
+    try {
+      for (let k = 0; k < Math.round((def.time + Win.START + 1) / Win.DT) && !G.over; k++) {
+        if (k >= until) { ty = rnd() < 0.5 ? (rnd() < 0.6 ? 1 : -1) : 0; until = k + 10 + Math.floor(rnd() * 200); }
+        const a = w(k, rate), inp = { climb: { mx: a.mx, my: rnd() < 0.5 ? -1 : a.my, act: a.act }, top: { my: ty, act: rnd() < rate * 0.3 } };
+        if (!online) Win.step(G, inp);
+        else {
+          const mine = inp[guest], theirs = guest === 'climb' ? 'top' : 'climb';
+          if (mine.act) presses++;
+          Win.step(U, { [guest]: mine }, true);
+          if (k % 4 === 0) q.push({ at: G.t + 0.05 + rnd() * 0.2, m: JSON.parse(JSON.stringify(Win.guestMsg(U, guest, mine, presses))) });
+          while (q.length && q[0].at <= G.t) Win.hostHears(G, guest, q.shift().m, rq);
+          Win.step(G, { [theirs]: inp[theirs], [guest]: { mx: rq.mx, my: rq.my, act: false } });
+          if (k % 4 === 0) Win.apply(U, JSON.parse(JSON.stringify(Win.encode(G))), guest, true);
+          if (rnd() < 0.003) { Win.apply(U, junk(), guest, rnd() < .5); Win.hostHears(G, guest, junk(), rq); }
+          if (!fin(U.c.x, U.c.y, U.top.len, U.dog, U.t)) report(`window ${def.name}: guest went strange`, `${U.c.x} ${U.c.y}`);
+        }
+        const C = G.c;
+        if (!fin(C.x, C.y, C.stam, G.top.len, G.dog, G.score)) report(`window ${def.name}: bad numbers`, `${C.x} ${C.y} ${G.top.len}`);
+        if (C.x < 0 || C.x > Win.W || C.y < 0 || C.y > h.y + 1e-6 || G.top.len < 0 || G.top.len > def.sheet + 1e-6) report(`window ${def.name}: out of range`, `${C.x} ${C.y} ${G.top.len}`);
+        if (C.on === 'ground' && C.y !== 0) report(`window ${def.name}: floating on the ground`, `${C.y}`);
+        if (C.on === 'sheet' && Math.abs(C.x - h.x) > 1e-6) report(`window ${def.name}: on the sheet away from it`, `${C.x}`);
+        if (G.strikes > (def.strikes || Win.STRIKES)) report(`window ${def.name}: too many strikes`, `${G.strikes}`);
+      }
+    } catch (e) { report(`window ${def.name}: threw`, e.stack.split('\n').slice(0, 2).join(' ')); }
+    if (G.over) ends++; if (G.won) won++; if (Win.stars(G) > 0) st1++;
+  }
+  console.log(`window  ${def.name.padEnd(18)} ${RUNS} random nights (half online), ended ${ends}, got in ${won}, stars from random play ${st1}`);
 }
 
 console.log('\n--- findings ---');

@@ -35,10 +35,10 @@ const heartsIn = i => (ALL[i].map.join('').match(/\*/g) || []).length;
 const isOpen = i => ALL[i].n - 1 <= (prog.u[ALL[i].ch] || 0);
 const lvLabel = i => `ด่าน ${th(ALL[i].ch)}-${th(ALL[i].n)}`;
 const firstOf = ch => ALL.findIndex(l => l.ch === ch);
-const curLevel = () => (S.kind === 'kit' ? KLEVELS[KS.li] : S.kind === 'def' ? DLEVELS[DS.li] : S.kind === 'drv' ? RLEVELS[RS.li] : S.kind === 'tak' ? TLEVELS[TS.li] : S.kind === 'mus' ? MLEVELS[MS.li] : S.kind === 'twr' ? WLEVELS[WS.li] : S.kind === 'leg' ? LLEVELS[LS.li] : S.kind === 'boat' ? BLEVELS[BS.li] : S.kind === 'mov' ? VLEVELS[VS.li] : S.kind === 'kite' ? ILEVELS[IS.li] : ALL[S.li]);
-const curLabel = () => (S.kind === 'kit' ? kLabel(KS.li) : S.kind === 'def' ? NIGHT(DS.li) : S.kind === 'drv' ? ROUTE(RS.li) : S.kind === 'tak' ? COURT(TS.li) : S.kind === 'mus' ? SONG(MS.li) : S.kind === 'twr' ? SITE(WS.li) : S.kind === 'leg' ? COURSE(LS.li) : S.kind === 'boat' ? RIVER(BS.li) : S.kind === 'mov' ? HOUSE(VS.li) : S.kind === 'kite' ? KFIELD(IS.li) : lvLabel(S.li));
+const curLevel = () => (MODES[S.kind] ? MODES[S.kind].L[MODES[S.kind].st.li] : S.kind === 'kit' ? KLEVELS[KS.li] : S.kind === 'def' ? DLEVELS[DS.li] : S.kind === 'drv' ? RLEVELS[RS.li] : S.kind === 'tak' ? TLEVELS[TS.li] : S.kind === 'mus' ? MLEVELS[MS.li] : S.kind === 'twr' ? WLEVELS[WS.li] : S.kind === 'leg' ? LLEVELS[LS.li] : S.kind === 'boat' ? BLEVELS[BS.li] : S.kind === 'mov' ? VLEVELS[VS.li] : S.kind === 'kite' ? ILEVELS[IS.li] : ALL[S.li]);
+const curLabel = () => (MODES[S.kind] ? MODES[S.kind].label(MODES[S.kind].st.li) : S.kind === 'kit' ? kLabel(KS.li) : S.kind === 'def' ? NIGHT(DS.li) : S.kind === 'drv' ? ROUTE(RS.li) : S.kind === 'tak' ? COURT(TS.li) : S.kind === 'mus' ? SONG(MS.li) : S.kind === 'twr' ? SITE(WS.li) : S.kind === 'leg' ? COURSE(LS.li) : S.kind === 'boat' ? RIVER(BS.li) : S.kind === 'mov' ? HOUSE(VS.li) : S.kind === 'kite' ? KFIELD(IS.li) : lvLabel(S.li));
 // the modes driven by the kitchen-style controls (joystick + buttons); takraw is side-on but uses them too
-const topDown = () => S.kind === 'kit' || S.kind === 'def' || S.kind === 'drv' || S.kind === 'tak' || S.kind === 'mov' || S.kind === 'kite';
+const topDown = () => S.kind === 'kit' || S.kind === 'def' || S.kind === 'drv' || S.kind === 'tak' || S.kind === 'mov' || S.kind === 'kite' || !!(MODES[S.kind] && MODES[S.kind].pad === 'k');
 
 /* ---------- DOM ---------- */
 const app = $('#app'), stage = $('#stage'), cv = $('#cv'), ctx = cv.getContext('2d');
@@ -48,6 +48,10 @@ const isTouch = window.matchMedia('(pointer: coarse)').matches || (navigator.max
 app.classList.toggle('touch', isTouch);
 
 /* ---------- State ---------- */
+// every kind of screen; the one showing is a class on #app
+const KINDS = ['kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov', 'kite', 'cin', 'fart', 'bed', 'win'];
+function setKind(k) { S.kind = k; for (const x of KINDS) app.classList.toggle(x, x === k); }
+const MODES = {};
 const S = { mode: 'menu', li: 0, W: null, deathT: 0, winT: 0, flash: 0, banner: 0, deaths: 0, elapsed: 0, parts: [], time: 0, deadId: null, shake: 0, gates: [], names: { pink: 'เค้า', mint: 'ตัวเอง' }, sound: true };
 const KB = { pink: { left: false, right: false, jump: false }, mint: { left: false, right: false, jump: false } };
 const TC = { pink: { left: false, right: false, jump: false }, mint: { left: false, right: false, jump: false } };
@@ -729,7 +733,7 @@ function readNames() {
 }
 function releaseAll() { for (const id of ['pink', 'mint']) for (const k of ['left', 'right', 'jump']) { KB[id][k] = false; TC[id][k] = false; } JP.pink = JP.mint = false; document.querySelectorAll('.pad button.on').forEach(b => b.classList.remove('on')); touches.clear(); }
 function loadLevel(i, fresh) {
-  S.kind = 'adv'; app.classList.remove('kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov', 'kite');
+  setKind('adv');
   S.li = i; S.W = Phys.load(ALL[i]); S.parts = []; S.deadId = null; S.flash = 0; S.shake = 0; JP.pink = JP.mint = false;
   if (fresh) { S.deaths = 0; S.elapsed = 0; S.banner = 4.2; }
   buildBg(); updateHud();
@@ -750,6 +754,7 @@ function restart() {
   if (S.kind === 'boat') { boatRestart(); return; }
   if (S.kind === 'mov') { movRestart(); return; }
   if (S.kind === 'kite') { kiteRestart(); return; }
+  if (MODES[S.kind]) { MODES[S.kind].restart(); return; }
   if (!S.W) return;
   if (O.role) { onlineRestart(); return; }
   S.deaths++; loadLevel(S.li, false); showScreen(null); setMode('play');
@@ -767,12 +772,14 @@ function pause() {
   if (S.mode !== 'play') return;
   setMode('paused'); releaseAll(); releaseK(); engine(false, 0);
   O.lastInp = null; KS.lastInp = {}; DS.lastInp = {}; RS.lastInp = {}; TS.lastInp = {}; WS.press = { pink: 0, mint: 0 }; LS.q = []; BS.q = []; VS.lastInp = {}; IS.lastInp = {};
+  for (const m of Object.values(MODES)) m.st.lastInp = {};
+  xRelease();
   const lv = curLevel();
   $('#pNo').textContent = curLabel() + ' · ' + lv.name;
   $('#pHint').textContent = lv.hint;
   $('#bLevels').hidden = !!O.role; $('#bLeave').hidden = !O.role; $('#pNet').hidden = !O.role;
-  $('#bSwap').hidden = !((S.kind === 'drv' || S.kind === 'kite') && O.role !== 'guest');
-  if (S.kind === 'drv') renderSwapNote(); else if (S.kind === 'kite') iSwapNote();
+  $('#bSwap').hidden = !((S.kind === 'drv' || S.kind === 'kite' || !!(MODES[S.kind] && MODES[S.kind].swap)) && O.role !== 'guest');
+  if (S.kind === 'drv') renderSwapNote(); else if (S.kind === 'kite') iSwapNote(); else if (MODES[S.kind] && MODES[S.kind].swap) MODES[S.kind].swapNote();
   renderTips(); showScreen('pause');
 }
 function resume() { if (S.mode !== 'paused') return; showScreen(null); setMode('play'); }
@@ -826,6 +833,7 @@ function next() {
   if (S.kind === 'boat') { boatNext(); return; }
   if (S.kind === 'mov') { movNext(); return; }
   if (S.kind === 'kite') { kiteNext(); return; }
+  if (MODES[S.kind]) { MODES[S.kind].next(); return; }
   if (O.role === 'host') { if (S.li < ALL.length - 1) onlineStart(S.li + 1); return; }
   if (S.li >= ALL.length - 1) toTitle(); else startLevel(S.li + 1);
 }
@@ -857,6 +865,7 @@ function renderLevels() {
   renderBoatLevels();
   renderMovLevels();
   renderKiteLevels();
+  for (const m of Object.values(MODES)) m.renderLevels();
   renderModeCards();
 }
 // the mode cards on the title: stars (hearts for the adventure) collected in each
@@ -868,8 +877,9 @@ function renderModeCards() {
     const n = L.reduce((a, l, i) => a + ((best(i) || {}).s || 0), 0);
     set(k, `<b>★ ${th(n)}</b> / ${th(L.length * 3)}`);
   }
+  for (const m of Object.values(MODES)) { const n = m.L.reduce((a, l, i) => a + ((m.best(i) || {}).s || 0), 0); set(m.kind, `<b>★ ${th(n)}</b> / ${th(m.L.length * 3)}`); }
 }
-function goFromTitle() { if (S.tab === 'kit') startKitchen(+$('#bGo').dataset.k || 0); else if (S.tab === 'def') startDefense(+$('#bGo').dataset.d || 0); else if (S.tab === 'drv') startDrive(+$('#bGo').dataset.r || 0); else if (S.tab === 'tak') startTak(+$('#bGo').dataset.t || 0); else if (S.tab === 'mus') startMus(+$('#bGo').dataset.m || 0); else if (S.tab === 'twr') startTwr(+$('#bGo').dataset.w || 0); else if (S.tab === 'leg') startLeg(+$('#bGo').dataset.l || 0); else if (S.tab === 'boat') startBoat(+$('#bGo').dataset.b || 0); else if (S.tab === 'mov') startMov(+$('#bGo').dataset.v || 0); else if (S.tab === 'kite') startKite(+$('#bGo').dataset.f || 0); else startLevel(+$('#bGo').dataset.i || 0); }
+function goFromTitle() { if (MODES[S.tab]) { MODES[S.tab].start(+$('#bGo').dataset[MODES[S.tab].dk] || 0); return; } if (S.tab === 'kit') startKitchen(+$('#bGo').dataset.k || 0); else if (S.tab === 'def') startDefense(+$('#bGo').dataset.d || 0); else if (S.tab === 'drv') startDrive(+$('#bGo').dataset.r || 0); else if (S.tab === 'tak') startTak(+$('#bGo').dataset.t || 0); else if (S.tab === 'mus') startMus(+$('#bGo').dataset.m || 0); else if (S.tab === 'twr') startTwr(+$('#bGo').dataset.w || 0); else if (S.tab === 'leg') startLeg(+$('#bGo').dataset.l || 0); else if (S.tab === 'boat') startBoat(+$('#bGo').dataset.b || 0); else if (S.tab === 'mov') startMov(+$('#bGo').dataset.v || 0); else if (S.tab === 'kite') startKite(+$('#bGo').dataset.f || 0); else startLevel(+$('#bGo').dataset.i || 0); }
 /* ---------- Main loop ---------- */
 let last = performance.now(), acc = 0;
 function tick() {
@@ -916,6 +926,7 @@ function frame(now) {
   if (S.kind === 'boat') { if (eng) engine(false, 0); boatFrame(dt, now); requestAnimationFrame(frame); return; }
   if (S.kind === 'mov') { if (eng) engine(false, 0); movFrame(dt, now); requestAnimationFrame(frame); return; }
   if (S.kind === 'kite') { if (eng) engine(false, 0); kiteFrame(dt, now); requestAnimationFrame(frame); return; }
+  if (MODES[S.kind]) { if (eng) engine(false, 0); MODES[S.kind].frame(dt, now); requestAnimationFrame(frame); return; }
   if (eng) engine(false, 0);
   if (S.mode === 'play') {
     acc += dt;
@@ -946,6 +957,7 @@ document.addEventListener('keydown', e => {
   if (tag === 'INPUT') { if (e.key === 'Enter' && S.mode === 'menu' && scr.online.hidden) goFromTitle(); return; }
   if (S.kind === 'leg' && LKEY[e.code] && S.mode === 'play') { lKey(e); return; }
   if (S.kind === 'boat' && BKEY[e.code] && S.mode === 'play') { bKey(e); return; }
+  if (MODES[S.kind] && MODES[S.kind].pad === 'x' && XKEY[e.code] && S.mode === 'play') { xKey(e, true); return; }
   if (S.kind === 'twr' && WKEY[e.code] && S.mode === 'play') { e.preventDefault(); if (!e.repeat) wPress(O.role ? O.local : WKEY[e.code]); return; }
   if (S.kind === 'mus' && MKEY[e.code] != null) { e.preventDefault(); if (!e.repeat && S.mode === 'play') musPress(MKEY[e.code], e.timeStamp); return; }
   if (topDown() && S.mode === 'play' && kitKey(e, true)) return;
@@ -962,8 +974,8 @@ document.addEventListener('keydown', e => {
   else if (e.code === 'Escape' || e.code === 'KeyP') { if (S.mode === 'play') pause(); else if (S.mode === 'paused') resume(); }
   else if (e.key === 'Enter' && S.mode === 'paused') { e.preventDefault(); resume(); }
 });
-document.addEventListener('keyup', e => { if (topDown()) kitKey(e, false); const m = MAP[e.code]; if (m) KB[O.role ? O.local : m[0]][m[1]] = false; });
-window.addEventListener('blur', () => { releaseAll(); releaseK(); });
+document.addEventListener('keyup', e => { if (topDown()) kitKey(e, false); if (MODES[S.kind] && MODES[S.kind].pad === 'x') xKey(e, false); const m = MAP[e.code]; if (m) KB[O.role ? O.local : m[0]][m[1]] = false; });
+window.addEventListener('blur', () => { releaseAll(); releaseK(); xRelease(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden) { engine(false, 0); if (S.mode === 'play' && !O.role) pause(); else releaseAll(); } });
 
 const touches = new Map();
@@ -1005,7 +1017,7 @@ $('#bRestart2').addEventListener('click', restart);
 $('#bLevels').addEventListener('click', toTitle);
 $('#bLevels2').addEventListener('click', toTitle);
 $('#bNext').addEventListener('click', next);
-$('#bAgain').addEventListener('click', () => { if (O.role === 'host') openOnlineRoom(); else if (S.kind === 'kit') startKitchen(KS.li); else if (S.kind === 'def') startDefense(DS.li); else if (S.kind === 'drv') startDrive(RS.li); else if (S.kind === 'tak') startTak(TS.li); else if (S.kind === 'mus') startMus(MS.li); else if (S.kind === 'twr') startTwr(WS.li); else if (S.kind === 'leg') startLeg(LS.li); else if (S.kind === 'boat') startBoat(BS.li); else if (S.kind === 'mov') startMov(VS.li); else if (S.kind === 'kite') startKite(IS.li); else startLevel(S.li); });
+$('#bAgain').addEventListener('click', () => { if (O.role === 'host') openOnlineRoom(); else if (S.kind === 'kit') startKitchen(KS.li); else if (S.kind === 'def') startDefense(DS.li); else if (S.kind === 'drv') startDrive(RS.li); else if (S.kind === 'tak') startTak(TS.li); else if (S.kind === 'mus') startMus(MS.li); else if (S.kind === 'twr') startTwr(WS.li); else if (S.kind === 'leg') startLeg(LS.li); else if (S.kind === 'boat') startBoat(BS.li); else if (S.kind === 'mov') startMov(VS.li); else if (S.kind === 'kite') startKite(IS.li); else if (MODES[S.kind]) MODES[S.kind].start(MODES[S.kind].st.li); else startLevel(S.li); });
 [nPink, nMint].forEach(i => i.addEventListener('input', readNames));
 snd.addEventListener('change', () => { S.sound = snd.checked; store.set('sound', S.sound); });
 
@@ -1147,7 +1159,7 @@ function renderOnlineRoom() {
       return `<button type="button" class="lv${prog.h[lv.name] != null ? ' done' : ''}" data-i="${i}"${locked ? ' disabled' : ''}><span class="n">${th(lv.n)}</span><span class="nm">${lv.name}</span><span class="hs">${locked ? 'ยังล็อกอยู่' : prog.h[lv.name] != null ? 'ผ่านแล้ว' : 'ยังไม่เคยผ่าน'}</span></button>`;
     }).join('');
   }
-  if (show) { renderOnlineKit(); renderOnlineDef(); renderOnlineDrv(); renderOnlineTak(); renderOnlineMus(); renderOnlineTwr(); renderOnlineLeg(); renderOnlineBoat(); renderOnlineMov(); renderOnlineKite(); }
+  if (show) { renderOnlineKit(); renderOnlineDef(); renderOnlineDrv(); renderOnlineTak(); renderOnlineMus(); renderOnlineTwr(); renderOnlineLeg(); renderOnlineBoat(); renderOnlineMov(); renderOnlineKite(); for (const m of Object.values(MODES)) m.renderOnline(); }
 }
 function onlineStart(i) {
   if (O.role !== 'host') return;
@@ -1174,6 +1186,14 @@ function loadOnlineLevel(fresh) {
   }
   if (O.md === 'l') {
     loadLeg(O.lv, { role: O.role, local: O.local });
+    O.loadedEp = O.ep; showScreen(null); setMode('play');
+    return;
+  }
+  const XO = Object.values(MODES).find(m => m.md === O.md);
+  if (XO) {
+    const keep = XO.st.G && XO.st.li === O.lv && !fresh;
+    XO.load(O.lv, { role: O.role, local: O.local });
+    if (keep) S.banner = 0;
     O.loadedEp = O.ep; showScreen(null); setMode('play');
     return;
   }
@@ -1225,7 +1245,7 @@ function loadOnlineLevel(fresh) {
     O.loadedEp = O.ep; showScreen(null); setMode('play');
     return;
   }
-  S.kind = 'adv'; app.classList.remove('kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov', 'kite');
+  setKind('adv');
   const changed = S.li !== O.lv || fresh;
   S.li = O.lv; S.W = Phys.load(ALL[O.lv]);
   S.W.net = { role: O.role, local: O.local };
@@ -1251,6 +1271,7 @@ function leaveOnline() {
   if (BS.G) BS.G.net = null;
   if (VS.G) VS.G.net = null;
   if (IS.G) IS.G.net = null;
+  for (const m of Object.values(MODES)) if (m.st.G) m.st.G.net = null;
   app.classList.remove('solo');
   $('#hNet').hidden = true;
 }
@@ -1277,11 +1298,12 @@ function dropRemoteInput() {
   if (O.role !== 'host') return;
   KS.remote.act = KS.remote.use = false; DS.remote.act = DS.remote.use = false;
   RS.remote.s = RS.remote.p = 0; RS.remote.act = false; TS.remote.fresh = false; VS.remote.mx = VS.remote.my = 0; VS.remote.act = false; IS.remote.mx = IS.remote.my = 0; IS.remote.act = false;
+  for (const m of Object.values(MODES)) m.st.remote = m.fresher();
   if (S.W && S.W.mint) S.W.mint.netInp = null;
 }
 function hostHears(pr) {
   // a guest that rejoined starts its counters from zero again: take a fresh baseline
-  if (pr.sid && pr.sid !== O.partnerSid) { O.partnerSid = pr.sid; O.firstSeen = false; KS.seenKa = DS.seenKa = RS.seenKa = TS.seenKa = -1; WS.seenReq = -1; LS.seen = 0; BS.seen = 0; VS.remote.seen = -1; IS.remote.seen = -1; }
+  if (pr.sid && pr.sid !== O.partnerSid) { O.partnerSid = pr.sid; O.firstSeen = false; KS.seenKa = DS.seenKa = RS.seenKa = TS.seenKa = -1; WS.seenReq = -1; LS.seen = 0; BS.seen = 0; VS.remote.seen = -1; IS.remote.seen = -1; for (const m of Object.values(MODES)) m.st.remote = m.fresher(); }
   if (!O.firstSeen) { O.firstSeen = true; O.seenDead = pr.dead | 0; O.seenRq = pr.rq | 0; }
   if (Number.isFinite(pr.ck)) { O.pCk = pr.ck; O.pCkAt = performance.now(); }
   if ((pr.dead | 0) > O.seenDead || (pr.rq | 0) > O.seenRq) {
@@ -1298,14 +1320,16 @@ function hostHears(pr) {
   if (S.kind === 'boat') { if (O.md === 'b') bHostHears(pr); return; }
   if (S.kind === 'mov') { if (O.md === 'v') vHostHears(pr); return; }
   if (S.kind === 'kite') { if (O.md === 'i') iHostHears(pr); return; }
+  if (MODES[S.kind]) { if (O.md === MODES[S.kind].md) MODES[S.kind].hostHearsW(pr); return; }
   if (S.W && pr.ep === O.ep && pr.p && S.W.net) Net.applyPlayer(S.W, 'mint', pr.p, performance.now());
 }
 function guestHears(pr) {
   clockSample(pr);
   const lv = pr.lv | 0, ep = pr.ep | 0;
   if (pr.st === 'lobby') { if (S.mode !== 'menu' || scr.online.hidden) openOnlineRoom(); else renderOnlineRoom(); return; }
-  const md = pr.md === 'k' || pr.md === 'd' || pr.md === 'r' || pr.md === 't' || pr.md === 'm' || pr.md === 'w' || pr.md === 'l' || pr.md === 'b' || pr.md === 'v' || pr.md === 'i' ? pr.md : 'a';
-  const nLv = md === 'k' ? KLEVELS.length : md === 'd' ? DLEVELS.length : md === 'r' ? RLEVELS.length : md === 't' ? TLEVELS.length : md === 'm' ? MLEVELS.length : md === 'w' ? WLEVELS.length : md === 'l' ? LLEVELS.length : md === 'b' ? BLEVELS.length : md === 'v' ? VLEVELS.length : md === 'i' ? ILEVELS.length : ALL.length, kind = md === 'k' ? 'kit' : md === 'd' ? 'def' : md === 'r' ? 'drv' : md === 't' ? 'tak' : md === 'm' ? 'mus' : md === 'w' ? 'twr' : md === 'l' ? 'leg' : md === 'b' ? 'boat' : md === 'v' ? 'mov' : md === 'i' ? 'kite' : 'adv', cur = md === 'k' ? KS.li : md === 'd' ? DS.li : md === 'r' ? RS.li : md === 't' ? TS.li : md === 'm' ? MS.li : md === 'w' ? WS.li : md === 'l' ? LS.li : md === 'b' ? BS.li : md === 'v' ? VS.li : md === 'i' ? IS.li : S.li;
+  const XG = Object.values(MODES).find(m => m.md === pr.md);
+  const md = XG || pr.md === 'k' || pr.md === 'd' || pr.md === 'r' || pr.md === 't' || pr.md === 'm' || pr.md === 'w' || pr.md === 'l' || pr.md === 'b' || pr.md === 'v' || pr.md === 'i' ? pr.md : 'a';
+  const nLv = XG ? XG.L.length : md === 'k' ? KLEVELS.length : md === 'd' ? DLEVELS.length : md === 'r' ? RLEVELS.length : md === 't' ? TLEVELS.length : md === 'm' ? MLEVELS.length : md === 'w' ? WLEVELS.length : md === 'l' ? LLEVELS.length : md === 'b' ? BLEVELS.length : md === 'v' ? VLEVELS.length : md === 'i' ? ILEVELS.length : ALL.length, kind = XG ? XG.kind : md === 'k' ? 'kit' : md === 'd' ? 'def' : md === 'r' ? 'drv' : md === 't' ? 'tak' : md === 'm' ? 'mus' : md === 'w' ? 'twr' : md === 'l' ? 'leg' : md === 'b' ? 'boat' : md === 'v' ? 'mov' : md === 'i' ? 'kite' : 'adv', cur = XG ? XG.st.li : md === 'k' ? KS.li : md === 'd' ? DS.li : md === 'r' ? RS.li : md === 't' ? TS.li : md === 'm' ? MS.li : md === 'w' ? WS.li : md === 'l' ? LS.li : md === 'b' ? BS.li : md === 'v' ? VS.li : md === 'i' ? IS.li : S.li;
   if (lv >= 0 && lv < nLv && (ep !== O.loadedEp)) { const ch = (pr.fs | 0) === ep || O.loadedEp < 0 || md !== O.md || lv !== cur || S.kind !== kind; O.ep = ep; O.lv = lv; O.md = md; loadOnlineLevel(ch); }
   if (md === 'k') { if (S.kind === 'kit' && ep === O.loadedEp) kGuestHears(pr); return; }
   if (md === 'd') { if (S.kind === 'def' && ep === O.loadedEp) dGuestHears(pr); return; }
@@ -1317,6 +1341,7 @@ function guestHears(pr) {
   if (md === 'b') { if (S.kind === 'boat' && ep === O.loadedEp) bGuestHears(pr); return; }
   if (md === 'v') { if (S.kind === 'mov' && ep === O.loadedEp) vGuestHears(pr); return; }
   if (md === 'i') { if (S.kind === 'kite' && ep === O.loadedEp) iGuestHears(pr); return; }
+  if (XG) { if (S.kind === XG.kind && ep === O.loadedEp) XG.guestHearsW(pr); return; }
   if (!S.W || !S.W.net || ep !== O.loadedEp) return;
   if (pr.p) Net.applyPlayer(S.W, 'pink', pr.p, performance.now());
   if (pr.w) {
@@ -1381,6 +1406,8 @@ function pumpOnline(now) {
     if (VS.G && VS.G.net && live) o.vw = vEncode();
   } else if (S.kind === 'kite') {
     if (IS.G && IS.G.net && live) o.iw = iEncode();
+  } else if (MODES[S.kind]) {
+    const m = MODES[S.kind]; if (m.st.G && m.st.G.net && live) o[m.pres] = m.encodeW();
   } else if (S.kind === 'tak') {
     if (TS.G && TS.G.net && live) {
       o.p = Tak.encodePlayer(TS.G, O.local, O.role === 'guest' ? TS.kick : null);
@@ -1520,7 +1547,7 @@ function kSnap(G) { return { money: G.money, failed: G.failed, orders: G.orders.
 function loadKitchen(i, net) {
   KS.li = i; KS.G = Kit.load(KLEVELS[i]); KS.G.net = net || null;
   KS.acc = 0; KS.floats = []; KS.act = { n: KS.act.n, ref: null, uref: null }; KS.seenKa = -1; KS.remote = { act: false, ref: null, use: false, uref: null }; KS.endT = 0; KS.savedB = null; KS.prev = kSnap(KS.G);
-  S.kind = 'kit'; app.classList.add('kit'); app.classList.remove('def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov', 'kite'); setPadLabels('kit');
+  setKind('kit'); setPadLabels('kit');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
   releaseK(); buildKitBg(); kHud();
 }
@@ -1949,10 +1976,10 @@ function renderKitchen() {
 }
 
 /* ---------- title tabs + level list ---------- */
-S.tab = ['adv', 'kit', 'def', 'drv'].includes(store.get('tab', 'adv')) ? store.get('tab', 'adv') : 'adv';
+S.tab = ['adv', ...KINDS].includes(store.get('tab', 'adv')) ? store.get('tab', 'adv') : 'adv';
 function setTab(t) {
   S.tab = t; store.set('tab', t);
-  for (const k of ['adv', 'kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov', 'kite']) app.classList.toggle('tab-' + k, t === k);
+  for (const k of ['adv', ...KINDS]) app.classList.toggle('tab-' + k, t === k);
   document.querySelectorAll('.tab').forEach(b => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
   renderLevels();
   if (S.mode === 'menu' && !O.role) {
@@ -1966,7 +1993,8 @@ function setTab(t) {
     else if (t === 'boat') { loadBoat(+$('#bGo').dataset.b || 0); }
     else if (t === 'mov') { loadMov(+$('#bGo').dataset.v || 0); S.banner = 0; }
     else if (t === 'kite') { loadKite(+$('#bGo').dataset.f || 0); S.banner = 0; }
-    else if (S.kind !== 'adv') { S.kind = 'adv'; app.classList.remove('kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov', 'kite'); buildBg(); }
+    else if (MODES[t]) { MODES[t].load(+$('#bGo').dataset[MODES[t].dk] || 0); S.banner = 0; }
+    else if (S.kind !== 'adv') { setKind('adv'); buildBg(); }
   }
 }
 document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
@@ -2065,7 +2093,7 @@ function dSnap(G) { return { coins: G.coins, ph: G.ph, wi: G.wi, sn: [G.pink.snR
 function loadDefense(i, net) {
   DS.li = i; DS.G = Def.load(DLEVELS[i]); DS.G.net = net || null;
   DS.acc = 0; DS.floats = []; DS.rings = []; DS.act = { n: DS.act.n, uref: null }; DS.seenKa = -1; DS.remote = { act: false, use: false, uref: null }; DS.endT = 0; DS.savedB = null; DS.prev = null;
-  S.kind = 'def'; app.classList.add('def'); app.classList.remove('kit', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov', 'kite');
+  setKind('def');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
   setPadLabels('def'); releaseK(); buildDefBg(); dHud(true);
 }
@@ -2699,7 +2727,7 @@ function renderSwapNote() {
   $('#bSwap').textContent = `สลับหน้าที่ (ตอนนี้ ${n[r.steer]} คุมพวงมาลัย)`;
 }
 RS.roles = store.get('roles', 'pink') === 'mint' ? { steer: 'mint', pedal: 'pink' } : { steer: 'pink', pedal: 'mint' };
-$('#bSwap').addEventListener('click', () => { if (S.kind === 'kite') iSwap(); else swapRoles(); });
+$('#bSwap').addEventListener('click', () => { if (MODES[S.kind] && MODES[S.kind].swap) MODES[S.kind].swap(); else if (S.kind === 'kite') iSwap(); else swapRoles(); });
 
 /* ---------- flow ---------- */
 function rSnap(G) { const e = G.evR || G.ev; return Object.assign({ money: G.money, orders: G.orders.length, ids: G.orders.map(o => o.id).join() }, e); }
@@ -2707,7 +2735,7 @@ function loadDrive(i, net) {
   RS.li = i; RS.G = Drv.load(RLEVELS[i]); RS.G.net = net || null;
   RS.acc = 0; RS.floats = []; RS.act = { n: RS.act.n }; RS.seenKa = -1; RS.remote = { s: 0, p: 0, act: false }; RS.endT = 0; RS.savedB = null; RS.prev = null;
   RS.cam.x = RS.G.car.x; RS.cam.y = RS.G.car.y;
-  S.kind = 'drv'; app.classList.add('drv'); app.classList.remove('kit', 'def', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov', 'kite');
+  setKind('drv');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
   releaseK(); setDrvPadLabels(); buildDrvBg(); rHud(true);
 }
@@ -3236,7 +3264,7 @@ function loadTak(i, net) {
   TS.li = i; TS.G = Tak.load(TLEVELS[i]); TS.G.net = net || null;
   TS.acc = 0; TS.floats = []; TS.kick = { n: TS.kick.n, req: null }; TS.seenKa = -1; TS.remote = { req: null, fresh: false };
   TS.endT = 0; TS.savedB = null; TS.prev = tSnap(TS.G); TS.lastInp = {}; TS.rimT = 0;
-  S.kind = 'tak'; app.classList.add('tak'); app.classList.remove('kit', 'def', 'drv', 'mus', 'twr', 'leg', 'boat', 'mov', 'kite');
+  setKind('tak');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
   releaseK(); tSetPad(); buildTakBg(); tHud(true);
 }
@@ -3743,7 +3771,7 @@ function loadMus(i, net) {
   MS.li = i; MS.G = Rhy.load(MLEVELS[i]); MS.G.net = net || null; MS.G.local = net ? net.local : null;
   MS.t0 = performance.now() + 700; MS.pausedAt = 0; MS.sched = -9; MS.endT = 0; MS.savedB = null; MS.floats = []; MS.flash = [0, 0, 0, 0]; MS.judge = [null, null, null, null];
   MS.syncFx = []; MS.feverOn = false; MS.synced = !net || net.role === 'host';
-  S.kind = 'mus'; app.classList.add('mus'); app.classList.remove('kit', 'def', 'drv', 'tak', 'twr', 'leg', 'boat', 'mov', 'kite');
+  setKind('mus');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 0;
   releaseK(); buildMusBg(); mHud(true); mPadLabels();
 }
@@ -4080,7 +4108,7 @@ function loadTwr(i, net) {
   WS.li = i; WS.G = Twr.load(WLEVELS[i], 1000 + i * 37 + Math.floor(Math.random() * 1000)); WS.G.net = net || null;
   WS.acc = 0; WS.floats = []; WS.debris = []; WS.camY = 0; WS.endT = 0; WS.savedB = null; WS.press = { pink: 0, mint: 0 };
   WS.req = { n: WS.req.n, id: -1, x: 0, t: 0 }; WS.seenReq = -1; WS.prev = wSnap(WS.G); WS.hop = { pink: 0, mint: 0 };
-  S.kind = 'twr'; app.classList.add('twr'); app.classList.remove('kit', 'def', 'drv', 'tak', 'mus', 'leg', 'boat', 'mov', 'kite');
+  setKind('twr');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
   releaseK(); buildTwrBg(); wHud(true);
 }
@@ -4566,7 +4594,7 @@ function loadLeg(i, net) {
   LS.li = i; LS.G = Leg.load(LLEVELS[i]); LS.G.net = net || null; LS.G.late = net && net.role === 'host' ? 0.35 : 0;
   LS.acc = 0; LS.floats = []; LS.endT = 0; LS.savedB = null; LS.q = []; LS.sent = []; LS.seen = 0; LS.raceAt = null; LS.lift = { pink: 0, mint: 0 };
   LS.prev = lSnap(LS.G); LS.simPerf = performance.now();
-  S.kind = 'leg'; app.classList.add('leg'); app.classList.remove('kit', 'def', 'drv', 'tak', 'mus', 'twr', 'boat', 'mov', 'kite');
+  setKind('leg');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 0;
   releaseK(); buildLegBg(); lHud(true); lPadLabels();
 }
@@ -4985,7 +5013,7 @@ function loadBoat(i, net) {
   BS.li = i; BS.G = Boat.load(BLEVELS[i]); BS.G.net = net || null;
   BS.acc = 0; BS.floats = []; BS.endT = 0; BS.savedB = null; BS.q = []; BS.sent = []; BS.seen = 0; BS.raceAt = null; BS.camD = 0; BS.mine = { pink: -9, mint: -9 }; BS.wake = [];
   BS.prev = bSnap(BS.G); BS.simPerf = performance.now();
-  S.kind = 'boat'; app.classList.add('boat'); app.classList.remove('kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'mov', 'kite');
+  setKind('boat');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 0;
   releaseK(); buildBoatBg(); bHud(true); bPadLabels();
 }
@@ -5386,7 +5414,7 @@ function loadMov(i, net) {
   VS.li = i; VS.G = Mov.load(VLEVELS[i]); VS.G.net = net || null;
   VS.acc = 0; VS.floats = []; VS.endT = 0; VS.savedB = null; VS.prev = vSnap(VS.G); VS.lastInp = {}; VS.act = { n: VS.act.n }; VS.remote = { mx: 0, my: 0, act: false, seen: -1 };
   VS.rain = Array.from({ length: 70 }, () => [Math.random() * VW, Math.random() * VH, 0.6 + Math.random() * 0.6]);
-  S.kind = 'mov'; app.classList.add('mov'); app.classList.remove('kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'kite');
+  setKind('mov');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
   releaseK(); setPadLabels('kit'); document.querySelectorAll('.kpad .kb.act').forEach(b => { b.innerHTML = 'ยก<br>วาง'; });
   buildMovBg(); vHud(true);
@@ -5724,7 +5752,7 @@ function loadKite(i, net) {
   IS.sparks = []; IS.rubT = 0; IS.runT = 0;
   const f = IS.G.def.field; IS.cam = { x: IS.G.run.x + 120, s: 1.1 };
   const R = rng(i * 71 + 5); IS.clouds = Array.from({ length: 14 }, () => ({ x: (R() * 2.4 - 0.4) * 2600 + f[0], y: 160 + R() * 900, w: 60 + R() * 110, p: 0.25 + R() * 0.35 }));
-  S.kind = 'kite'; app.classList.add('kite'); app.classList.remove('kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov');
+  setKind('kite');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
   releaseK(); iPadLabels(); iHud(true);
 }
@@ -6100,6 +6128,1275 @@ function iGuestHears(pr) {
   if (G.over && !IS.endT && S.mode === 'play') { IS.endT = 2.2; iSave(); }
 }
 
+/* ---------- the newer modes (cinema, no farting, one blanket, the window) share one flow ----------
+   Each registers itself with xMode({...}); the hooks in the main code (frame, restart, next, title, online) go through
+   MODES. What a mode brings: kind, md (online code), pres (its key in the presence message), dk (the level buttons'
+   data attribute), L (levels), pk (where its stars are kept), label(i), Eng (the engine), pad ('x': two buttons a side,
+   'k': joystick and buttons), optional R (two role names) with rk (where the choice is kept), and: tick(), snap(G),
+   events(ev), render(dt), result(G, stars) -> { msg, stats }, score(G), encode(), hostHears(m), guestHears(m), and the
+   words: word (the verb on the title button), fresh (a level not played yet), nextWord, againWord. */
+const XK = { pink: { a: 0, b: 0, an: 0, bn: 0 }, mint: { a: 0, b: 0, an: 0, bn: 0 } };
+const XKEY = { KeyA: ['pink', 'a'], KeyD: ['pink', 'b'], ArrowRight: ['mint', 'a'], ArrowLeft: ['mint', 'b'] };
+// a button held (a/b) and presses since the last read (ap/bp)
+function xRead(id) { const k = XK[id], r = { a: !!k.a, b: !!k.b, ap: k.an > 0, bp: k.bn > 0 }; k.an = 0; k.bn = 0; return r; }
+function xRelease() { for (const id of ['pink', 'mint']) Object.assign(XK[id], { a: 0, b: 0, an: 0, bn: 0 }); xbtns.clear(); document.querySelectorAll('.xpad button.on').forEach(b => b.classList.remove('on')); }
+function xKey(e, down) {
+  const m = XKEY[e.code]; if (!m) return false;
+  e.preventDefault();
+  const id = O.role ? O.local : m[0], k = m[1];
+  if (down) { if (e.repeat) return true; XK[id][k] = 1; XK[id][k + 'n']++; audio(); }
+  else XK[id][k] = 0;
+  return true;
+}
+const xpad = $('#xpad'), xbtns = new Map();
+xpad.addEventListener('pointerdown', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  e.preventDefault();
+  const id = O.role ? O.local : b.closest('.side').dataset.p, k = b.dataset.k;
+  b.classList.add('on'); xbtns.set(e.pointerId, { b, id, k });
+  try { b.setPointerCapture(e.pointerId); } catch (err) {}
+  XK[id][k] = 1; XK[id][k + 'n']++; audio();
+});
+for (const ev of ['pointerup', 'pointercancel']) xpad.addEventListener(ev, e => { const s = xbtns.get(e.pointerId); if (s) { s.b.classList.remove('on'); XK[s.id][s.k] = 0; xbtns.delete(e.pointerId); } });
+xpad.addEventListener('contextmenu', e => e.preventDefault());
+
+function xMode(m) {
+  const st = m.st = { G: null, li: 0, acc: 0, endT: 0, savedB: null, floats: [], prev: null, lastInp: {}, n: { a: 0, b: 0 }, remote: {} };
+  if (!prog[m.pk]) prog[m.pk] = {};
+  m.best = i => prog[m.pk][m.L[i].name] || null;
+  m.open = i => i === 0 || !!(m.best(i - 1) && m.best(i - 1).s >= 1);
+  m.fresher = m.fresher || (() => ({ a: false, b: false, ap: false, bp: false, mx: 0, my: 0, act: false, use: false, seenA: -1, seenB: -1 }));
+  // roles (two players doing different jobs): which colour does which, kept between games, swappable in the pause menu
+  if (m.R) {
+    st.roles = store.get(m.rk, 'pink') === 'mint' ? { [m.R[0]]: 'mint', [m.R[1]]: 'pink' } : { [m.R[0]]: 'pink', [m.R[1]]: 'mint' };
+    m.roleOf = id => (st.roles[m.R[0]] === id ? m.R[0] : m.R[1]);
+    m.swap = () => {
+      if (O.role === 'guest') return;
+      st.roles = { [m.R[0]]: st.roles[m.R[1]], [m.R[1]]: st.roles[m.R[0]] };
+      store.set(m.rk, st.roles[m.R[0]]);
+      xLabels(m); m.swapNote();
+    };
+    m.swapNote = () => { $('#bSwap').textContent = `สลับหน้าที่ (ตอนนี้ ${S.names[st.roles[m.R[0]]]} ${m.roleName[m.R[0]]})`; };
+  }
+  m.load = (i, net) => {
+    st.li = i; st.G = m.Eng.load(m.L[i]); st.G.net = net || null;
+    st.acc = 0; st.endT = 0; st.savedB = null; st.floats = []; st.lastInp = {}; st.remote = m.fresher();
+    setKind(m.kind);
+    S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
+    releaseAll(); releaseK(); xRelease();
+    if (m.onLoad) m.onLoad(i);
+    st.prev = m.snap(st.G); xLabels(m); xHud(m);
+  };
+  m.start = i => { readNames(); audio(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); m.load(i); showScreen(null); setMode('play'); };
+  m.restart = () => { if (O.role) { onlineRestart(); return; } m.load(st.li); showScreen(null); setMode('play'); };
+  m.next = () => {
+    if (O.role === 'host') { if (st.li < m.L.length - 1) m.onlineStart(st.li + 1); return; }
+    if (st.li < m.L.length - 1 && m.open(st.li + 1)) m.start(st.li + 1); else toTitle();
+  };
+  m.save = () => {
+    if (st.savedB) return st.savedB;
+    const G = st.G, lv = m.L[st.li], s = m.Eng.stars(G), sc = Math.round(m.score(G));
+    const b = prog[m.pk][lv.name] || { s: 0, m: 0 };
+    prog[m.pk][lv.name] = { s: Math.max(b.s, s), m: Math.max(b.m, sc) };
+    store.set('prog2', prog);
+    return (st.savedB = b);
+  };
+  m.results = () => {
+    const G = st.G, lv = m.L[st.li], s = m.Eng.stars(G), sc = Math.round(m.score(G)), b = m.save(), best = sc > b.m;
+    setMode('clear'); releaseAll(); releaseK(); xRelease();
+    const r = m.result(G, s);
+    $('#cNo').textContent = `${m.label(st.li)} · ${r.head}`;
+    $('#cName').textContent = lv.name;
+    $('#cStars').hidden = false;
+    $('#cStars').innerHTML = [0, 1, 2].map(i => `<span class="${i < s ? '' : 'off'}">★</span>`).join('');
+    $('#cMsg').textContent = r.msg + (best && b.m ? ' · สถิติใหม่' : '');
+    $('#cStats').innerHTML = r.stats;
+    const lastL = st.li >= m.L.length - 1, guest = O.role === 'guest';
+    $('#bNext').textContent = m.nextWord;
+    $('#bNext').hidden = guest || lastL || !m.open(st.li + 1);
+    $('#bAgain').hidden = guest;
+    $('#bAgain').textContent = O.role === 'host' ? 'เลือกด่านอื่น' : m.againWord;
+    $('#bLevels2').hidden = !!O.role; $('#bLeave2').hidden = !O.role;
+    if (guest) $('#cMsg').textContent += ` · รอ${O.partnerName || 'อีกคน'}เลือกต่อ`;
+    showScreen('clear');
+  };
+  m.frame = (dt, now) => {
+    const G = st.G;
+    if (S.mode === 'play' && G) {
+      st.acc += dt;
+      while (st.acc >= m.Eng.DT) {
+        m.tick(); st.acc -= m.Eng.DT;
+        if (G.over && !st.endT) { st.endT = 2.2; m.save(); }
+        if (S.mode !== 'play') { st.acc = 0; break; }
+      }
+      if (st.endT > 0) { st.endT -= dt; if (st.endT <= 0) { st.endT = -1; m.results(); if (O.role === 'host') O.st = 'clear'; } }
+    } else st.acc = 0;
+    if (O.role) pumpOnline(now);
+    if (S.mode === 'play') S.banner = Math.max(0, S.banner - dt);
+    S.flash = Math.max(0, S.flash - dt * 2.2); S.shake = Math.max(0, S.shake - dt * 3);
+    stepParts(dt);
+    for (const f of st.floats) { f.life -= dt; f.y -= dt * 22; }
+    st.floats = st.floats.filter(f => f.life > 0);
+    if (m.frameExtra && G) m.frameExtra(dt);
+    if (G) xHud(m);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (G) m.render(dt);
+  };
+  // the guest: effects from the host's snapshots (the events the host's step gave, worked out from what changed)
+  m.diff = () => { const n = m.snap(st.G); m.events(m.changes(st.prev || n, n)); st.prev = n; };
+  m.renderLevels = () => {
+    let total = 0;
+    $('#' + m.list).innerHTML = m.L.map((lv, i) => {
+      const b = m.best(i), open = m.open(i);
+      if (b) total += b.s;
+      const hs = b ? `<span class="st">${kStars(b.s)}</span> ${th(b.m)} แต้ม` : open ? m.fresh : 'ยังล็อกอยู่';
+      return `<button type="button" class="lv${b && b.s ? ' done' : ''}" data-${m.dk}="${i}"${open ? '' : ' disabled'}><span class="n">${th(i + 1)}</span><span class="nm">${lv.name}</span><span class="hs">${hs}</span></button>`;
+    }).join('');
+    $('#' + m.starsAll).textContent = `ดาวรวม ${th(total)}/${th(m.L.length * 3)}`;
+    let nx = m.L.findIndex((l, i) => m.open(i) && !(m.best(i) && m.best(i).s >= 3));
+    if (nx < 0) nx = 0;
+    $('#bGo').dataset[m.dk] = nx;
+    if (S.tab === m.kind) $('#bGo').textContent = m.best(nx) ? `${m.word}${m.label(nx)}` : m.goWord;
+  };
+  m.renderOnline = () => {
+    $('#' + m.olist).innerHTML = m.L.map((lv, i) => {
+      const b = m.best(i), open = m.open(i);
+      return `<button type="button" class="lv${b && b.s ? ' done' : ''}" data-${m.dk}="${i}"${open ? '' : ' disabled'}><span class="n">${th(i + 1)}</span><span class="nm">${lv.name}</span><span class="hs">${b ? `<span class="st">${kStars(b.s)}</span>` : open ? m.fresh : 'ยังล็อกอยู่'}</span></button>`;
+    }).join('');
+  };
+  m.onlineStart = i => {
+    if (O.role !== 'host') return;
+    O.md = m.md; O.lv = i; O.ep++; O.st = 'play'; O.seenDead = O.partner ? (O.partner.dead | 0) : 0; O.seenRq = O.partner ? (O.partner.rq | 0) : 0;
+    loadOnlineLevel(true);
+  };
+  m.hostHearsW = pr => { const q = pr[m.pres]; if (!st.G || pr.ep !== O.ep || !q || typeof q !== 'object') return; m.hostHears(q); };
+  m.guestHearsW = pr => {
+    const q = pr[m.pres]; if (!st.G || !q || typeof q !== 'object') return;
+    if (m.R && typeof q.ro === 'string') { const first = q.ro === 'm' ? 'mint' : 'pink'; if (st.roles[m.R[0]] !== first) { st.roles = { [m.R[0]]: first, [m.R[1]]: first === 'pink' ? 'mint' : 'pink' }; xLabels(m); } }
+    m.guestHears(q, pr); m.diff();
+    if (st.G.over && !st.endT && S.mode === 'play') { st.endT = 2.2; m.save(); }
+  };
+  m.encodeW = () => (O.role === 'host' ? Object.assign(m.encode(), m.R ? { ro: st.roles[m.R[0]] === 'mint' ? 'm' : 'p' } : {}) : m.encode());
+  $('#' + m.list).addEventListener('click', e => { const b = e.target.closest(`[data-${m.dk}]`); if (b && !b.disabled) m.start(+b.dataset[m.dk]); });
+  $('#' + m.olist).addEventListener('click', e => { const b = e.target.closest(`[data-${m.dk}]`); if (b && !b.disabled) m.onlineStart(+b.dataset[m.dk]); });
+  MODES[m.kind] = m;
+  return m;
+}
+function xHud(m) {
+  const k = m.kind + m.st.li; if (xHud.k === k) return; xHud.k = k;
+  const lv = m.L[m.st.li];
+  $('#hNo').textContent = m.label(m.st.li); $('#hName').textContent = lv.name; $('#hHint').textContent = lv.hint; $('#hHearts').textContent = '';
+}
+// the touch buttons' words, for whoever holds that side (online: both sides are this phone's player)
+function xLabels(m) {
+  if (m.pad === 'x') document.querySelectorAll('#xpad .side').forEach(sd => {
+    const id = O.role ? (O.local || 'pink') : sd.dataset.p, w = m.xWords(id);
+    sd.querySelectorAll('button').forEach(b => { b.querySelector('i').innerHTML = w[b.dataset.k]; b.dataset.w = m.R ? m.roleOf(id) : ''; });
+  });
+  else document.querySelectorAll('.kpad .kb').forEach(b => {
+    const id = b.dataset.p === 'local' ? (O.local || 'pink') : b.dataset.p, w = m.kWords(id);
+    b.innerHTML = w[b.dataset.k] || '';
+  });
+  if (m.chips) m.chips();
+}
+const xFloat = (m, text, x, y, col, size = 18, life = 1.4) => m.st.floats.push({ text, x, y, col, life, max: life, size });
+function xDrawFloats(g, m) {
+  for (const f of m.st.floats) {
+    g.globalAlpha = Math.min(1, f.life * 2.5); g.textAlign = 'center'; g.font = `400 ${f.size}px ${FONT_D}`; g.lineWidth = 4; g.strokeStyle = 'rgba(21,18,43,.85)';
+    g.strokeText(f.text, f.x, f.y); g.fillStyle = f.col; g.fillText(f.text, f.x, f.y); g.globalAlpha = 1;
+  }
+}
+function xCountdown(g, G, START) {
+  if (G.st !== 'count') return;
+  const n = Math.ceil(START - G.t); g.font = `400 54px ${FONT_D}`; g.textAlign = 'center'; g.lineWidth = 6; g.strokeStyle = 'rgba(21,18,43,.7)';
+  g.strokeText(th(n), VW / 2, VH / 2 + 20); g.fillStyle = C.gold; g.fillText(th(n), VW / 2, VH / 2 + 20);
+}
+function xBannerDraw(g, G, START, title, line) {
+  if (!(S.banner > 0 && G.t < START + 3)) return;
+  g.font = `600 12px ${FONT}`; const w = Math.max(420, g.measureText(line).width + 40);
+  g.globalAlpha = Math.min(1, S.banner * 1.5); rr(g, VW / 2 - w / 2, 150, w, 60, 14); g.fillStyle = 'rgba(21,17,46,.88)'; g.fill();
+  g.textAlign = 'center'; g.font = `400 20px ${FONT_D}`; g.fillStyle = C.gold; g.fillText(title, VW / 2, 176);
+  g.font = `600 12px ${FONT}`; g.fillStyle = C.paper; g.fillText(line, VW / 2, 198);
+  g.globalAlpha = 1;
+}
+// a box at the top left: time left, points and the star bar
+function xScoreBox(g, left, score, stars, extra) {
+  rr(g, 8, 8, 236, 58, 12); g.fillStyle = 'rgba(21,17,46,.82)'; g.fill();
+  g.textAlign = 'left'; g.font = `400 18px ${FONT_D}`; g.fillStyle = left < 10 ? '#ff8a8a' : C.paper;
+  g.fillText(`${th(Math.floor(left / 60))}:${th(String(Math.floor(left % 60)).padStart(2, '0'))}`, 18, 32);
+  g.font = `400 20px ${FONT_D}`; g.fillStyle = C.gold; g.fillText(`${th(Math.round(score))}`, 84, 33);
+  g.font = `600 11px ${FONT}`; g.fillStyle = '#c9bfef'; g.fillText(extra || 'แต้ม', 150, 30);
+  const kk = Math.min(1, score / stars[2]), bx = 18, bw = 216;
+  rr(g, bx, 44, bw, 6, 3); g.fillStyle = 'rgba(255,255,255,.15)'; g.fill(); if (kk > 0) { rr(g, bx, 44, Math.max(6, bw * kk), 6, 3); g.fillStyle = C.gold; g.fill(); }
+  g.font = `400 10px ${FONT}`; g.textAlign = 'center';
+  for (let i = 0; i < 3; i++) { g.fillStyle = score >= stars[i] ? C.gold : 'rgba(255,255,255,.45)'; g.fillText('★', bx + bw * stars[i] / stars[2] - (i === 2 ? 4 : 0), 62); }
+}
+// strikes left, as little hearts (grey once used), in a box ending at the right edge
+function xStrikes(g, y, n, max, label) {
+  const w = 22 * max + 14 + (label ? 70 : 0), x = VW - 8 - w;
+  rr(g, x, y - 16, w, 26, 12); g.fillStyle = 'rgba(21,17,46,.82)'; g.fill();
+  if (label) { g.font = `600 11px ${FONT}`; g.textAlign = 'left'; g.fillStyle = '#c9bfef'; g.fillText(label, x + 10, y + 2); }
+  for (let i = 0; i < max; i++) { g.fillStyle = i < max - n ? C.pink : 'rgba(255,255,255,.2)'; heartPath(g, x + (label ? 70 : 0) + 16 + i * 22, y - 2, 7); g.fill(); }
+}
+// a speech bubble with a hint for one player (shown on their own phone only online)
+function xTip(g, id, text, x, y) {
+  if (O.role && id !== O.local) return;
+  g.font = `600 12px ${FONT}`; const tw = g.measureText(text).width + 14;
+  rr(g, x - tw / 2, y - 15, tw, 20, 10); g.fillStyle = 'rgba(21,17,46,.88)'; g.fill(); g.fillStyle = id === 'pink' ? C.pink : C.mint; g.textAlign = 'center'; g.fillText(text, x, y);
+}
+// press counters: a guest's presses arrive as running totals; a new total is a new press
+function xHeard(rq, key, n) {
+  const a = Number.isInteger(n) ? n : 0, s = 'seen' + key;
+  if (rq[s] < 0) { rq[s] = a; return false; }
+  if (a > rq[s]) { rq[s] = a; return true; }
+  return false;
+}
+const xNum = (v, lo, hi, d = 0) => (Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d);
+
+/* ---------- Sneaking a kiss at the cinema (แอบจุ๊บในโรงหนัง) ---------- */
+Object.assign(sfx, {
+  ckiss() { tone(980, .07, 'sine', .05, 1500); tone(1400, .06, 'sine', .035, 900, .06); },
+  ccombo() { tone(1175, .1, 'triangle', .04); tone(1568, .14, 'triangle', .04, 0, .08); },
+  cpop() { for (let i = 0; i < 3; i++) tone(1800 + Math.random() * 900, .03, 'sawtooth', .018, 0, i * .04); },
+  ctell() { tone(330, .14, 'triangle', .03, 380); },
+  ccaught() { tone(760, .22, 'square', .04, 300); tone(240, .3, 'triangle', .05, 160, .12); },
+  csaved() { tone(880, .08, 'sine', .04, 1100); },
+  cscare() { tone(1300, .45, 'sawtooth', .05, 500); tone(60, .5, 'square', .07, 40); },
+  chug() { tone(660, .14, 'sine', .05, 990); tone(990, .2, 'sine', .04, 1320, .1); },
+  cboom() { tone(60 + Math.random() * 30, .35, 'square', .05, 35); },
+  cout() { [523, 440, 349, 262].forEach((f, i) => tone(f, .22, 'triangle', .05, 0, i * .16)); }
+});
+const CROOM = { L: 452, R: 508 };                                     // where pink and mint sit (head x)
+// where each kind of watcher sits: x, the head's y, head size
+const CSEAT = { aunt: { x: 380, y: 226, r: 15 }, phone: { x: 262, y: 228, r: 14 }, kid: { x: 578, y: 340, r: 14 }, guy: { x: 648, y: 466, r: 27 }, usher: { x: 884, y: 380, r: 16 } };
+const CM = xMode({
+  kind: 'cin', md: 'c', pres: 'cw', dk: 'c', L: CLEVELS, pk: 'c', Eng: Cin, pad: 'x', list: 'clevels', olist: 'oLevelsC', starsAll: 'cStarsAll',
+  label: i => 'รอบที่ ' + th(i + 1), word: 'ดู', goWord: 'ไปดูหนัง', fresh: 'ยังไม่เคยดู', nextWord: 'รอบถัดไป', againWord: 'ดูรอบนี้อีกครั้ง',
+  score: G => G.score,
+  xWords: () => ({ b: 'เอียง<br>หา', a: 'ป๊อป<br>คอร์น' }),
+  onLoad() { CM.st.gl = 0; CM.st.jump = 0; CM.st.boomT = 1; CM.st.sc = -1; CM.st.ws = CM.st.G.def.watchers.map(() => 'idle'); },
+  snap: G => ({ st: G.st, ki: G.kissing, mu: Cin.mult(G.kiss), sh: [G.shield.pink, G.shield.mint], caught: G.stats.caught, saves: G.stats.saves, hugs: G.stats.hugs, over: G.over, kicked: G.kicked }),
+  changes(p, n) {
+    const ev = [];
+    if (p.st === 'count' && n.st === 'run') ev.push('go');
+    if (n.ki && !p.ki) ev.push('kiss'); else if (!n.ki && p.ki) ev.push('part');
+    if (n.ki && n.mu > p.mu) ev.push('combo:' + n.mu);
+    ['pink', 'mint'].forEach((w, i) => { if (n.sh[i] > p.sh[i] + 0.5) ev.push('shield:' + w); });
+    if (n.caught > p.caught) ev.push('caught:' + CM.st.G.caughtBy);
+    if (n.saves > p.saves) ev.push('saved:-1');
+    if (n.hugs > p.hugs) ev.push('hug:0');
+    if (n.over && !p.over) ev.push(n.kicked ? 'kicked' : 'end');
+    return ev;
+  },
+  events(ev) {
+    const G = CM.st.G;
+    for (const e of ev) {
+      const [k, a] = e.split(':');
+      if (k === 'go') sfx.ilaunch();
+      else if (k === 'kiss') { sfx.ckiss(); burst(480, 300, 8, C.pink, { type: 'heart', size: 4, speed: 60, up: 90, life: 1, g: -40 }); }
+      else if (k === 'combo') { sfx.ccombo(); xFloat(CM, `จุ๊บนาน ×${a === '2' ? th(2) : '๑.๕'}`, 480, 270, C.gold, 20); }
+      else if (k === 'shield') sfx.cpop();
+      else if (k === 'caught') {
+        sfx.ccaught(); S.shake = Math.max(S.shake, .5); S.flash = .5;
+        const w = G.def.watchers[+a], s = w ? CSEAT[w.kind] : null;
+        xFloat(CM, ['เห็นนะ!', 'แหม!', 'อุ๊ย!', 'ทำอะไรกัน!'][(G.strikes + (+a || 0)) % 4], s ? s.x : 480, s ? s.y - 30 : 260, '#ff8a8a', 22, 1.6);
+      } else if (k === 'saved') { sfx.csaved(); xFloat(CM, 'ป๊อปคอร์นบังทัน!', 480, 280, '#ffe08a', 18); }
+      else if (k === 'hug') { sfx.chug(); xFloat(CM, `กอดกัน +${th(Cin.HUG)}`, 480, 280, C.mint, 20); }
+      else if (k === 'kicked') { sfx.cout(); xFloat(CM, 'โดนเชิญออกจากโรง!', 480, 250, '#ff8a8a', 26, 2.2); }
+      else if (k === 'end') sfx.win();
+    }
+  },
+  tick() {
+    const st = CM.st, G = st.G;
+    if (!O.role) { const p = xRead('pink'), m = xRead('mint'); CM.events(Cin.step(G, { pink: { lean: p.b, shield: p.ap }, mint: { lean: m.b, shield: m.ap } })); st.prev = CM.snap(G); return; }
+    const li = xRead(O.local), rid = O.local === 'pink' ? 'mint' : 'pink';
+    st.lastInp = li;
+    if (O.role === 'host') {
+      const rq = st.remote;
+      CM.events(Cin.step(G, { [O.local]: { lean: li.b, shield: li.ap }, [rid]: { lean: rq.b, leanV: rq.lv, shield: rq.ap } }));
+      rq.ap = false; st.prev = CM.snap(G);
+    } else {
+      // the guest leans its own person at once; the rest is the host's word
+      if (li.ap) st.n.a++;
+      st.gl = Cin.leanStep(st.gl, li.b && G.st === 'run', G);
+      Cin.step(G, { [O.local]: { lean: li.b, leanV: st.gl }, [rid]: { lean: G.held[rid] } }, true);
+    }
+  },
+  frameExtra(dt) {
+    const st = CM.st, G = st.G, def = G.def;
+    st.jump = Math.max(0, st.jump - dt * 2.5);
+    // the watchers' tells and looks (everyone works these out from the same clock)
+    def.watchers.forEach((w, i) => { const s = O.role === 'guest' ? Cin.watchState(G, i).st : G.ws[i].st; if (s !== st.ws[i]) { if (s === 'tell' && S.mode === 'play') sfx.ctell(); st.ws[i] = s; } });
+    // a jump scare: the film's ghost, a scream, everyone jumps
+    const sc = (def.scares || []).findIndex(s => G.t - Cin.START >= s && G.t - Cin.START < s + 0.2);
+    if (sc >= 0 && sc !== st.sc && S.mode === 'play') { st.sc = sc; sfx.cscare(); st.jump = 1; S.shake = Math.max(S.shake, .6); S.flash = .6; }
+    if (Cin.sceneAt(def, G.t) === 'loud' && S.mode === 'play' && G.st === 'run') { st.boomT -= dt; if (st.boomT <= 0) { st.boomT = 0.7 + Math.random() * 1.4; sfx.cboom(); S.shake = Math.max(S.shake, .25); } }
+  },
+  result(G, s) {
+    const sx = G.stats, msg = G.kicked ? (s ? 'โดนเชิญออกจากโรงก่อนหนังจบ แต่แต้มที่จุ๊บได้ยังอยู่' : 'โดนเห็นครบสามครั้ง พนักงานเชิญออกจากโรง ครั้งหน้าหัวเริ่มหันเมื่อไหร่ให้ถอยทันที')
+      : s === 3 ? 'จุ๊บกันได้ทั้งเรื่องโดยไม่มีใครรู้ เนียนมาก' : s === 2 ? (sx.caught ? 'เกือบเนียนแล้ว ถ้าไม่โดนเห็นจะได้สามดาว' : 'เนียนดี ลองจุ๊บให้นานกว่านี้ตอนฉากมืดกับฉากเสียงดัง')
+      : s === 1 ? 'ผ่านแล้ว รอบถัดไปเปิดให้ดูแล้ว' : `ยังจุ๊บได้น้อยไป ต้องได้ ${th(G.def.stars[0])} แต้ม เอียงเข้าหากันตอนที่ไม่มีใครมอง`;
+    return { head: G.kicked ? 'โดนเชิญออก' : 'หนังจบ', msg,
+      stats: `<span>แต้ม <b>${th(Math.round(G.score))}</b></span><span>จุ๊บ <b>${th(sx.kisses)}</b> ครั้ง นานสุด <b>${th(Math.round(sx.longest))}</b> วิ</span><span>โดนเห็น <b>${th(sx.caught)}</b> กอดตอนผีออก <b>${th(sx.hugs)}</b></span>` };
+  },
+  encode() {
+    const st = CM.st;
+    if (O.role === 'host') return Cin.encode(st.G);
+    return { b: st.lastInp.b ? 1 : 0, lv: Math.round(st.gl * 1000) / 1000, an: st.n.a };
+  },
+  hostHears(m) { const rq = CM.st.remote; rq.b = !!m.b; rq.lv = xNum(m.lv, 0, 1, rq.lv || 0); if (xHeard(rq, 'A', m.an)) rq.ap = true; },
+  guestHears(m) { Cin.apply(CM.st.G, m, O.local); },
+  fresher: () => ({ b: false, lv: 0, ap: false, seenA: -1 }),
+  render: cinRender
+});
+
+function cinRender() {
+  const g = ctx, st = CM.st, G = st.G, def = G.def, t = G.t;
+  const scene = G.st === 'count' ? 'dark' : Cin.sceneAt(def, t), scare = Cin.scareAt(def, t);
+  g.setTransform(scale, 0, 0, scale, 0, 0); g.textBaseline = 'alphabetic';
+  let ox = 0, oy = 0; if (S.shake > 0) { ox = (Math.random() - .5) * 8 * S.shake; oy = (Math.random() - .5) * 5 * S.shake; }
+  const flick = scene === 'loud' ? 0.5 + 0.5 * Math.abs(Math.sin(S.time * 9) * Math.sin(S.time * 3.3)) : 0;
+  const light = scare ? 1 : scene === 'bright' ? 0.9 : scene === 'loud' ? 0.35 + 0.4 * flick : scene === 'quiet' ? 0.3 : 0.12;
+  // the room
+  const bg = g.createLinearGradient(0, 0, 0, VH); bg.addColorStop(0, '#1a1430'); bg.addColorStop(1, '#2e2148'); g.fillStyle = bg; g.fillRect(0, 0, VW, VH);
+  g.save(); g.translate(ox, oy);
+  // the screen and what is on it
+  cinScreen(g, scene, scare, t, flick);
+  // the projector's beam (from behind us, over everyone's heads)
+  const beam = g.createLinearGradient(0, VH, 0, 150); beam.addColorStop(0, 'rgba(255,255,255,0)'); beam.addColorStop(1, `rgba(220,230,255,${0.05 + light * 0.08})`);
+  g.fillStyle = beam; g.beginPath(); g.moveTo(470, VH); g.lineTo(490, VH); g.lineTo(780, 150); g.lineTo(180, 150); g.closePath(); g.fill();
+  // seats: three rows seen from behind, the couple's in the middle
+  const rows = [{ y: 250, h: 26, k: 0.62, seats: [140, 204, 268, 332, 396, 460, 524, 588, 652, 716, 780] }, { y: 362, h: 34, k: 0.82, seats: [196, 260, 324, 388, CROOM.L, CROOM.R, 578, 642, 706, 770] }, { y: 502, h: 46, k: 1.1, seats: [150, 240, 330, 420, 520, 640, 740, 830] }];
+  const jump = st.jump > 0 ? Math.sin(st.jump * Math.PI) * 7 : 0;
+  rows.forEach((row, ri) => {
+    // who sits in this row (people from behind, then the watchers, then the couple in the middle row)
+    for (const x of row.seats) {
+      if (ri === 1 && (x === CROOM.L || x === CROOM.R)) continue;
+      const w = def.watchers.find(q => Math.abs(CSEAT[q.kind].x - x) < 34 && Math.abs(CSEAT[q.kind].y - (row.y - row.h)) < 40);
+      if (w || (x * 7 + ri * 13) % 5 === 0) continue;                // an empty seat now and then
+      cinBack(g, x, row.y - row.h * .7 - jump, 13 * row.k, (x * 31 + ri) % 4);
+    }
+    def.watchers.forEach((w, i) => { const s = CSEAT[w.kind]; if (w.kind !== 'usher' && Math.abs(s.y - (row.y - row.h)) < 40) cinWatcher(g, w, i, s, jump); });
+    if (ri === 1) cinCouple(g, G, jump);
+    g.fillStyle = '#7a2a3a'; for (const x of row.seats) { rr(g, x - 27 * row.k, row.y - row.h * .55, 54 * row.k, row.h, 8 * row.k); g.fill(); }
+    g.fillStyle = '#a04050'; for (const x of row.seats) { rr(g, x - 25 * row.k, row.y - row.h * .55, 50 * row.k, 7 * row.k, 4); g.fill(); }
+  });
+  // the usher in the aisle on the right, with a torch
+  def.watchers.forEach((w, i) => { if (w.kind === 'usher') cinUsher(g, G, w, i); });
+  // the room light: the brighter the film, the more anyone can see
+  g.fillStyle = `rgba(5,3,14,${0.32 * (1 - light)})`; g.fillRect(-10, 150, VW + 20, VH);
+  if (scene === 'bright' || scare) { g.fillStyle = `rgba(255,245,220,${scare ? 0.12 : 0.06})`; g.fillRect(-10, 0, VW + 20, VH); }
+  // how much they show: an eye over them when anyone looking now would see
+  if (G.st === 'run' && Cin.visibility(G) > Cin.showAt(G) && !G.blush) {
+    const looking = G.ws.some(w => w.st === 'look'), y = 268 - jump;
+    g.globalAlpha = looking ? 1 : 0.55 + 0.3 * Math.sin(S.time * 6);
+    g.fillStyle = looking ? '#ff6b6b' : '#ffe08a'; g.beginPath(); g.ellipse(480, y, 13, 7, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#1a1530'; g.beginPath(); g.arc(480, y, 3.6, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1;
+  }
+  g.restore();
+  drawParts(g);
+  xDrawFloats(g, CM);
+  cinHud(g, G);
+  xCountdown(g, G, Cin.START);
+  xBannerDraw(g, G, Cin.START, def.name, `กดค้างเอียงเข้าหากันจนสุดพร้อมกันคือจุ๊บ · หัวคนเริ่มหันเมื่อไหร่ให้ถอย · ${S.names.pink}ดูฝั่งซ้าย ${S.names.mint}ดูฝั่งขวา`);
+  if (S.flash > 0) { g.fillStyle = `rgba(255,255,255,${S.flash * .35})`; g.fillRect(0, 0, VW, VH); }
+  if (O.role && S.mode !== 'menu') drawNetNote(g);
+}
+// the screen: a trapezoid at the top; the film's mood decides what is on it
+function cinScreen(g, scene, scare, t, flick) {
+  g.save(); g.beginPath(); g.moveTo(200, 14); g.lineTo(760, 14); g.lineTo(790, 150); g.lineTo(170, 150); g.closePath(); g.clip();
+  const sk = g.createLinearGradient(0, 14, 0, 150);
+  if (scare) { sk.addColorStop(0, '#2a0c12'); sk.addColorStop(1, '#5a1420'); }
+  else if (scene === 'bright') { sk.addColorStop(0, '#fff7d6'); sk.addColorStop(1, '#ffd98a'); }
+  else if (scene === 'loud') { sk.addColorStop(0, '#3a1a10'); sk.addColorStop(1, `rgb(${200 + 55 * flick},${90 + 60 * flick},30)`); }
+  else if (scene === 'quiet') { sk.addColorStop(0, '#4a6a9a'); sk.addColorStop(1, '#8fb0c8'); }
+  else { sk.addColorStop(0, '#0b1230'); sk.addColorStop(1, '#1d2a50'); }
+  g.fillStyle = sk; g.fillRect(160, 10, 640, 150);
+  if (scare) {
+    // the ghost lunges at the camera
+    const k = 1 + Math.min(1, (S.time * 3) % 1) * 0.15;
+    g.fillStyle = '#f2f0ff'; g.beginPath(); g.ellipse(480, 92, 70 * k, 64 * k, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#100810'; g.beginPath(); g.ellipse(452, 80, 13 * k, 18 * k, 0, 0, Math.PI * 2); g.ellipse(508, 80, 13 * k, 18 * k, 0, 0, Math.PI * 2); g.ellipse(480, 120, 16 * k, 22 * k, 0, 0, Math.PI * 2); g.fill();
+  } else if (scene === 'loud') {
+    for (let i = 0; i < 3; i++) { const x = 260 + i * 220 + Math.sin(t * 2 + i) * 30, r = 26 + 22 * Math.abs(Math.sin(t * 4 + i * 2)); g.fillStyle = `rgba(255,${200 - i * 40},80,.85)`; g.beginPath(); g.arc(x, 120, r, 0, Math.PI * 2); g.fill(); g.fillStyle = 'rgba(255,250,200,.9)'; g.beginPath(); g.arc(x, 120, r * .45, 0, Math.PI * 2); g.fill(); }
+    g.font = `400 26px ${FONT_D}`; g.textAlign = 'center'; g.fillStyle = 'rgba(255,240,200,.9)'; g.fillText('ตูม!', 480 + Math.sin(t * 7) * 20, 60);
+  } else if (scene === 'bright') {
+    g.fillStyle = '#fffbe8'; g.beginPath(); g.arc(640, 50, 26, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#c9e7a2'; g.beginPath(); g.moveTo(160, 150); for (let x = 160; x <= 800; x += 40) g.lineTo(x, 118 - 14 * Math.sin(x / 60)); g.lineTo(800, 150); g.fill();
+  } else if (scene === 'quiet') {
+    // two people talking on a bench
+    g.fillStyle = '#2a3a55'; g.fillRect(160, 128, 640, 30); g.fillStyle = '#6a4a3a'; g.fillRect(410, 112, 140, 8);
+    for (const [x, c] of [[440, '#e9c6a2'], [520, '#d9b08c']]) { g.fillStyle = '#3a3048'; rr(g, x - 13, 82, 26, 32, 8); g.fill(); g.fillStyle = c; g.beginPath(); g.arc(x, 72, 11, 0, Math.PI * 2); g.fill(); }
+  } else {
+    g.fillStyle = 'rgba(255,255,255,.7)'; for (let i = 0; i < 14; i++) g.fillRect(180 + (i * 97) % 600, 24 + (i * 53) % 90, 2, 2);
+    g.fillStyle = '#f2f0d0'; g.beginPath(); g.arc(300, 50, 14, 0, Math.PI * 2); g.fill(); g.fillStyle = sk; g.beginPath(); g.arc(306, 46, 12, 0, Math.PI * 2); g.fill();
+  }
+  g.restore();
+  g.strokeStyle = 'rgba(255,255,255,.12)'; g.lineWidth = 2; g.beginPath(); g.moveTo(200, 14); g.lineTo(760, 14); g.lineTo(790, 150); g.lineTo(170, 150); g.closePath(); g.stroke();
+}
+// someone seen from behind (a dark head, a bit of shoulder)
+function cinBack(g, x, y, r, v) {
+  g.fillStyle = ['#4a3e60', '#55486a', '#463a58', '#5a4c6e'][v]; rr(g, x - r * 1.6, y + r * .6, r * 3.2, r * 2, r); g.fill();
+  g.fillStyle = ['#2e2438', '#4a3226', '#3a2e28', '#5a4230'][v]; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+}
+// a watcher: from behind when not interested; turning (the tell), then looking right at the couple
+function cinWatcher(g, w, i, s, jump) {
+  const G = CM.st.G, ws = O.role === 'guest' ? Cin.watchState(G, i) : G.ws[i], state = ws.st, r = s.r, x = s.x, y = s.y - (w.kind === 'guy' ? jump * 1.4 : jump);
+  const side = w.side === 'L' ? 'pink' : 'mint', dir = x < 480 ? 1 : -1;            // which way they turn to look at the couple
+  const turn = state === 'look' ? 1 : state === 'tell' ? 0.45 + 0.1 * Math.sin(S.time * 10) : 0;
+  const body = { aunt: '#7a3f6a', phone: '#3f5a7a', kid: '#e8a33a', guy: '#3a4a3a' }[w.kind] || '#444';
+  g.fillStyle = body; rr(g, x - r * 1.6, y + r * .6, r * 3.2, r * 2.1, r); g.fill();
+  const hair = { aunt: '#8a7a7a', phone: '#3a2e28', kid: '#5a3a22', guy: '#2e2438' }[w.kind];
+  g.fillStyle = hair; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  if (w.kind === 'aunt') { g.beginPath(); g.arc(x, y - r * 1.05, r * .5, 0, Math.PI * 2); g.fill(); }
+  if (w.kind === 'kid') { g.fillStyle = '#e8574f'; g.beginPath(); g.arc(x, y - r * .3, r * .95, Math.PI, 0); g.fill(); g.fillRect(x - dir * r * 1.4, y - r * .4, r * 1.2 * dir, r * .25); }
+  if (turn > 0) {
+    // the face coming round
+    g.save(); g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.clip();
+    g.fillStyle = '#e8c3a0'; g.beginPath(); g.ellipse(x + dir * r * (1 - turn) * 1.1, y + r * .15, r * (0.35 + turn * .6), r * .9, 0, 0, Math.PI * 2); g.fill();
+    g.restore();
+    if (turn > 0.7) {
+      const ex = x + dir * r * .25;
+      g.fillStyle = '#fff'; g.beginPath(); g.ellipse(ex - r * .3, y, r * .2, r * .24, 0, 0, Math.PI * 2); g.ellipse(ex + r * .3, y, r * .2, r * .24, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#1a1530'; g.beginPath(); g.arc(ex - r * .3 + dir * r * .08, y + 1, r * .11, 0, Math.PI * 2); g.arc(ex + r * .3 + dir * r * .08, y + 1, r * .11, 0, Math.PI * 2); g.fill();
+      if (w.kind === 'aunt') { g.strokeStyle = '#d9cfe9'; g.lineWidth = 1.2; g.beginPath(); g.arc(ex - r * .3, y, r * .28, 0, Math.PI * 2); g.arc(ex + r * .3, y, r * .28, 0, Math.PI * 2); g.stroke(); }
+    }
+  }
+  if (w.kind === 'phone') {
+    const up = state === 'idle' ? 0 : 1, px = x + dir * r * 1.1, py = y + r * (1.4 - up * 1.4);
+    g.fillStyle = '#222'; rr(g, px - 5, py - 9, 10, 18, 2); g.fill();
+    g.fillStyle = state === 'tell' ? 'rgba(160,220,255,.9)' : '#556'; g.fillRect(px - 4, py - 7, 8, 13);
+    if (state === 'look') { g.fillStyle = 'rgba(255,255,255,.9)'; g.beginPath(); g.arc(px, py - 6, 9 + 4 * Math.sin(S.time * 30), 0, Math.PI * 2); g.fill(); g.fillStyle = 'rgba(255,255,240,.12)'; g.fillRect(-10, 150, VW + 20, VH); }
+  }
+  // whose to watch: a little marker in their colour; a warning while they turn, a stare while they look
+  g.fillStyle = side === 'pink' ? C.pink : C.mint; g.beginPath(); g.moveTo(x - 5, y - r - 8); g.lineTo(x + 5, y - r - 8); g.lineTo(x, y - r - 2); g.fill();
+  if (state === 'tell') { g.font = `400 16px ${FONT_D}`; g.textAlign = 'center'; g.fillStyle = '#ffe08a'; g.fillText('?', x + dir * (r + 8), y - r); }
+  else if (state === 'look') { g.font = `400 18px ${FONT_D}`; g.textAlign = 'center'; g.fillStyle = '#ff8a8a'; g.fillText('!', x + dir * (r + 8), y - r); }
+}
+function cinUsher(g, G, w, i) {
+  const ws = O.role === 'guest' ? Cin.watchState(G, i) : G.ws[i], s = CSEAT.usher;
+  // walks up the aisle during the tell, stands and shines the torch along the row during the look
+  const k = ws.st === 'tell' ? 1 - Math.min(1, ws.left / w.tell) : ws.st === 'look' ? 1 : 0;
+  if (ws.st === 'idle') return;
+  const x = s.x, y = VH + 40 - (VH + 40 - s.y) * k, r = s.r;
+  g.fillStyle = '#20304a'; rr(g, x - r * 1.5, y + r * .6, r * 3, r * 3, r); g.fill();
+  g.fillStyle = '#e8c3a0'; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#20304a'; g.fillRect(x - r, y - r, r * 2, r * .6); g.fillRect(x - r * 1.3, y - r * .45, r * 2.6, r * .25);
+  const tx = x - r * 1.4, ty = y + r * 1.4;
+  g.fillStyle = '#ccc'; g.fillRect(tx - 8, ty - 3, 12, 6);
+  // the torch beam: sweeping along the floor while walking, along the couple's row while looking
+  const aim = ws.st === 'look' ? { x: 480, y: 330 } : { x: tx - 120, y: ty + 40 + Math.sin(S.time * 3) * 20 };
+  const a = Math.atan2(aim.y - ty, aim.x - tx), L = Math.hypot(aim.x - tx, aim.y - ty) + 60;
+  g.fillStyle = ws.st === 'look' ? 'rgba(255,245,190,.28)' : 'rgba(255,245,190,.16)';
+  g.beginPath(); g.moveTo(tx - 8, ty); g.lineTo(tx - 8 + Math.cos(a - .18) * L, ty + Math.sin(a - .18) * L); g.lineTo(tx - 8 + Math.cos(a + .18) * L, ty + Math.sin(a + .18) * L); g.closePath(); g.fill();
+  g.fillStyle = C.mint; g.beginPath(); g.moveTo(x - 5, y - r - 8); g.lineTo(x + 5, y - r - 8); g.lineTo(x, y - r - 2); g.fill();
+  if (ws.st === 'tell') { g.font = `400 16px ${FONT_D}`; g.textAlign = 'center'; g.fillStyle = '#ffe08a'; g.fillText('?', x - r - 8, y - r); }
+}
+// the couple from behind: leaning in (heads toward each other), a kiss, the popcorn up, red in the face when caught
+function cinCouple(g, G, jump) {
+  const st = CM.st, lean = { pink: G.lean.pink, mint: G.lean.mint };
+  if (O.role === 'guest') lean[O.local] = st.gl;
+  for (const id of ['pink', 'mint']) {
+    const L = lean[id], dir = id === 'pink' ? 1 : -1, x0 = id === 'pink' ? CROOM.L : CROOM.R, col = id === 'pink' ? C.pink : C.mint, dark = id === 'pink' ? C.pinkD : C.mintD;
+    const y = 322 - jump, hx = x0 + dir * L * 16;
+    g.save(); g.translate(hx, y + 26); g.rotate(dir * L * 0.32); g.scale(1.15, 1.15);
+    g.fillStyle = dark; rr(g, -20, -10, 40, 34, 12); g.fill();                       // shoulders
+    g.fillStyle = col; rr(g, -17, -40, 34, 34, 13); g.fill();                        // head (from behind)
+    g.fillStyle = hexA(dark, .5); rr(g, -17, -16, 34, 10, 6); g.fill();
+    if (id === 'pink') { g.fillStyle = C.gold; g.beginPath(); g.moveTo(8, -40); g.lineTo(2, -45); g.lineTo(2, -36); g.closePath(); g.moveTo(8, -40); g.lineTo(14, -45); g.lineTo(14, -36); g.closePath(); g.fill(); }
+    else { g.strokeStyle = '#3f8f4a'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, -40); g.quadraticCurveTo(1, -45, -1, -48); g.stroke(); g.fillStyle = '#7cc46d'; g.beginPath(); g.ellipse(4, -48, 5, 2.6, -.5, 0, Math.PI * 2); g.fill(); }
+    if (G.blush > 0) { g.fillStyle = 'rgba(255,90,110,.75)'; g.beginPath(); g.ellipse(dir * 14, -20, 5, 3, 0, 0, Math.PI * 2); g.fill(); }
+    g.restore();
+    // the popcorn: in the lap, or up beside the head to hide them from that side
+    const up = G.shield[id] > 0, px = up ? x0 - dir * 34 : x0 - dir * 8, py = up ? y - 6 : y + 44;
+    const k = up ? 1.25 : 0.7;
+    g.fillStyle = '#fff6d8'; g.beginPath(); g.arc(px - 6 * k, py - 14 * k, 6 * k, 0, Math.PI * 2); g.arc(px + 5 * k, py - 15 * k, 6 * k, 0, Math.PI * 2); g.arc(px, py - 19 * k, 6 * k, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#e8574f'; g.beginPath(); g.moveTo(px - 11 * k, py - 12 * k); g.lineTo(px + 11 * k, py - 12 * k); g.lineTo(px + 8 * k, py + 14 * k); g.lineTo(px - 8 * k, py + 14 * k); g.closePath(); g.fill();
+    g.fillStyle = '#fff'; for (const s of [-5, 1]) { g.fillRect(px + s * k, py - 12 * k, 3 * k, 26 * k); }
+    if (up) { const left = G.shield[id] / Cin.SHIELD_T; g.fillStyle = 'rgba(255,255,255,.25)'; g.fillRect(px - 14, py + 22, 28, 4); g.fillStyle = col; g.fillRect(px - 14, py + 22, 28 * left, 4); }
+  }
+  if (G.kissing) { g.fillStyle = C.pink; heartPath(g, 480, 268 - jump + Math.sin(S.time * 5) * 2, 7 + Math.min(4, G.kiss)); g.fill(); }
+  else if (G.blush > 0) { g.font = `400 18px ${FONT_D}`; g.textAlign = 'center'; g.fillStyle = '#ff8a8a'; g.fillText('!!', 480, 270); }
+}
+function cinHud(g, G) {
+  const def = G.def, left = Math.max(0, def.time - Math.max(0, G.t - Cin.START));
+  xScoreBox(g, left, G.score, def.stars, G.kissing ? `จุ๊บ ×${Cin.mult(G.kiss) === 2 ? th(2) : Cin.mult(G.kiss) === 1.5 ? '๑.๕' : th(1)}` : 'แต้ม');
+  xStrikes(g, 30, G.strikes, Cin.STRIKES, 'โดนเห็น');
+  // each player's popcorn: ready, or how long to wait
+  g.font = `600 11px ${FONT}`; g.textAlign = 'center';
+  for (const [id, x] of [['pink', VW / 2 - 120], ['mint', VW / 2 + 120]]) {
+    if (O.role && id !== O.local) continue;
+    const cd = G.shieldCd[id], text = G.shield[id] > 0 ? 'ป๊อปคอร์นบังอยู่' : cd > 0 ? `ป๊อปคอร์น รอ ${th(Math.ceil(cd))} วิ` : 'ป๊อปคอร์นพร้อม';
+    rr(g, x - 70, VH - 28, 140, 20, 10); g.fillStyle = 'rgba(21,17,46,.75)'; g.fill(); g.fillStyle = cd > 0 && G.shield[id] <= 0 ? 'rgba(255,255,255,.5)' : id === 'pink' ? C.pink : C.mint; g.fillText(text, x, VH - 14);
+  }
+  // a word for each player: someone on their side is turning round
+  if (S.mode === 'play' && G.st === 'run') {
+    for (const id of ['pink', 'mint']) {
+      const side = id === 'pink' ? 'L' : 'R', turning = def.watchers.some((w, i) => w.side === side && (O.role === 'guest' ? Cin.watchState(G, i).st : G.ws[i].st) !== 'idle');
+      const x = id === 'pink' ? CROOM.L - 40 : CROOM.R + 40;
+      if (turning && G.lean[id] > 0.2 && !(G.shield[id] > 0)) xTip(g, id, 'ถอย! มีคนหันมา', x, 232);
+      else if (G.t - Cin.START < 5 && !G.kissing) xTip(g, id, id === 'pink' ? 'กดค้าง เอียงหา →' : '← กดค้าง เอียงหา', x, 232);
+    }
+  }
+}
+
+/* ---------- No farting at the table (เดทแรกห้ามตด) ---------- */
+Object.assign(sfx, {
+  ffart(size) {
+    if (size < Fart.QUIET) { tone(2400, .05, 'square', .006, 1800); return; }
+    const v = .015 + size / 2600, d = .12 + size / 260;
+    tone(70 + size * .9, d, 'sawtooth', v, 45); tone(110 + size * .6, d * .7, 'square', v * .5, 60, .04);
+  },
+  fcough() { tone(320, .07, 'square', .05, 200); tone(300, .08, 'square', .045, 180, .12); },
+  fchair() { tone(190, .45, 'sawtooth', .035, 120); tone(260, .4, 'sawtooth', .02, 150, .05); },
+  frumble() { tone(55, .3, 'sine', .04, 40); },
+  fheard() { tone(520, .1, 'triangle', .05, 700); tone(700, .18, 'triangle', .05, 380, .1); },
+  fok() { tone(1046, .08, 'sine', .035); },
+  fplate() { for (let i = 0; i < 4; i++) tone(2500 + Math.random() * 2500, .05, 'square', .02, 1200, i * .03); },
+  flaugh() { [523, 587, 523, 587].forEach((f, i) => tone(f, .07, 'triangle', .025, 0, i * .12)); },
+  fmusic() { [659, 784, 880, 784, 659, 587].forEach((f, i) => tone(f, .16, 'triangle', .02, 0, i * .3)); },
+  fkid() { tone(900, .6, 'sawtooth', .02, 1300); },
+  fthunder() { tone(50, 1.1, 'sawtooth', .06, 30); tone(80, .6, 'square', .04, 40, .1); },
+  fclap() { for (let i = 0; i < 10; i++) tone(1800 + Math.random() * 600, .02, 'square', .015, 0, i * .11 + Math.random() * .05); }
+});
+const FSCENE = {
+  cafe: { wall: '#6a4a5a', wall2: '#5a3e4c', floor: '#3a2a36', table: '#c99a6a', light: '#ffe2a8' },
+  grill: { wall: '#5a3a2a', wall2: '#4a2e22', floor: '#2e2420', table: '#8a5a3a', light: '#ffb070' },
+  library: { wall: '#3e4a5e', wall2: '#33405a', floor: '#2a2a38', table: '#9a7a5a', light: '#e8f0ff' },
+  family: { wall: '#5e5a3e', wall2: '#504c33', floor: '#33302a', table: '#b08a5a', light: '#fff0c8' },
+  wedding: { wall: '#6a3e5e', wall2: '#5a334f', floor: '#3a2840', table: '#f2e6f0', light: '#ffd8f0' }
+};
+const FDIN = [{ x: 140, y: 268 }, { x: 228, y: 262 }, { x: 330, y: 270 }, { x: 640, y: 268 }, { x: 734, y: 262 }, { x: 826, y: 270 }];
+const FM = xMode({
+  kind: 'fart', md: 'f', pres: 'fw', dk: 'g', L: FLEVELS, pk: 'g', Eng: Fart, pad: 'x', list: 'flevels', olist: 'oLevelsF', starsAll: 'fStarsAll',
+  R: ['gas', 'cover'], rk: 'froles', roleName: { gas: 'ท้องปั่นป่วน', cover: 'ช่วยกลบเสียง' },
+  label: i => 'มื้อที่ ' + th(i + 1), word: 'ไป', goWord: 'ไปกินข้าว', fresh: 'ยังไม่เคยไป', nextWord: 'มื้อถัดไป', againWord: 'กินมื้อนี้อีกครั้ง',
+  score: G => G.score,
+  xWords: id => (FM.roleOf(id) === 'gas' ? { b: 'เกร็ง', a: 'ปล่อย' } : { a: 'ไอ', b: 'ลาก<br>เก้าอี้' }),
+  chips() {
+    const R = FM.st.roles, gp = R.gas === 'pink', set = (sel, v) => { const el = $(sel); if (el) el.textContent = v; };
+    set('#fRolePinkK', gp ? 'D เกร็ง A ปล่อย' : 'A ไอ D ลากเก้าอี้'); set('#fRolePinkT', gp ? 'ท้องปั่นป่วน' : 'ช่วยกลบเสียง');
+    set('#fRoleMintK', gp ? '→ ไอ ← ลากเก้าอี้' : '← เกร็ง → ปล่อย'); set('#fRoleMintT', gp ? 'ช่วยกลบเสียง' : 'ท้องปั่นป่วน');
+  },
+  onLoad() { Object.assign(FM.st, { played: new Set(), shown: new Set(), coverAnim: { cough: 0, chair: 0 }, puff: [], amb: -1, turn: 0, smell: 0, goAt: 0, goTa: 0, ta: null, tb: null, rumbleT: 2, lastPress: { cough: -9, chair: -9 }, myCovers: [] }); },
+  snap: G => ({ st: G.st, over: G.over, ru: G.ruined, odd: G.stats.odd, x: G.strikes }),
+  changes(p, n) {
+    const ev = [];
+    if (p.st === 'count' && n.st === 'run') ev.push('go');
+    if (n.odd > p.odd) ev.push('strike:odd');
+    if (n.over && !p.over) ev.push(n.ru ? 'ruined' : 'end');
+    return ev;
+  },
+  events(ev) {
+    for (const e of ev) {
+      if (e === 'go') sfx.ilaunch();
+      else if (e === 'strike:odd') { sfx.fheard(); xFloat(FM, 'ไอบ่อยจนคนสงสัย!', 480, 220, '#ffb38a', 20, 1.6); FM.st.turn = 1.6; }
+      else if (e === 'ruined') { sfx.cout(); xFloat(FM, 'มื้อนี้พังแล้ว!', 480, 200, '#ff8a8a', 26, 2.2); }
+      else if (e === 'end') { sfx.win(); xFloat(FM, `อิ่มแล้ว +${th(Fart.FINISH)}`, 480, 200, C.gold, 22, 1.8); }
+    }
+  },
+  tick() {
+    const st = FM.st, G = st.G, R = st.roles;
+    const gasInp = q => ({ hold: q.b, release: q.ap ? G.t : null }), covInp = q => ({ cough: q.ap ? G.t : null, chair: q.bp ? G.t : null });
+    if (!O.role) { const g = xRead(R.gas), c = xRead(R.cover); FM.events(Fart.step(G, { gas: gasInp(g), cover: covInp(c) })); st.prev = FM.snap(G); return; }
+    const li = xRead(O.local), mine = FM.roleOf(O.local);
+    st.lastInp = li;
+    if (O.role === 'host') {
+      const rq = st.remote, theirs = mine === 'gas' ? 'cover' : 'gas';
+      const r = theirs === 'gas' ? { hold: rq.b, release: rq.ta } : { cough: rq.ta, chair: rq.tb };
+      FM.events(Fart.step(G, { [mine]: mine === 'gas' ? gasInp(li) : covInp(li), [theirs]: r }));
+      rq.ta = rq.tb = null; st.prev = FM.snap(G);
+    } else {
+      // the guest: its own presses count from when they were pressed, on the host's clock; what they do comes back in
+      // the host's snapshots (the meter and the noises show here at once)
+      const ht = fHostT();
+      if (mine === 'gas') {
+        if (li.ap) { st.n.a++; st.ta = ht; if (G.P >= Fart.MIN_GAS && ht - Math.max(G.lastGo, st.goTa || -9) >= Fart.AGAIN) { st.goTa = ht; st.goAt = G.t; } }
+        Fart.step(G, { gas: { hold: li.b, release: null } }, true);
+      } else {
+        for (const [p, kind, k] of [[li.ap, 'cough', 'a'], [li.bp, 'chair', 'b']]) {
+          if (!p) continue;
+          st.n[k]++; st['t' + k] = ht;
+          const K = kind === 'chair' ? Fart.CHAIR : Fart.COUGH;
+          if (ht - Math.max(G.last[kind], st.lastPress[kind]) >= K.cd) { st.lastPress[kind] = ht; st.myCovers.push({ kind, t: ht }); st.coverAnim[kind] = kind === 'chair' ? 1 : 0.6; if (kind === 'chair') sfx.fchair(); else sfx.fcough(); }
+        }
+        Fart.step(G, { gas: { hold: G.hold } }, true);
+      }
+    }
+  },
+  frameExtra(dt) {
+    const st = FM.st, G = st.G, def = G.def;
+    st.coverAnim.cough = Math.max(0, st.coverAnim.cough - dt); st.coverAnim.chair = Math.max(0, st.coverAnim.chair - dt);
+    st.turn = Math.max(0, st.turn - dt); st.smell = Math.max(0, st.smell - dt);
+    for (const p of st.puff) { p.life -= dt; p.x += p.vx * dt; p.y -= 14 * dt; p.r += 10 * dt; }
+    st.puff = st.puff.filter(p => p.life > 0);
+    if (S.mode !== 'play') return;
+    const gx = st.roles.gas === 'pink' ? 410 : 550;
+    // each fart sounds when it sounds (on both phones, from the same list), and its fate shows once it is judged
+    for (const f of G.farts) {
+      const key = Math.round(f.t * 1000);
+      if (!st.played.has(key) && G.t >= f.ts) { st.played.add(key); sfx.ffart(f.size); for (let i = 0; i < 3 + f.size / 15; i++) st.puff.push({ x: gx + (Math.random() - .5) * 20, y: 380, vx: (Math.random() - .5) * 30, r: 6 + f.size / 12, life: 1 + f.size / 80 }); }
+      if (f.judged && !st.shown.has(key)) {
+        st.shown.add(key);
+        if (f.res === 'heard') { sfx.fheard(); st.turn = 1.8; S.shake = Math.max(S.shake, .35); xFloat(FM, ['ได้ยินนะ!', 'เสียงอะไรน่ะ!', 'ปู้ด!'][key % 3], gx, 330, '#ff8a8a', 22, 1.6); }
+        else if (f.res) { sfx.fok(); xFloat(FM, f.res === 'ambient' ? `เสียงร้านกลบ +${th(f.pts)}` : f.res === 'silent' ? `เงียบกริบ +${th(f.pts)}` : `เนียน! +${th(f.pts)}`, gx, 330, f.res === 'ambient' ? '#bfe6ff' : C.gold, 18); }
+        if (f.smelled) { st.smell = 2.5; xFloat(FM, 'แหวะ! เหม็น!', 230, 220, '#b8e07a', 22, 1.8); }
+        if (f.forced) xFloat(FM, 'หลุด!', gx, 300, '#ffb38a', 20);
+      }
+    }
+    for (const c of G.covers) {
+      const key = c.kind + Math.round(c.a * 1000);
+      if (st.played.has(key)) continue;
+      // the guest's own cough or scrape already sounded when it was pressed
+      const K = c.kind === 'chair' ? Fart.CHAIR : Fart.COUGH;
+      if (st.myCovers.some(q => q.kind === c.kind && Math.abs(q.t + K.from - c.a) < 0.25)) { st.played.add(key); continue; }
+      st.played.add(key); st.coverAnim[c.kind] = c.kind === 'chair' ? 1 : 0.6; if (c.kind === 'chair') sfx.fchair(); else sfx.fcough();
+    }
+    // the place's own noises
+    const amb = G.amb.findIndex(([a, b]) => G.t >= a && G.t < b);
+    if (amb >= 0 && amb !== st.amb) { const k = G.amb[amb][3]; ({ plate: sfx.fplate, music: sfx.fmusic, laugh: sfx.flaugh, kid: sfx.fkid, thunder: sfx.fthunder, clap: sfx.fclap }[k] || (() => {}))(); if (k === 'thunder') S.flash = .7; }
+    st.amb = amb;
+    // a rumbling tummy when the gas is building up
+    if (G.st === 'run' && G.P > 60) { st.rumbleT -= dt; if (st.rumbleT <= 0) { st.rumbleT = 1.2 + Math.random(); sfx.frumble(); } }
+  },
+  result(G, s) {
+    const sx = G.stats, msg = G.ruined ? 'โดนจับได้ครบแล้ว มื้อนี้พัง ครั้งหน้าให้คนปวดบอกก่อนปล่อย อีกคนจะได้กลบทัน'
+      : s === 3 ? 'ตดไปหลายรอบแต่ไม่มีใครรู้เลย คู่นี้เนียนสุดๆ' : s === 2 ? (sx.heard ? 'เกือบเนียนแล้ว มีหลุดให้ได้ยินอยู่บ้าง' : 'เนียนดี ลองปล่อยตอนร้านเสียงดังจะได้แต้มเพิ่ม')
+      : s === 1 ? 'รอดมาได้ มื้อถัดไปเปิดแล้ว' : `ยังได้แต้มน้อยไป ต้องได้ ${th(G.def.stars[0])} แต้ม ปล่อยแล้วให้อีกคนกลบให้ทัน`;
+    return { head: G.ruined ? 'มื้อนี้พัง' : 'อิ่มแล้ว', msg,
+      stats: `<span>แต้ม <b>${th(G.score)}</b></span><span>ตดเนียน <b>${th(sx.hidden)}</b> จาก <b>${th(sx.farts)}</b> ใหญ่สุด <b>${th(sx.biggest)}</b></span><span>มีคนได้ยิน <b>${th(sx.heard)}</b> ได้กลิ่น <b>${th(sx.smelled)}</b></span>` };
+  },
+  encode() {
+    const st = FM.st;
+    if (O.role === 'host') return Fart.encode(st.G);
+    const q = st.lastInp || {}, r3 = v => (v == null ? null : Math.round(v * 1000) / 1000);
+    return { b: q.b ? 1 : 0, an: st.n.a, bn: st.n.b, ta: r3(st.ta), tb: r3(st.tb) };
+  },
+  hostHears(m) {
+    const rq = FM.st.remote; rq.b = !!m.b;
+    if (xHeard(rq, 'A', m.an) && Number.isFinite(m.ta)) rq.ta = m.ta;
+    if (xHeard(rq, 'B', m.bn) && Number.isFinite(m.tb)) rq.tb = m.tb;
+  },
+  guestHears(m, pr) {
+    const st = FM.st, G = st.G, mine = FM.roleOf(O.local);
+    Fart.apply(G, m, mine);
+    if (mine === 'cover' && Array.isArray(m.lc)) { G.last.cough = xNum(m.lc[0], -9, 1e6, -9); G.last.chair = xNum(m.lc[1], -9, 1e6, -9); }
+    if (pr && Number.isFinite(pr.hn)) st.ref = { t: G.t, hn: pr.hn };
+    // a release pressed here that the host has not heard of yet: the gas meter stays let go
+    if (mine === 'gas' && st.goTa && Number.isFinite(m.lg) && m.lg < st.goTa - 0.05 && G.t - st.goAt < 1.5) G.P = Math.max(0, (G.t - st.goAt) * Fart.gasAt(G.def, G.t));
+  },
+  fresher: () => ({ b: false, ta: null, tb: null, seenA: -1, seenB: -1 }),
+  render: fartRender
+});
+// the host's game clock now, as best this (guest) phone can tell
+function fHostT() {
+  const st = FM.st, G = st.G;
+  if (st.ref && Number.isFinite(O.clockOff)) return Math.max(G.t, st.ref.t + (performance.now() + O.clockOff - st.ref.hn) / 1000);
+  return G.t + (O.rtt || 120) / 2000;
+}
+
+function fartRender() {
+  const g = ctx, st = FM.st, G = st.G, def = G.def, P = FSCENE[def.scene] || FSCENE.cafe, R = st.roles;
+  g.setTransform(scale, 0, 0, scale, 0, 0); g.textBaseline = 'alphabetic';
+  let ox = 0; if (S.shake > 0) ox = (Math.random() - .5) * 7 * S.shake;
+  g.save(); g.translate(ox, 0);
+  // the room
+  g.fillStyle = P.wall; g.fillRect(-10, 0, VW + 20, 300);
+  g.fillStyle = P.wall2; for (let x = 0; x < VW; x += 80) g.fillRect(x, 0, 40, 300);
+  g.fillStyle = P.floor; g.fillRect(-10, 300, VW + 20, VH - 300);
+  // the window (thunder flashes in it)
+  const amb = G.amb.find(([a, b]) => G.t >= a && G.t < b), ambK = amb ? amb[3] : null;
+  g.fillStyle = ambK === 'thunder' && Math.sin(S.time * 40) > 0 ? '#e8f0ff' : '#1a2440'; rr(g, 400, 40, 160, 100, 6); g.fill();
+  g.strokeStyle = '#2a2030'; g.lineWidth = 5; g.strokeRect(400, 40, 160, 100); g.beginPath(); g.moveTo(480, 40); g.lineTo(480, 140); g.moveTo(400, 90); g.lineTo(560, 90); g.stroke();
+  // lamps
+  for (const x of [300, 660]) { g.fillStyle = P.light; g.beginPath(); g.moveTo(x - 22, 70); g.lineTo(x + 22, 70); g.lineTo(x + 12, 50); g.lineTo(x - 12, 50); g.fill(); const lg = g.createRadialGradient(x, 80, 4, x, 120, 140); lg.addColorStop(0, hexA(P.light, .25)); lg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = lg; g.fillRect(x - 160, 60, 320, 240); }
+  // scene things
+  if (def.scene === 'library') { g.fillStyle = '#5a3a2a'; for (const x of [40, 740]) { g.fillRect(x, 60, 180, 230); for (let r = 0; r < 4; r++) for (let b = 0; b < 12; b++) { g.fillStyle = ['#c94a4a', '#4a7ac9', '#c9a24a', '#4ac98a'][(b + r) % 4]; g.fillRect(x + 6 + b * 14, 70 + r * 56, 10, 44); } g.fillStyle = '#5a3a2a'; } }
+  if (def.scene === 'wedding') { g.fillStyle = '#fff'; for (let x = 20; x < VW; x += 60) { g.beginPath(); g.arc(x, 18, 14, 0, Math.PI); g.fill(); } g.fillStyle = C.pink; heartPath(g, 480, 22, 10); g.fill(); }
+  // the fan: swings back and forth; toward the other diners is bad news for a big one
+  if (def.fan) {
+    const k = Fart.fanAt(def, G.t), toward = Fart.fanToward(def, G.t), a = Math.sin(k * Math.PI * 2) * 0.9;
+    g.fillStyle = '#ccc'; g.fillRect(866, 118, 6, 30); g.save(); g.translate(869, 112); g.scale(Math.cos(a) * .6 + .4, 1);
+    g.fillStyle = toward ? '#ffb38a' : '#bfe6ff'; g.beginPath(); g.arc(0, 0, 22, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#555'; g.lineWidth = 2; g.stroke();
+    for (let i = 0; i < 3; i++) { const b = S.time * 30 + i * 2.1; g.strokeStyle = '#777'; g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(b) * 18, Math.sin(b) * 18); g.stroke(); }
+    g.restore();
+    g.font = `600 11px ${FONT}`; g.textAlign = 'center'; g.fillStyle = toward ? '#ffb38a' : '#bfe6ff'; g.fillText(toward ? 'พัดลมหันไปหาโต๊ะอื่น' : 'พัดลมหันออก', 869, 160);
+    if (toward) { g.strokeStyle = 'rgba(255,200,160,.35)'; g.lineWidth = 2; for (let i = 0; i < 3; i++) { const y = 200 + i * 24, s = (S.time * 160 + i * 60) % 300; g.beginPath(); g.moveTo(820 - s, y); g.lineTo(780 - s, y); g.stroke(); } }
+  }
+  // the other diners: busy with their food, unless they heard something (turn), smelled it, or wonder about all that coughing
+  const sus = G.odd > 55, turned = st.turn > 0, smelly = st.smell > 0;
+  FDIN.forEach((d, i) => {
+    if (def.scene === 'library' && i % 2) return;
+    const col = ['#7a3f6a', '#3f5a7a', '#5a7a3f', '#7a5a3f', '#5a3f7a', '#3f7a6a'][i], face = turned || (sus && i % 2 === 0) || smelly;
+    g.fillStyle = col; rr(g, d.x - 18, d.y, 36, 40, 12); g.fill();
+    g.fillStyle = '#e8c3a0'; g.beginPath(); g.arc(d.x, d.y - 8, 15, 0, Math.PI * 2); g.fill();
+    g.fillStyle = ['#2a1a12', '#120d18', '#4a3a3a', '#1a1410', '#3a2a1a', '#2a2238'][i]; g.beginPath(); g.arc(d.x, d.y - 14, 15, Math.PI, 0); g.fill();
+    if (face) {
+      const lx = d.x < 480 ? 4 : -4;
+      g.fillStyle = '#fff'; g.beginPath(); g.ellipse(d.x - 5 + lx, d.y - 8, 3.5, 4.5, 0, 0, Math.PI * 2); g.ellipse(d.x + 5 + lx, d.y - 8, 3.5, 4.5, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#1a1530'; g.beginPath(); g.arc(d.x - 5 + lx * 1.4, d.y - 7, 2, 0, Math.PI * 2); g.arc(d.x + 5 + lx * 1.4, d.y - 7, 2, 0, Math.PI * 2); g.fill();
+      if (smelly) { g.fillStyle = 'rgba(160,210,90,.55)'; g.beginPath(); g.arc(d.x, d.y - 8, 15, 0, Math.PI * 2); g.fill(); }
+      g.font = `400 14px ${FONT_D}`; g.textAlign = 'center'; g.fillStyle = smelly ? '#b8e07a' : turned ? '#ff8a8a' : '#ffe08a'; g.fillText(smelly ? '~' : turned ? '!?' : '?', d.x + 18, d.y - 22);
+    } else { g.fillStyle = '#2a2030'; g.fillRect(d.x - 6, d.y - 2, 12, 2); }
+    g.fillStyle = hexA(P.table, .8); g.fillRect(d.x - 40, d.y + 34, 80, 10);
+  });
+  // the place's noises, where they come from
+  if (ambK) {
+    g.font = `400 18px ${FONT_D}`; g.textAlign = 'center';
+    const pop = (text, x, y, col) => { g.lineWidth = 4; g.strokeStyle = 'rgba(21,18,43,.8)'; g.strokeText(text, x, y); g.fillStyle = col; g.fillText(text, x, y); };
+    if (ambK === 'music') { for (let i = 0; i < 3; i++) pop('♪', 100 + i * 34 + Math.sin(S.time * 3 + i) * 6, 200 - ((S.time * 30 + i * 20) % 60), '#bfe6ff'); }
+    else if (ambK === 'plate') pop('เพล้ง!', 300, 230, '#fff');
+    else if (ambK === 'laugh') pop('ฮ่าๆๆๆ', 734, 230, '#ffe08a');
+    else if (ambK === 'kid') pop('แง้!!', 140, 236, '#ffb38a');
+    else if (ambK === 'thunder') pop('เปรี้ยง!', 480, 160, '#e8f0ff');
+    else if (ambK === 'clap') pop('แปะๆๆ', 640 + Math.sin(S.time * 20) * 4, 236, '#ffd8f0');
+    rr(g, VW / 2 - 110, 186, 220, 24, 12); g.fillStyle = 'rgba(21,17,46,.8)'; g.fill(); g.font = `600 12px ${FONT}`; g.fillStyle = '#bfe6ff'; g.fillText('ร้านเสียงดังอยู่ ปล่อยได้!', VW / 2, 203);
+  }
+  // our table and the two of us
+  g.fillStyle = 'rgba(0,0,0,.25)'; g.beginPath(); g.ellipse(480, 470, 260, 26, 0, 0, Math.PI * 2); g.fill();
+  for (const id of ['pink', 'mint']) {
+    const role = FM.roleOf(id), x = id === 'pink' ? 410 : 550, chairDx = role === 'cover' && st.coverAnim.chair > 0 ? Math.sin(st.coverAnim.chair * 30) * 4 + (id === 'pink' ? -6 : 6) : 0;
+    g.fillStyle = '#5a3a2a'; rr(g, x - 26 + chairDx, 330, 52, 70, 8); g.fill(); g.fillRect(x - 24 + chairDx, 398, 6, 60); g.fillRect(x + 18 + chairDx, 398, 6, 60);
+    const squirm = role === 'gas' ? Math.min(1, G.P / 100) : 0, bob = role === 'cover' && st.coverAnim.cough > 0 ? Math.abs(Math.sin(st.coverAnim.cough * 18)) * 4 : 0;
+    g.save(); g.translate(x + chairDx + (squirm > .6 ? Math.sin(S.time * 25) * squirm * 2 : 0), 400 - bob); g.scale(2.1, 2.1);
+    drawPlayer(g, { id, x: -12, y: -29, w: 24, h: 29, face: id === 'pink' ? 1 : -1, sq: role === 'gas' && G.hold ? .25 : 0, walk: 0 }, S.time);
+    if (role === 'gas' && G.strain > 30) { g.fillStyle = `rgba(255,60,60,${Math.min(.5, G.strain / 200)})`; rr(g, -12, -29, 24, 29, 10); g.fill(); }
+    if (role === 'gas' && G.strain > 60) { g.fillStyle = '#bfe6ff'; g.beginPath(); g.ellipse(10, -24 + (S.time * 10 % 6), 1.6, 2.4, 0, 0, Math.PI * 2); g.fill(); }
+    g.restore();
+    if (role === 'cover' && st.coverAnim.cough > 0) { g.font = `400 16px ${FONT_D}`; g.textAlign = 'center'; g.fillStyle = '#fff'; g.fillText('แค่กๆ!', x, 300); }
+    if (role === 'cover' && st.coverAnim.chair > 0) { g.font = `400 16px ${FONT_D}`; g.textAlign = 'center'; g.fillStyle = '#ffe08a'; g.fillText('ครืดดด!', x + (id === 'pink' ? -30 : 30), 440); }
+  }
+  // the table in front, with what is on it
+  g.fillStyle = P.table; rr(g, 280, 408, 400, 30, 8); g.fill(); g.fillStyle = hexA('#000000', .2); g.fillRect(290, 432, 380, 6);
+  g.fillStyle = hexA('#000000', .3); g.fillRect(300, 438, 12, 80); g.fillRect(648, 438, 12, 80);
+  if (def.scene === 'grill') { g.fillStyle = '#333'; g.beginPath(); g.ellipse(480, 404, 46, 12, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = '#c96a4a'; g.beginPath(); g.arc(480, 398, 22, Math.PI, 0); g.fill(); g.fillStyle = 'rgba(220,220,220,.3)'; for (let i = 0; i < 3; i++) { g.beginPath(); g.arc(470 + i * 10, 370 - ((S.time * 20 + i * 12) % 40), 6, 0, Math.PI * 2); g.fill(); } }
+  else if (def.scene === 'wedding') { g.fillStyle = '#fff'; rr(g, 455, 370, 50, 36, 4); g.fill(); g.fillStyle = C.pink; g.fillRect(455, 384, 50, 4); }
+  else if (def.scene === 'library') { g.fillStyle = '#4a7ac9'; g.fillRect(440, 398, 40, 10); g.fillStyle = '#c94a4a'; g.fillRect(486, 396, 36, 12); }
+  else { for (const x of [430, 530]) { g.fillStyle = '#fff'; g.beginPath(); g.ellipse(x, 404, 22, 7, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = '#e8a33a'; g.beginPath(); g.ellipse(x, 401, 12, 4, 0, 0, Math.PI * 2); g.fill(); } }
+  // the gas: little clouds
+  for (const p of st.puff) { g.globalAlpha = Math.min(.6, p.life); g.fillStyle = '#b8c87a'; g.beginPath(); g.arc(p.x, p.y, p.r, 0, Math.PI * 2); g.fill(); }
+  g.globalAlpha = 1;
+  g.restore();
+  // over the gas player: the gas meter; after a release, a ring running down to when it sounds
+  const gx = R.gas === 'pink' ? 410 : 550, k = G.P / 100;
+  rr(g, gx - 40, 254, 80, 10, 5); g.fillStyle = 'rgba(21,17,46,.8)'; g.fill();
+  rr(g, gx - 40, 254, Math.max(10, 80 * k), 10, 5); g.fillStyle = k > .8 ? '#ff6b6b' : k > .5 ? '#ffcf5a' : '#9be07a'; g.fill();
+  g.font = `600 10px ${FONT}`; g.textAlign = 'center'; g.fillStyle = '#c9bfef'; g.fillText(G.hold ? 'เกร็งอยู่' : 'แก๊ส', gx, 250);
+  const pend = G.farts.find(f => !f.judged && G.t < f.ts);
+  if (pend) {
+    const left = Math.max(0, pend.ts - G.t) / Fart.DELAY;
+    g.strokeStyle = pend.size > Fart.COUGH.str ? '#ff8a8a' : '#ffe08a'; g.lineWidth = 4; g.beginPath(); g.arc(gx, 222, 14, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * left); g.stroke();
+    g.font = `400 13px ${FONT_D}`; g.fillStyle = '#fff'; g.fillText('ปล่อยแล้ว!', gx, 204);
+  }
+  drawParts(g);
+  xDrawFloats(g, FM);
+  fartHud(g, G);
+  xCountdown(g, G, Fart.START);
+  xBannerDraw(g, G, Fart.START, def.name, `${S.names[R.gas]}ท้องปั่นป่วน กดปล่อยแล้วเสียงจะตามมา · ${S.names[R.cover]}ไอหรือลากเก้าอี้กลบให้ทัน`);
+  if (S.flash > 0) { g.fillStyle = `rgba(255,255,255,${S.flash * .3})`; g.fillRect(0, 0, VW, VH); }
+  if (O.role && S.mode !== 'menu') drawNetNote(g);
+}
+function fartHud(g, G) {
+  const def = G.def, st = FM.st, R = st.roles, left = Math.max(0, def.time - Math.max(0, G.t - Fart.START));
+  xScoreBox(g, left, G.score, def.stars);
+  const max = def.strikes || Fart.STRIKES;
+  xStrikes(g, 30, G.strikes, max, 'โดนจับได้');
+  // how odd all that coughing looks
+  rr(g, VW - 214, 50, 206, 22, 11); g.fillStyle = 'rgba(21,17,46,.82)'; g.fill();
+  g.font = `600 11px ${FONT}`; g.textAlign = 'left'; g.fillStyle = '#c9bfef'; g.fillText('คนเริ่มสงสัย', VW - 204, 65);
+  rr(g, VW - 132, 57, 116, 8, 4); g.fillStyle = 'rgba(255,255,255,.15)'; g.fill();
+  if (G.odd > 0) { rr(g, VW - 132, 57, Math.max(8, 116 * G.odd / 100), 8, 4); g.fillStyle = G.odd > 70 ? '#ff6b6b' : '#ffcf5a'; g.fill(); }
+  // the chair: one scrape every few seconds
+  const cd = Math.max(0, Fart.CHAIR.cd - (G.t - G.last.chair));
+  g.textAlign = 'center';
+  const cx = R.cover === 'pink' ? VW / 2 - 120 : VW / 2 + 120;
+  if (!O.role || R.cover === O.local) { rr(g, cx - 70, VH - 28, 140, 20, 10); g.fillStyle = 'rgba(21,17,46,.75)'; g.fill(); g.fillStyle = cd > 0 ? 'rgba(255,255,255,.5)' : (R.cover === 'pink' ? C.pink : C.mint); g.fillText(cd > 0 ? `เก้าอี้ รอ ${th(Math.ceil(cd))} วิ` : 'ลากเก้าอี้ได้', cx, VH - 14); }
+  if (S.mode !== 'play' || G.st !== 'run') return;
+  const gx = R.gas === 'pink' ? 410 : 550, cxp = R.cover === 'pink' ? 410 : 550;
+  const pend = G.farts.find(f => !f.judged && G.t < f.ts + 0.05), amb = G.amb.some(([a, b]) => G.t >= a && b - G.t > 0.7);
+  if (pend && !G.covers.some(c => pend.ts >= c.a && pend.ts < c.b) && Fart.ambientAt(G, pend.ts) < pend.size && pend.size >= Fart.QUIET) xTip(g, R.cover, pend.size > Fart.COUGH.str ? 'ลากเก้าอี้!' : 'ไอเลย!', cxp, 318);
+  if (G.strain > 70) xTip(g, R.gas, 'เกร็งนานไม่ไหวแล้ว!', gx, 318);
+  else if (def.fan && G.P > Fart.SMELL - 8 && Fart.fanToward(def, G.t + Fart.DELAY)) xTip(g, R.gas, 'พัดลมหันมา รอก่อน', gx, 318);
+  else if (amb && G.P >= 20 && !pend) xTip(g, R.gas, 'ปล่อยเลย ร้านเสียงดัง!', gx, 318);
+  else if (G.P > 75 && !pend) xTip(g, R.gas, 'แก๊สเต็มแล้ว บอกเพื่อนแล้วปล่อย', gx, 318);
+}
+
+/* ---------- One blanket (แย่งผ้าห่ม) ---------- */
+Object.assign(sfx, {
+  hkick() { tone(240, .12, 'triangle', .04, 120); },
+  hwhoosh() { tone(900, .25, 'sawtooth', .012, 300); },
+  hfart() { tone(80, .35, 'sawtooth', .035, 45); tone(120, .2, 'square', .02, 60, .05); },
+  hbuzz() { tone(560 + Math.random() * 60, .25, 'sawtooth', .008, 620); },
+  hslap() { tone(1500, .04, 'square', .06, 400); tone(200, .06, 'square', .04, 120, .01); },
+  hbite() { tone(1800, .06, 'triangle', .03, 2400); },
+  hthud() { tone(90, .18, 'square', .07, 50); },
+  hwake() { tone(660, .12, 'square', .04, 880); tone(880, .14, 'square', .04, 660, .12); },
+  htug() { tone(300, .2, 'sawtooth', .025, 340); },
+  htell() { tone(220, .12, 'sine', .03, 200); },
+  hrooster() { tone(700, .15, 'sawtooth', .04, 900); tone(900, .25, 'sawtooth', .04, 1100, .15); tone(1100, .4, 'sawtooth', .035, 700, .4); }
+});
+const HB0 = 480 - Bed.BW * 1.1, HK = 2.2;                            // the bed on screen: x0 and scale
+const hx = x => HB0 + x * HK;
+const HM = xMode({
+  kind: 'bed', md: 'h', pres: 'hw', dk: 'h', L: HLEVELS, pk: 'e', Eng: Bed, pad: 'k', list: 'hlevels', olist: 'oLevelsH', starsAll: 'hStarsAll',
+  label: i => 'คืนที่ ' + th(i + 1), word: 'นอน', goWord: 'ไปนอน', fresh: 'ยังไม่เคยนอน', nextWord: 'คืนถัดไป', againWord: 'นอนคืนนี้อีกครั้ง',
+  score: G => G.score,
+  kWords: () => ({ act: 'ตบ<br>สะบัด', use: 'ดึง<br>ผ้า' }),
+  onLoad() { Object.assign(HM.st, { buzzT: 0, flapT: 0, kickT: { pink: 0, mint: 0 }, slapT: 0, zs: [], ed: '' }); },
+  snap: G => ({ st: G.st, over: G.over, failed: G.failed, s: Object.assign({}, G.stats), ed: G.evs.map(e => (e.done ? 2 : e.told ? 1 : 0)).join(''), mq: G.mq ? G.mq.st + (G.mq.on || '') : '', aw: [G.awake.pink > 0, G.awake.mint > 0] }),
+  changes(p, n) {
+    const ev = [], G = HM.st.G;
+    if (p.st === 'count' && n.st === 'run') ev.push('go');
+    for (let i = 0; i < n.ed.length; i++) {
+      const e = G.evs[i]; if (!e) continue;
+      if (n.ed[i] >= '1' && !(p.ed[i] >= '1')) ev.push(`tell:${e.kind}:${e.who}`);
+      if (n.ed[i] === '2' && p.ed[i] !== '2') ev.push(e.kind === 'mosquito' ? 'mosquito' : `${e.kind}:${e.who}`);
+    }
+    if (n.mq.startsWith('sit') && !p.mq.startsWith('sit')) ev.push('land:' + n.mq.slice(3));
+    if (n.s.bites > p.s.bites) ev.push('bite:x');
+    if (n.s.kills > p.s.kills) ev.push('slap:x:x');
+    if (n.s.flaps > p.s.flaps) ev.push('flap:x');
+    if (n.s.tugs > p.s.tugs) ev.push('tug');
+    ['pink', 'mint'].forEach((w, i) => { if (n.aw[i] && !p.aw[i]) ev.push(`wake:${w}:x`); });
+    if (n.over && !p.over) ev.push(n.failed ? 'failed' : 'morning');
+    return ev;
+  },
+  events(ev) {
+    const st = HM.st, G = st.G, hy = 150;
+    for (const e of ev) {
+      const [k, a, b] = e.split(':');
+      const at = w => hx(G.x[w] || 120);
+      if (k === 'go') sfx.ilaunch();
+      else if (k === 'tell') { sfx.htell(); if (a === 'kick' || a === 'roll') st.kickT[b] = Bed.TELL; }
+      else if (k === 'kick') { sfx.hkick(); sfx.hwhoosh(); xFloat(HM, 'เตะผ้าห่ม!', at(a), 300, '#ffb38a', 18); }
+      else if (k === 'roll') { sfx.hwhoosh(); xFloat(HM, 'กลิ้งเอาผ้าไป!', at(a), 300, '#ffb38a', 18); }
+      else if (k === 'fart') { sfx.hfart(); xFloat(HM, 'ปู้ด!', at(a), 330, '#b8e07a', 22); }
+      else if (k === 'hot') xFloat(HM, 'ร้อนวูบ!', at(a), 230, '#ff8a8a', 18);
+      else if (k === 'mosquito') { st.buzzT = 0; xFloat(HM, 'ยุงมา!', 480, 120, '#ffe08a', 18); }
+      else if (k === 'land') xFloat(HM, 'ยุงเกาะ! ตบเลย', G.x[a] ? at(a) : 480, hy - 30, '#ffe08a', 16);
+      else if (k === 'bite') { sfx.hbite(); xFloat(HM, 'โดนกัด!', 480, hy - 20, '#ff8a8a', 18); }
+      else if (k === 'slap') { sfx.hslap(); st.slapT = 0.3; S.shake = Math.max(S.shake, .2); xFloat(HM, `แปะ! +${th(Bed.KILL)}`, 480, hy - 20, C.gold, 18); }
+      else if (k === 'miss') { sfx.hslap(); xFloat(HM, 'พลาด!', at(a), hy - 20, '#c9bfef', 14); }
+      else if (k === 'flap') { sfx.hwhoosh(); st.flapT = 0.5; xFloat(HM, 'พรึ่บ!', 480, 300, '#bfe6ff', 18); }
+      else if (k === 'tug') { sfx.htug(); xFloat(HM, 'อย่าแย่งกัน!', 480, 260, '#ffb38a', 18); }
+      else if (k === 'fall') { sfx.hthud(); S.shake = Math.max(S.shake, .5); xFloat(HM, 'ตกเตียง!', a === 'pink' ? HB0 - 10 : HB0 + Bed.BW * HK + 10, 360, '#ff8a8a', 20); }
+      else if (k === 'wake') { sfx.hwake(); xFloat(HM, `${S.names[a]}ตื่นแล้ว!`, a === 'pink' ? 360 : 600, 110, '#ff8a8a', 20, 1.6); }
+      else if (k === 'failed') { sfx.cout(); xFloat(HM, 'นอนไม่หลับทั้งคืน!', 480, 250, '#ff8a8a', 26, 2.2); }
+      else if (k === 'morning') { sfx.hrooster(); xFloat(HM, 'เช้าแล้ว!', 480, 250, C.gold, 26, 2); }
+    }
+  },
+  tick() {
+    const st = HM.st, G = st.G, q = id => { const k = kInput(id); return { mx: k.mx, pull: k.use, act: k.act }; };
+    if (!O.role) { HM.events(Bed.step(G, { pink: q('pink'), mint: q('mint') })); st.prev = HM.snap(G); return; }
+    const li = q(O.local), rid = O.local === 'pink' ? 'mint' : 'pink';
+    st.lastInp = li;
+    if (O.role === 'host') {
+      const rq = st.remote;
+      HM.events(Bed.step(G, { [O.local]: li, [rid]: { mx: rq.mx, pull: rq.use, act: rq.act } }));
+      rq.act = false; st.prev = HM.snap(G);
+    } else {
+      if (li.act) st.n.a++;
+      Bed.step(G, { [O.local]: { mx: li.mx, pull: li.pull }, [rid]: { mx: 0, pull: G.pull[rid] } }, true);
+    }
+  },
+  frameExtra(dt) {
+    const st = HM.st, G = st.G;
+    st.flapT = Math.max(0, st.flapT - dt); st.slapT = Math.max(0, st.slapT - dt);
+    for (const w of ['pink', 'mint']) st.kickT[w] = Math.max(0, st.kickT[w] - dt);
+    if (G.mq && S.mode === 'play') { st.buzzT -= dt; if (st.buzzT <= 0) { st.buzzT = 0.35; sfx.hbuzz(); } }
+    // zzz drifting up from whoever sleeps well
+    if (S.mode === 'play' && G.st === 'run' && Math.random() < dt * 2) for (const w of ['pink', 'mint']) if (G.awake[w] === 0 && G.Z[w] < 40) st.zs.push({ x: hx(G.x[w]) + 20, y: 120, life: 2 });
+    for (const z of st.zs) { z.life -= dt; z.y -= 18 * dt; z.x += 6 * dt; }
+    st.zs = st.zs.filter(z => z.life > 0);
+  },
+  result(G, s) {
+    const sx = G.stats, msg = G.failed ? 'ตื่นกันบ่อยจนนอนไม่หลับทั้งคืน ครั้งหน้านอนชิดกันกลางเตียง แล้วคอยดึงผ้าห่มให้กัน'
+      : s === 3 ? 'หลับสบายทั้งคืน ผ้าห่มผืนเดียวก็พอสำหรับสองคน' : s === 2 ? (sx.wakes ? 'หลับดีเกือบทั้งคืน ถ้าไม่ตื่นกลางดึกจะได้สามดาว' : 'หลับดี ลองนอนชิดกันให้นานกว่านี้จะอุ่นกว่า')
+      : s === 1 ? 'รอดมาถึงเช้า คืนถัดไปเปิดแล้ว' : `ยังหลับไม่สนิทพอ ต้องได้ ${th(G.def.stars[0])} แต้ม นอนให้ผ้าห่มคลุมทั้งคู่ อย่าให้หนาวหรือร้อนเกินไป`;
+    return { head: G.failed ? 'นอนไม่หลับ' : 'เช้าแล้ว', msg,
+      stats: `<span>แต้ม <b>${th(Math.round(G.score))}</b></span><span>ตื่นกลางดึก <b>${th(sx.wakes)}</b> โดนยุงกัด <b>${th(sx.bites)}</b> ตบยุง <b>${th(sx.kills)}</b></span><span>นอนชิดกัน <b>${th(Math.round(sx.spoon))}</b> วิ แย่งผ้า <b>${th(sx.tugs)}</b></span>` };
+  },
+  encode() {
+    const st = HM.st;
+    if (O.role === 'host') return Bed.encode(st.G);
+    const q = st.lastInp || {}, r2 = v => Math.round((v || 0) * 100) / 100;
+    return { mx: r2(q.mx), pl: q.pull ? 1 : 0, an: st.n.a };
+  },
+  hostHears(m) { const rq = HM.st.remote; rq.mx = xNum(m.mx, -1, 1); rq.use = !!m.pl; if (xHeard(rq, 'A', m.an)) rq.act = true; },
+  guestHears(m) { Bed.apply(HM.st.G, m, true); },
+  render: bedRender
+});
+
+function bedRender() {
+  const g = ctx, st = HM.st, G = st.G, def = G.def;
+  g.setTransform(scale, 0, 0, scale, 0, 0); g.textBaseline = 'alphabetic';
+  let ox = 0; if (S.shake > 0) ox = (Math.random() - .5) * 7 * S.shake;
+  const cold = Bed.coldAt(G), blast = cold > (def.ac || 7) * 1.05;
+  g.save(); g.translate(ox, 0);
+  // the room at night, seen from above
+  g.fillStyle = '#1c1830'; g.fillRect(-10, 0, VW + 20, VH);
+  g.fillStyle = '#251f3e'; for (let y = 0; y < VH; y += 48) for (let x = (y / 48) % 2 * 48; x < VW; x += 96) g.fillRect(x, y, 48, 48);
+  // the air conditioner on the wall at the top, blowing
+  g.fillStyle = '#e8e6f2'; rr(g, 380, 6, 200, 34, 8); g.fill(); g.fillStyle = '#bdbad0'; g.fillRect(392, 30, 176, 4);
+  g.font = `600 10px ${FONT}`; g.textAlign = 'center'; g.fillStyle = blast ? '#5aa0ff' : '#7a7890'; g.fillText(blast ? 'เย็นจัด!' : `${th(Math.round(27 - cold))}°`, 548, 24);
+  g.strokeStyle = blast ? 'rgba(170,210,255,.5)' : 'rgba(170,210,255,.25)'; g.lineWidth = 2;
+  for (let i = 0; i < (blast ? 9 : 5); i++) { const x = 400 + i * (160 / (blast ? 8 : 4)), s = (S.time * (blast ? 90 : 50) + i * 17) % 70; g.beginPath(); g.moveTo(x, 44 + s); g.quadraticCurveTo(x + 6, 52 + s, x, 60 + s); g.stroke(); }
+  // the bed
+  const top = 70, bot = 500, x0 = hx(0), x1 = hx(Bed.BW);
+  g.fillStyle = '#5a3a2a'; rr(g, x0 - 14, top - 10, x1 - x0 + 28, bot - top + 24, 12); g.fill();
+  g.fillStyle = '#efe9f7'; rr(g, x0, top, x1 - x0, bot - top, 8); g.fill();
+  // the edges: rolling off there wakes you
+  g.fillStyle = 'rgba(255,120,120,.12)'; g.fillRect(x0, top, Bed.HB * HK * .6, bot - top); g.fillRect(x1 - Bed.HB * HK * .6, top, Bed.HB * HK * .6, bot - top);
+  // pillows
+  for (const w of ['pink', 'mint']) { g.fillStyle = '#fff'; rr(g, hx(G.x[w]) - 52, top + 14, 104, 56, 18); g.fill(); g.strokeStyle = '#d9d3ee'; g.lineWidth = 2; g.stroke(); }
+  // the two of them: head on the pillow, body down the bed
+  for (const w of ['pink', 'mint']) bedSleeper(g, G, w, top);
+  // the blanket
+  const half = def.blanket / 2, bx0 = hx(G.c - half), bx1 = hx(G.c + half), lift = st.flapT > 0 ? Math.sin(st.flapT / 0.5 * Math.PI) * 30 : 0;
+  g.fillStyle = 'rgba(0,0,0,.18)'; rr(g, bx0 + 6, 176 + 8 - lift, bx1 - bx0, 300, 18); g.fill();
+  const bl = g.createLinearGradient(bx0, 0, bx1, 0); bl.addColorStop(0, '#6a8fe0'); bl.addColorStop(1, '#8aa8f0'); g.fillStyle = bl; rr(g, bx0, 176 - lift, bx1 - bx0, 300, 18); g.fill();
+  g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 3; for (let i = 1; i < 6; i++) { g.beginPath(); g.moveTo(bx0 + 10, 176 - lift + i * 50); g.lineTo(bx1 - 10, 176 - lift + i * 50); g.stroke(); }
+  if (G.tug) { g.strokeStyle = Math.sin(S.time * 30) > 0 ? '#ff8a8a' : '#ffe08a'; g.lineWidth = 3; rr(g, bx0, 176 - lift, bx1 - bx0, 300, 18); g.stroke(); }
+  // a smell under the blanket
+  if (G.stink > 0) { g.globalAlpha = Math.min(.6, G.stink / 120); g.fillStyle = '#9ac85a'; for (let i = 0; i < 5; i++) { g.beginPath(); g.arc(bx0 + (bx1 - bx0) * (0.2 + i * 0.15) + Math.sin(S.time * 2 + i) * 8, 170 - lift - 10 - (S.time * 20 + i * 9) % 30, 14, 0, Math.PI * 2); g.fill(); } g.globalAlpha = 1; }
+  // pulling: little arrows from where it is held
+  for (const w of ['pink', 'mint']) if (G.pull[w]) { const x = hx(G.x[w]), dir = Math.sign(G.x[w] - G.c) || 1; g.fillStyle = w === 'pink' ? C.pink : C.mint; g.beginPath(); g.moveTo(x + dir * 14, 330); g.lineTo(x - dir * 4, 320); g.lineTo(x - dir * 4, 340); g.fill(); }
+  // the mosquito
+  const M = G.mq;
+  if (M) {
+    const mx = hx(M.x) + (M.st === 'sit' ? 0 : Math.sin(S.time * 17) * 4), my = M.st === 'sit' ? top + 34 : top + 20 + M.y * 1.6 + Math.sin(S.time * 23) * 3;
+    g.fillStyle = '#2a2030'; g.beginPath(); g.ellipse(mx, my, 5, 2.4, 0.3, 0, Math.PI * 2); g.fill();
+    g.fillStyle = 'rgba(220,230,255,.75)'; const fl = Math.sin(S.time * 80) * 3; g.beginPath(); g.ellipse(mx - 2, my - 4 - fl, 4, 2, -0.6, 0, Math.PI * 2); g.ellipse(mx + 2, my - 4 + fl, 4, 2, 0.6, 0, Math.PI * 2); g.fill();
+    if (M.st === 'sit') { g.strokeStyle = '#ff6b6b'; g.lineWidth = 2; g.beginPath(); g.arc(mx, my, 14 + Math.sin(S.time * 10) * 2, 0, Math.PI * 2); g.stroke(); }
+  }
+  if (st.slapT > 0) { g.fillStyle = `rgba(255,240,200,${st.slapT * 2})`; g.beginPath(); g.arc(480, top + 34, 30, 0, Math.PI * 2); g.fill(); }
+  for (const z of st.zs) { g.globalAlpha = Math.min(1, z.life); g.font = `400 14px ${FONT_D}`; g.textAlign = 'center'; g.fillStyle = '#c9bfef'; g.fillText('z', z.x, z.y); }
+  g.globalAlpha = 1;
+  g.restore();
+  drawParts(g);
+  xDrawFloats(g, HM);
+  bedHud(g, G);
+  xCountdown(g, G, Bed.START);
+  xBannerDraw(g, G, Bed.START, def.name, 'นอนชิดกันกลางเตียง ผ้าห่มจะคลุมทั้งคู่ · ใครหนาวกดค้างดึงผ้า อย่าดึงพร้อมกัน · ยุงเกาะใครให้ตบ');
+  if (O.role && S.mode !== 'menu') drawNetNote(g);
+}
+function bedSleeper(g, G, w, top) {
+  const st = HM.st, x = hx(G.x[w]), col = w === 'pink' ? C.pink : C.mint, dark = w === 'pink' ? C.pinkD : C.mintD, up = G.awake[w] > 0;
+  const shake = st.kickT[w] > 0 ? Math.sin(S.time * 40) * 3 : 0, hot = G.H[w] > Bed.BAND[1], cold = G.H[w] < Bed.BAND[0];
+  // body
+  g.fillStyle = dark; rr(g, x - 46 + shake, 150, 92, 300, 30); g.fill();
+  g.fillStyle = hexA(col, .55); rr(g, x - 40 + shake, 160, 80, 120, 26); g.fill();
+  // head
+  const hy = up ? top + 30 : top + 42, r = up ? 30 : 26;
+  g.fillStyle = col; g.beginPath(); g.arc(x, hy, r, 0, Math.PI * 2); g.fill();
+  if (hot) { g.fillStyle = 'rgba(255,60,60,.35)'; g.beginPath(); g.arc(x, hy, r, 0, Math.PI * 2); g.fill(); g.fillStyle = '#bfe6ff'; g.beginPath(); g.ellipse(x + r * .7, hy - 6 + (S.time * 12 % 8), 2, 3, 0, 0, Math.PI * 2); g.fill(); }
+  if (cold) { g.fillStyle = 'rgba(120,170,255,.35)'; g.beginPath(); g.arc(x, hy, r, 0, Math.PI * 2); g.fill(); }
+  g.fillStyle = C.ink;
+  if (up) { for (const s of [-1, 1]) { g.fillStyle = '#fff'; g.beginPath(); g.arc(x + s * 10, hy - 2, 6, 0, Math.PI * 2); g.fill(); g.fillStyle = C.ink; g.beginPath(); g.arc(x + s * 10, hy - 1, 3, 0, Math.PI * 2); g.fill(); } }
+  else { g.lineWidth = 2; g.strokeStyle = C.ink; for (const s of [-1, 1]) { g.beginPath(); g.arc(x + s * 10, hy - 2, 5, 0.2, Math.PI - 0.2); g.stroke(); } }
+  if (cold) { g.strokeStyle = C.ink; g.lineWidth = 1.5; g.beginPath(); for (let i = 0; i < 5; i++) g.lineTo(x - 8 + i * 4, hy + 12 + (i % 2 ? 2 : -1)); g.stroke(); }
+  if (w === 'pink') { g.fillStyle = C.gold; g.beginPath(); g.moveTo(x + 14, hy - r + 4); g.lineTo(x + 6, hy - r - 4); g.lineTo(x + 6, hy - r + 10); g.closePath(); g.moveTo(x + 14, hy - r + 4); g.lineTo(x + 22, hy - r - 4); g.lineTo(x + 22, hy - r + 10); g.closePath(); g.fill(); }
+  else { g.fillStyle = '#7cc46d'; g.beginPath(); g.ellipse(x + 6, hy - r - 3, 7, 3.5, -.5, 0, Math.PI * 2); g.fill(); }
+}
+function bedHud(g, G) {
+  const def = G.def, left = Math.max(0, def.time - Math.max(0, G.t - Bed.START));
+  xScoreBox(g, left, G.score, def.stars);
+  const max = def.strikes || Bed.STRIKES;
+  xStrikes(g, 30, G.strikes, max, 'ตื่นกลางดึก');
+  // each sleeper: warm enough (the green band), and how close to waking up
+  for (const [w, x] of [['pink', 92], ['mint', VW - 92]]) {
+    const y = 222, bw = 140;
+    rr(g, x - bw / 2 - 10, y - 30, bw + 20, 74, 12); g.fillStyle = 'rgba(21,17,46,.8)'; g.fill();
+    g.font = `600 11px ${FONT}`; g.textAlign = 'center'; g.fillStyle = w === 'pink' ? C.pink : C.mint; g.fillText(S.names[w], x, y - 14);
+    const hb = g.createLinearGradient(x - bw / 2, 0, x + bw / 2, 0); hb.addColorStop(0, '#5aa0ff'); hb.addColorStop(Bed.BAND[0] / 100, '#9be07a'); hb.addColorStop(Bed.BAND[1] / 100, '#9be07a'); hb.addColorStop(1, '#ff6b6b');
+    rr(g, x - bw / 2, y - 6, bw, 8, 4); g.fillStyle = hb; g.fill();
+    const hxp = x - bw / 2 + bw * G.H[w] / 100; g.fillStyle = '#fff'; g.beginPath(); g.moveTo(hxp, y - 8); g.lineTo(hxp - 5, y - 15); g.lineTo(hxp + 5, y - 15); g.fill();
+    g.font = `600 10px ${FONT}`; g.fillStyle = '#c9bfef'; g.fillText(G.awake[w] > 0 ? 'ตื่นแล้ว!' : G.H[w] < Bed.BAND[0] ? 'หนาว' : G.H[w] > Bed.BAND[1] ? 'ร้อน' : 'อุ่นพอดี', x, y + 16);
+    rr(g, x - bw / 2, y + 22, bw, 6, 3); g.fillStyle = 'rgba(255,255,255,.15)'; g.fill();
+    if (G.Z[w] > 0) { rr(g, x - bw / 2, y + 22, Math.max(6, bw * G.Z[w] / 100), 6, 3); g.fillStyle = G.Z[w] > 70 ? '#ff6b6b' : '#ffcf5a'; g.fill(); }
+    g.fillStyle = '#c9bfef'; g.font = `600 9px ${FONT}`; g.fillText('ใกล้ตื่น', x, y + 40);
+  }
+  if (S.mode !== 'play' || G.st !== 'run') return;
+  for (const w of ['pink', 'mint']) {
+    const o = w === 'pink' ? 'mint' : 'pink', x = hx(G.x[w]), cv = Bed.cover(G, w), y = 140;
+    if (G.awake[w] > 0) continue;
+    if (G.mq && G.mq.st === 'sit') xTip(g, w, G.mq.on === w ? 'ยุงเกาะ! ตบ' : 'ตบยุงให้แฟน!', x, y);
+    else if (G.stink > 30 && G.stinkWho !== w) xTip(g, w, 'สะบัดผ้าห่ม!', x, y);
+    else if (G.tug) xTip(g, w, 'อย่าดึงพร้อมกัน!', x, y);
+    else if (w === 'pink' ? G.x.pink < Bed.HB + 18 : G.x.mint > Bed.BW - Bed.HB - 18) xTip(g, w, w === 'pink' ? 'จะตกเตียง →' : '← จะตกเตียง', x, y);
+    else if (cv < 0.5 && G.H[w] < 50 && !G.pull[o]) xTip(g, w, 'กดค้างดึงผ้าห่ม', x, y);
+    else if (G.H[w] > Bed.BAND[1] - 2) xTip(g, w, 'ร้อนไป ขยับออกนิด', x, y);
+    else if (G.tell && G.tell.who === o && (G.tell.kind === 'kick' || G.tell.kind === 'roll')) xTip(g, w, 'แฟนจะดิ้น! เตรียมดึงผ้า', x, y);
+  }
+}
+
+/* ---------- Climbing in at the window (ปีนหน้าต่างหาแฟน) ---------- */
+Object.assign(sfx, {
+  nstep() { tone(110, .05, 'square', .035, 80); },
+  ncar() { tone(70, .5, 'sawtooth', .025, 140); },
+  nwhoosh() { tone(300, .5, 'sawtooth', .02, 90); },
+  nbark() { tone(420, .09, 'square', .06, 260); tone(400, .1, 'square', .06, 240, .16); },
+  nseen() { tone(880, .1, 'square', .05, 660); tone(660, .2, 'square', .05, 440, .1); },
+  ncreak() { tone(180, .4, 'sawtooth', .03, 260); },
+  nrustle() { for (let i = 0; i < 3; i++) tone(2600 + Math.random() * 1400, .04, 'sawtooth', .01, 0, i * .05); },
+  ncrunch() { tone(1500 + Math.random() * 1500, .03, 'square', .012); },
+  nclimb() { tone(700 + Math.random() * 300, .04, 'triangle', .012); },
+  nthud() { tone(80, .2, 'square', .07, 45); },
+  nsheet() { tone(1200, .12, 'sawtooth', .012, 700); }
+});
+const NGY = VH - 44, ny = y => NGY - y;
+const NM = xMode({
+  kind: 'win', md: 'n', pres: 'nw', dk: 'n', L: NLEVELS, pk: 'n', Eng: Win, pad: 'k', list: 'nlevels', olist: 'oLevelsN', starsAll: 'nStarsAll',
+  R: ['climb', 'top'], rk: 'nroles', roleName: { climb: 'เป็นคนปีน', top: 'รออยู่บนห้อง' },
+  label: i => 'ภารกิจที่ ' + th(i + 1), word: 'ไป', goWord: 'ไปหาแฟน', fresh: 'ยังไม่เคยไป', nextWord: 'ภารกิจถัดไป', againWord: 'ลองภารกิจนี้อีกครั้ง',
+  score: G => G.score,
+  kWords: id => (NM.roleOf(id) === 'climb' ? { act: 'ซ่อน', use: '' } : { act: 'ขึ้น<br>เตียง', use: '' }),
+  chips() {
+    const cp = NM.st.roles.climb === 'pink', set = (sel, v) => { const el = $(sel); if (el) el.textContent = v; };
+    set('#nRolePinkK', cp ? 'A D เดิน W ปีน' : 'W S ผ้าปู Space เตียง'); set('#nRolePinkT', cp ? 'คนปีน' : 'คนบนห้อง');
+    set('#nRoleMintK', cp ? '↑ ↓ ผ้าปู Enter เตียง' : '← → เดิน ↑ ปีน'); set('#nRoleMintT', cp ? 'คนบนห้อง' : 'คนปีน');
+  },
+  onLoad() { Object.assign(NM.st, { stepT: 0, crunchT: 0, climbT: 0, carSnd: -1, face: 1, lastX: NM.st.G.c.x }); },
+  snap: G => ({ st: G.st, over: G.over, won: G.won, failed: G.failed, s: Object.assign({}, G.stats), look: G.look.st, dt: G.doorTold, ct: G.carTold, on: G.c.on, x: G.strikes }),
+  changes(p, n) {
+    const ev = [];
+    if (p.st === 'count' && n.st === 'run') ev.push('go');
+    if (n.s.seen > p.s.seen) ev.push('seen:x');
+    if (n.s.sheet > p.s.sheet) ev.push('seen:sheet');
+    if (n.s.barks > p.s.barks) ev.push('bark');
+    if (n.s.caught > p.s.caught) ev.push('caught:bed');
+    if (n.s.falls > p.s.falls) ev.push('fall:x');
+    if (n.look === 'tell' && p.look !== 'tell') ev.push('look:tell');
+    if (n.look === 'look' && p.look !== 'look') ev.push('look');
+    if (n.dt !== p.dt && n.dt >= 0) ev.push('door');
+    if (n.ct !== p.ct && n.ct >= 0) ev.push('car');
+    if (n.won && !p.won) ev.push('in');
+    else if (n.over && !p.over) ev.push(n.x >= (NM.st.G.def.strikes || Win.STRIKES) ? 'caught' : 'dawn');
+    return ev;
+  },
+  events(ev) {
+    const st = NM.st, G = st.G, C = G.c;
+    for (const e of ev) {
+      const [k, a] = e.split(':');
+      if (k === 'go') sfx.ilaunch();
+      else if (k === 'hide' || k === 'unhide') sfx.nrustle();
+      else if (k === 'grab') sfx.nsheet();
+      else if (k === 'top') { if (a === 'toBed' || a === 'toWindow') sfx.hwhoosh(); }
+      else if (k === 'bark') { sfx.nbark(); xFloat(NM, 'โฮ่ง! โฮ่ง!', 900, ny(60), '#ffe08a', 18); }
+      else if (k === 'look' && a === 'tell') xFloat(NM, 'ใครน่ะ!', G.look.x || 480, ny((G.look.y || 70) + 70), '#ffb38a', 20, 1.6);
+      else if (k === 'car') sfx.ncar();
+      else if (k === 'seen') { sfx.nseen(); S.shake = Math.max(S.shake, .4); xFloat(NM, a === 'sheet' ? 'เห็นผ้าห้อยอยู่!' : 'เห็นนะ!', a === 'sheet' ? Win.her(G.def).x : C.x, ny(a === 'sheet' ? Win.her(G.def).y - 40 : C.y + 80), '#ff8a8a', 22, 1.6); }
+      else if (k === 'caught' && a === 'bed') { sfx.ncreak(); sfx.nseen(); S.shake = Math.max(S.shake, .4); xFloat(NM, 'ไม่นอนอีกเหรอ!', Win.her(G.def).x, ny(Win.her(G.def).y + 80), '#ff8a8a', 22, 1.6); }
+      else if (k === 'door' && a === 'ok') sfx.ncreak();
+      else if (k === 'door') st.stepT = 0;
+      else if (k === 'fall') { sfx.nthud(); S.shake = Math.max(S.shake, .6); xFloat(NM, a === 'high' || a === 'x' ? 'ร่วง!' : 'ตุ้บ', C.x, ny(60), '#ff8a8a', 20); }
+      else if (k === 'in') { sfx.win(); const h = Win.her(G.def); burst(h.x, ny(h.y) - 20, 16, C.pink, { type: 'heart', size: 5, speed: 90, up: 120, life: 1.4, g: -40 }); xFloat(NM, G.def.cake ? 'เซอร์ไพรส์! สุขสันต์วันเกิด!' : 'เข้ามาได้แล้ว!', h.x - 80, ny(h.y) - 40, C.gold, 24, 2.2); }
+      else if (k === 'caught') { sfx.cout(); xFloat(NM, 'โดนจับได้แล้ว!', 480, 220, '#ff8a8a', 26, 2.2); }
+      else if (k === 'dawn') { sfx.hrooster(); xFloat(NM, 'ฟ้าสางแล้ว ไม่ทันซะแล้ว', 480, 220, '#ffb38a', 22, 2.2); }
+    }
+  },
+  tick() {
+    const st = NM.st, G = st.G, R = st.roles, q = id => { const k = kInput(id); return { mx: k.mx, my: k.my, act: k.act }; };
+    if (!O.role) { NM.events(Win.step(G, { climb: q(R.climb), top: q(R.top) })); st.prev = NM.snap(G); return; }
+    const li = q(O.local), mine = NM.roleOf(O.local), theirs = mine === 'climb' ? 'top' : 'climb';
+    st.lastInp = li;
+    if (O.role === 'host') {
+      const rq = st.remote;
+      NM.events(Win.step(G, { [mine]: li, [theirs]: { mx: rq.mx, my: rq.my, act: false } }));
+      st.prev = NM.snap(G);
+    } else {
+      // the guest moves its own player at once and tells the host where it is
+      if (li.act) st.n.a++;
+      NM.events(Win.step(G, { [mine]: li }, true).filter(e => /^(hide|unhide|grab|top:)/.test(e)));
+    }
+  },
+  frameExtra(dt) {
+    const st = NM.st, G = st.G, C = G.c, def = G.def;
+    if (Math.abs(C.x - st.lastX) > 0.3) st.face = Math.sign(C.x - st.lastX); st.lastX = C.x;
+    if (S.mode !== 'play' || G.st !== 'run') return;
+    // footsteps on the stairs while dad comes to her door
+    const door = Win.doorAt(def, G.t);
+    if (door && door[0] === 'tell') { st.stepT -= dt; if (st.stepT <= 0) { st.stepT = 0.42; sfx.nstep(); } }
+    // a car: the engine, then the whoosh as it passes
+    const car = Win.carAt(def, G.t);
+    if (car && car.st === 'sweep' && st.carSnd !== car.i) { st.carSnd = car.i; sfx.nwhoosh(); }
+    // gravel under foot, the sheet rustling
+    if (C.on === 'ground' && C.mv && Win.onGravel(def, C.x)) { st.crunchT -= dt * (C.sp / Win.WALK + .2); if (st.crunchT <= 0) { st.crunchT = 0.16; sfx.ncrunch(); } }
+    if (C.on === 'sheet' && C.mv) { st.climbT -= dt; if (st.climbT <= 0) { st.climbT = 0.22; sfx.nclimb(); } }
+  },
+  result(G, s) {
+    const sx = G.stats, msg = !G.won ? (G.failed && G.strikes >= (G.def.strikes || Win.STRIKES) ? 'โดนจับได้ครบสามครั้ง คืนนี้อดเจอกัน ครั้งหน้ายืนนิ่งๆ ตอนไฟส่อง แล้วฟังเสียงเดินขึ้นบันไดให้ดี' : 'ฟ้าสางก่อนจะเข้าห้องได้ ครั้งหน้ารีบกว่านี้อีกนิด')
+      : s === 3 ? 'เข้าห้องได้เร็วแถมไม่มีใครรู้ คู่นี้ภารกิจลับเก่งมาก' : s === 2 ? (G.strikes ? 'เข้ามาได้ แต่มีพลาดให้เห็นอยู่ ถ้าไม่โดนเลยจะได้สามดาว' : 'เนียนดี ลองเข้าห้องให้เร็วกว่านี้')
+      : s === 1 ? 'เข้ามาได้อย่างหวุดหวิด ภารกิจถัดไปเปิดแล้ว' : 'เข้ามาได้ แต่โดนจับได้บ่อยไป ต้องได้อย่างน้อย ' + th(G.def.stars[0]) + ' แต้ม';
+    return { head: G.won ? 'เข้าห้องได้' : G.strikes >= (G.def.strikes || Win.STRIKES) ? 'โดนจับได้' : 'ฟ้าสาง', msg,
+      stats: `<span>แต้ม <b>${th(G.score)}</b></span><span>เข้าห้องใน <b>${G.won ? th(Math.round(G.inT)) + ' วิ' : '-'}</b></span><span>โดนเห็น <b>${th(sx.seen + sx.sheet)}</b> โดนพ่อจับ <b>${th(sx.caught)}</b> หมาเห่า <b>${th(sx.barks)}</b> ร่วง <b>${th(sx.falls)}</b></span>` };
+  },
+  encode() {
+    const st = NM.st;
+    if (O.role === 'host') return Win.encode(st.G);
+    return Win.guestMsg(st.G, NM.roleOf(O.local), st.lastInp, st.n.a);
+  },
+  hostHears(m) { Win.hostHears(NM.st.G, NM.roleOf(O.local === 'pink' ? 'mint' : 'pink'), m, NM.st.remote); },
+  guestHears(m) { Win.apply(NM.st.G, m, NM.roleOf(O.local), true); },
+  fresher: () => ({ seen: -1, mx: 0, my: 0, act: false }),
+  render: winRender
+});
+
+function winRender() {
+  const g = ctx, st = NM.st, G = st.G, def = G.def, C = G.c, T = G.top, h = Win.her(def), R = st.roles;
+  g.setTransform(scale, 0, 0, scale, 0, 0); g.textBaseline = 'alphabetic';
+  let ox = 0; if (S.shake > 0) ox = (Math.random() - .5) * 7 * S.shake;
+  g.save(); g.translate(ox, 0);
+  // the night sky, the moon
+  const sk = g.createLinearGradient(0, 0, 0, NGY); sk.addColorStop(0, '#0c0b24'); sk.addColorStop(1, '#2a2350'); g.fillStyle = sk; g.fillRect(-10, 0, VW + 20, NGY);
+  const dawn = Math.max(0, (G.t - Win.START) / def.time - 0.75) * 4;
+  if (dawn > 0) { g.fillStyle = `rgba(255,170,120,${dawn * .35})`; g.fillRect(-10, 0, VW + 20, NGY); }
+  g.fillStyle = '#fff6c9'; g.beginPath(); g.arc(80, 50, 22, 0, Math.PI * 2); g.fill(); g.fillStyle = '#0c0b24'; g.beginPath(); g.arc(90, 44, 18, 0, Math.PI * 2); g.fill();
+  g.fillStyle = 'rgba(255,255,255,.6)'; for (let i = 0; i < 30; i++) g.fillRect((i * 173) % VW, (i * 71) % 90 + 6, 1.5, 1.5);
+  // the house front
+  const roof = Math.min(...def.windows.map(w => ny(w.y))) - 80;
+  g.fillStyle = '#3a3150'; g.fillRect(-10, roof, VW + 20, NGY - roof);
+  g.fillStyle = '#2e2742'; for (let y = roof + 16; y < NGY; y += 32) g.fillRect(-10, y, VW + 20, 2);
+  g.fillStyle = '#5a2e3a'; g.beginPath(); g.moveTo(-20, roof + 4); g.lineTo(VW / 2, roof - 50); g.lineTo(VW + 20, roof + 4); g.closePath(); g.fill();
+  // light from lit rooms down the wall and onto the ground (and a glow where dad is about to switch one on)
+  const dadRoom = Win.dadAt(def, G.t), glow = Win.glowAt(def, G.t);
+  for (const w of def.windows) {
+    const lit = w.room === dadRoom && w.room !== 'her', soon = w.room === glow;
+    if (!lit && !soon) continue;
+    const a = lit ? 0.22 : 0.06 + 0.05 * Math.sin(S.time * 14);
+    const lg = g.createLinearGradient(0, ny(w.y), 0, NGY + 20); lg.addColorStop(0, `rgba(255,220,130,${a})`); lg.addColorStop(1, `rgba(255,220,130,${a * .6})`);
+    g.fillStyle = lg; g.beginPath(); g.moveTo(w.x - 32, ny(w.y)); g.lineTo(w.x + 32, ny(w.y)); g.lineTo(w.x + Win.LIGHT_W, NGY + 30); g.lineTo(w.x - Win.LIGHT_W, NGY + 30); g.closePath(); g.fill();
+  }
+  // windows
+  for (const w of def.windows) winWindow(g, G, w, dadRoom, glow);
+  // dad looking out of a window with a torch
+  if (G.look.st) {
+    const L = G.look, wy = ny(L.y) - 26;
+    g.fillStyle = '#1a1424'; g.beginPath(); g.arc(L.x, wy, 13, 0, Math.PI * 2); g.fill();
+    if (L.st === 'look') { g.fillStyle = 'rgba(255,250,200,.2)'; g.beginPath(); g.moveTo(L.x - 6, wy + 8); g.lineTo(L.x + 6, wy + 8); g.lineTo(L.x + Win.LOOK_W, NGY + 20); g.lineTo(L.x - Win.LOOK_W, NGY + 20); g.closePath(); g.fill(); }
+    else { g.font = `400 16px ${FONT_D}`; g.textAlign = 'center'; g.fillStyle = '#ffb38a'; g.fillText('!', L.x + 20, wy - 10); }
+  }
+  // the ground: grass, gravel, bushes, the dog's house
+  g.fillStyle = '#2b4a32'; g.fillRect(-10, NGY, VW + 20, VH - NGY);
+  g.fillStyle = '#3a5a3e'; g.fillRect(-10, NGY, VW + 20, 5);
+  for (const [a, b] of def.gravel || []) { g.fillStyle = '#7a7480'; g.fillRect(a, NGY - 2, b - a, 9); g.fillStyle = '#a8a2b0'; for (let x = a + 3; x < b; x += 7) g.fillRect(x, NGY + (x * 7 % 5), 2, 2); }
+  if (def.dog) {
+    const dx = 912, d = G.dog;
+    g.fillStyle = '#8a5a3a'; g.beginPath(); g.moveTo(dx - 26, NGY); g.lineTo(dx - 26, NGY - 30); g.lineTo(dx, NGY - 48); g.lineTo(dx + 26, NGY - 30); g.lineTo(dx + 26, NGY); g.fill();
+    g.fillStyle = '#1a1424'; g.beginPath(); g.arc(dx, NGY - 10, 12, Math.PI, 0); g.fill(); g.fillRect(dx - 12, NGY - 10, 24, 10);
+    g.fillStyle = '#d9a55a'; g.beginPath(); g.ellipse(dx - 36, NGY - 9, 14, 9, 0, 0, Math.PI * 2); g.fill(); g.beginPath(); g.arc(dx - 48, NGY - 15 - (d > 50 ? 4 : 0), 8, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#a8763a'; g.beginPath(); g.ellipse(dx - 52, NGY - 22 - (d > 50 ? 6 : 0), 3, d > 50 ? 6 : 3, d > 50 ? 0 : 1.2, 0, Math.PI * 2); g.fill();
+    g.font = `400 12px ${FONT_D}`; g.textAlign = 'center'; g.fillStyle = d > 80 ? '#ff8a8a' : d > 50 ? '#ffe08a' : '#c9bfef'; g.fillText(d > 80 ? 'แฮ่!' : d > 50 ? '?' : 'z', dx - 50, NGY - 36 - Math.sin(S.time * 3) * 3);
+  }
+  // the sheet hanging from her window
+  if (T.len > 2) {
+    const top = ny(h.y), bot = ny(Win.sheetBottom(G));
+    g.fillStyle = '#f2eef8'; g.fillRect(h.x - 6, top, 12, bot - top);
+    g.fillStyle = '#c9c2da'; for (let y = top + 30; y < bot - 4; y += 42) { g.beginPath(); g.ellipse(h.x, y, 9, 5, 0, 0, Math.PI * 2); g.fill(); }
+    if (def.sheet > 220) { g.fillStyle = '#ffd8e8'; g.fillRect(h.x - 6, Math.max(top, bot - 120), 12, Math.min(120, bot - top)); }
+  }
+  // headlights: a car on the road, its light sweeping across the house
+  const car = Win.carAt(def, G.t);
+  if (car && car.st === 'sweep') {
+    g.fillStyle = 'rgba(255,250,220,.18)'; g.fillRect(car.x - Win.CAR_W, roof, Win.CAR_W * 2, NGY - roof + 10);
+    g.fillStyle = 'rgba(255,250,220,.12)'; g.fillRect(car.x - Win.CAR_W * .6, roof, Win.CAR_W * 1.2, NGY - roof + 10);
+  }
+  // bushes (in front of whoever hides in them)
+  const climberIn = C.on === 'in';
+  if (!C.hid && !climberIn) winClimber(g, G);
+  for (const b of def.bushes || []) {
+    g.fillStyle = '#2f6b3a'; g.beginPath(); g.ellipse(b.x, NGY - 18, b.w / 2 + 4, 26, 0, Math.PI, 0); g.fill();
+    g.fillStyle = '#3f8f4a'; g.beginPath(); g.arc(b.x - b.w * .22, NGY - 26, b.w * .26, 0, Math.PI * 2); g.arc(b.x + b.w * .2, NGY - 30, b.w * .28, 0, Math.PI * 2); g.arc(b.x, NGY - 38, b.w * .24, 0, Math.PI * 2); g.fill();
+    if (C.hid && Math.abs(C.x - b.x) < b.w / 2) { const k = R.climb === 'pink' ? C.pink : C.mint; g.fillStyle = '#fff'; g.beginPath(); g.arc(C.x - 5, NGY - 30, 3, 0, Math.PI * 2); g.arc(C.x + 5, NGY - 30, 3, 0, Math.PI * 2); g.fill(); g.fillStyle = k; g.fillRect(C.x - 10, NGY - 22, 20, 3); }
+  }
+  // the road in front, and the car itself
+  g.fillStyle = '#2a2836'; g.fillRect(-10, NGY + 20, VW + 20, VH - NGY - 20);
+  g.fillStyle = '#d9d3c0'; for (let x = 0; x < VW; x += 60) g.fillRect(x, NGY + 32, 30, 2);
+  if (car && car.st === 'sweep') { const x = car.x; g.fillStyle = '#c94a4a'; rr(g, x - 46, NGY + 16, 92, 20, 6); g.fill(); g.fillStyle = '#8a2e2e'; rr(g, x - 26, NGY + 6, 50, 14, 5); g.fill(); g.fillStyle = '#fff6c9'; g.fillRect(x + 42, NGY + 21, 6, 6); }
+  if (car && car.st === 'tell') { g.fillStyle = `rgba(255,250,200,${.15 + .1 * Math.sin(S.time * 8)})`; g.beginPath(); g.arc(0, NGY + 26, 60, -Math.PI / 2, Math.PI / 2); g.fill(); }
+  g.restore();
+  drawParts(g);
+  xDrawFloats(g, NM);
+  winHud(g, G);
+  xCountdown(g, G, Win.START);
+  xBannerDraw(g, G, Win.START, def.name, `${S.names[R.climb]}ย่องไปใต้หน้าต่าง ยืนนิ่งตอนไฟส่อง · ${S.names[R.top]}หย่อนผ้าปู ได้ยินพ่อเดินมาให้รีบขึ้นเตียง`);
+  if (O.role && S.mode !== 'menu') drawNetNote(g);
+}
+function winWindow(g, G, w, dadRoom, glow) {
+  const T = G.top, x = w.x - 32, y = ny(w.y) - 52, isHer = w.room === 'her', lit = w.room === dadRoom && !isHer, soon = w.room === glow;
+  g.fillStyle = '#2a2236'; g.fillRect(x - 5, y - 5, 74, 62);
+  if (isHer) {
+    // inside her room: dark, the door opens when dad checks
+    g.fillStyle = '#1e1830'; g.fillRect(x, y, 64, 52);
+    const door = Win.doorAt(G.def, G.t);
+    if (door && door[0] === 'look') { g.fillStyle = 'rgba(255,220,130,.35)'; g.beginPath(); g.moveTo(x + 52, y); g.lineTo(x + 64, y); g.lineTo(x + 64, y + 52); g.lineTo(x + 30, y + 52); g.fill(); g.fillStyle = '#1a1424'; g.beginPath(); g.arc(x + 56, y + 20, 8, 0, Math.PI * 2); g.fill(); }
+    // the bed inside, with someone pretending to sleep
+    g.fillStyle = '#5a4a7a'; g.fillRect(x + 4, y + 36, 40, 12);
+    const who = NM.st.roles.top, col = who === 'pink' ? C.pink : C.mint;
+    const k = T.at === 'window' ? 1 : T.at === 'bed' ? 0 : T.at === 'toBed' ? T.move / Win.TO_BED : 1 - T.move / Win.TO_BED;
+    if (k > 0.05) {
+      // at the window: head and arms on the sill
+      g.save(); g.beginPath(); g.rect(x, y, 64, 52); g.clip();
+      g.fillStyle = col; g.beginPath(); g.arc(x + 32, y + 52 - 26 * k, 14, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#fff'; g.beginPath(); g.arc(x + 27, y + 50 - 26 * k, 2.6, 0, Math.PI * 2); g.arc(x + 37, y + 50 - 26 * k, 2.6, 0, Math.PI * 2); g.fill();
+      g.restore();
+      if (k > .9) { g.fillStyle = col; rr(g, x + 14, y + 48, 12, 8, 4); g.fill(); rr(g, x + 38, y + 48, 12, 8, 4); g.fill(); }
+    } else { g.fillStyle = col; g.beginPath(); g.ellipse(x + 22, y + 34, 14, 6, 0, 0, Math.PI * 2); g.fill(); g.font = `400 10px ${FONT_D}`; g.textAlign = 'center'; g.fillStyle = '#c9bfef'; g.fillText('z', x + 40, y + 24); }
+    g.fillStyle = '#ff8fb8'; g.fillRect(x, y, 8, 52); g.fillRect(x + 56, y, 8, 52);
+  } else {
+    g.fillStyle = lit ? '#ffdc82' : soon ? `rgba(255,190,110,${.3 + .2 * Math.sin(S.time * 14)})` : '#141020'; g.fillRect(x, y, 64, 52);
+    if (lit) { g.fillStyle = '#3a2a1a'; g.beginPath(); g.arc(x + 40, y + 26, 10, 0, Math.PI * 2); g.fill(); rr(g, x + 28, y + 34, 24, 18, 6); g.fill(); }
+  }
+  g.fillStyle = '#2a2236'; g.fillRect(x + 30, y, 4, 52); g.fillRect(x, y + 24, 64, 3);
+  g.fillStyle = '#4a405e'; g.fillRect(x - 8, y + 52, 80, 6);
+}
+function winClimber(g, G) {
+  const C = G.c, id = NM.st.roles.climb, x = C.x, y = ny(C.y);
+  g.save(); g.translate(x, y); g.scale(1.25, 1.25);
+  const walk = C.on === 'ground' && C.mv ? S.time * 14 : 0;
+  drawPlayer(g, { id, x: -12, y: -29, w: 24, h: 29, face: C.on === 'sheet' ? 0 : NM.st.face || 1, sq: 0, walk }, S.time);
+  if (C.on === 'sheet') { g.fillStyle = id === 'pink' ? C.pink : C.mint; rr(g, -14, -36, 6, 12, 3); g.fill(); rr(g, 8, -36, 6, 12, 3); g.fill(); }
+  if (G.def.cake) { g.fillStyle = '#fff'; rr(g, 8, -18, 16, 10, 2); g.fill(); g.fillStyle = C.pink; g.fillRect(8, -14, 16, 2); g.fillStyle = '#ffcf5a'; g.fillRect(15, -24, 2, 6); }
+  g.restore();
+}
+function winHud(g, G) {
+  const def = G.def, st = NM.st, R = st.roles, C = G.c, T = G.top, h = Win.her(def), left = Math.max(0, def.time - Math.max(0, G.t - Win.START));
+  const shown = G.won ? G.score : Math.max(0, Math.round(def.points + left * Win.TIME_PTS - G.strikes * Win.STRIKE_PTS));
+  xScoreBox(g, left, shown, def.stars, G.won ? 'แต้ม' : 'ถ้าเข้าตอนนี้');
+  const max = def.strikes || Win.STRIKES;
+  xStrikes(g, 30, G.strikes, max, 'โดนจับได้');
+  // the dog, the climber's grip
+  let y = 58;
+  if (def.dog) { rr(g, VW - 214, y - 8, 206, 22, 11); g.fillStyle = 'rgba(21,17,46,.82)'; g.fill(); g.font = `600 11px ${FONT}`; g.textAlign = 'left'; g.fillStyle = '#c9bfef'; g.fillText('หมาเริ่มตื่น', VW - 204, y + 7); rr(g, VW - 132, y - 1, 116, 8, 4); g.fillStyle = 'rgba(255,255,255,.15)'; g.fill(); if (G.dog > 0) { rr(g, VW - 132, y - 1, Math.max(8, 116 * G.dog / 100), 8, 4); g.fillStyle = G.dog > 70 ? '#ff6b6b' : '#ffcf5a'; g.fill(); } y += 26; }
+  if (C.on === 'sheet') { rr(g, h.x - 40, ny(C.y) - 70, 80, 8, 4); g.fillStyle = 'rgba(21,17,46,.8)'; g.fill(); rr(g, h.x - 40, ny(C.y) - 70, Math.max(8, 80 * C.stam / 100), 8, 4); g.fillStyle = C.stam < 30 ? '#ff6b6b' : '#9be07a'; g.fill(); }
+  // what is coming: a car, dad on the stairs, dad at a window
+  const car = Win.carAt(def, G.t), door = Win.doorAt(def, G.t), warn = [];
+  if (door && door[0] === 'tell') warn.push(['เสียงพ่อเดินขึ้นบันได!', '#ffb38a']);
+  if (car && (car.st === 'tell' || car.x < h.x + Win.CAR_W)) warn.push([car.st === 'tell' ? 'เสียงรถกำลังมา!' : 'ไฟรถส่อง!', '#fff6c9']);
+  if (G.look.st) warn.push([G.look.st === 'tell' ? 'พ่อจะมาส่องหน้าต่าง!' : 'พ่อส่องไฟหาอยู่!', '#ff8a8a']);
+  warn.forEach(([text, col], i) => { g.font = `600 13px ${FONT}`; const w = g.measureText(text).width + 28; rr(g, VW / 2 - w / 2, 78 + i * 28, w, 24, 12); g.fillStyle = 'rgba(21,17,46,.88)'; g.fill(); g.fillStyle = col; g.textAlign = 'center'; g.fillText(text, VW / 2, 95 + i * 28); });
+  if (S.mode !== 'play' || G.st !== 'run' || G.won) return;
+  // a word for each of them
+  const cx = C.x, cy = ny(C.y) - 56, lit = Win.windowLit(def, G.t, C.x, C.y) || (car && car.st === 'sweep' && Math.abs(car.x - C.x) < Win.CAR_W + 60), soon = Win.windowSoon(def, G.t, C.x, C.y);
+  const cone = G.look.st && Math.abs(C.x - G.look.x) < Win.LOOK_W + 10;
+  let tc = null;
+  if (cone && !C.hid) tc = Win.inBush(def, C.x) ? 'ซ่อนในพุ่มไม้!' : 'หนีให้พ้นไฟฉาย!';
+  else if (C.on === 'sheet' && T.at !== 'window') tc = 'เกาะไว้ก่อน!';
+  else if (lit) tc = 'อย่าขยับ!';
+  else if (soon) tc = 'หยุด ไฟกำลังเปิด';
+  else if (car && car.st === 'tell') tc = 'นิ่งไว้ รถมา';
+  else if (C.on === 'ground' && Math.abs(C.x - h.x) < Win.REACH && Win.canGrab(G)) tc = 'ดันขึ้นเพื่อปีน';
+  else if (C.on === 'ground' && Win.onGravel(def, C.x)) tc = 'ย่องช้าๆ บนกรวด';
+  if (tc) xTip(g, R.climb, tc, cx, cy);
+  let tt = null;
+  if (door && door[0] === 'tell' && T.at === 'window') tt = 'ขึ้นเตียงเร็ว!';
+  else if (T.at === 'bed' && !door) tt = 'กลับไปที่หน้าต่าง';
+  else if (car && car.st === 'tell' && T.len > Win.SHOWS && C.on !== 'sheet') tt = 'ดึงผ้าขึ้น!';
+  else if (C.on === 'sheet' && T.at === 'window') tt = 'ดันขึ้น ช่วยดึง';
+  else if (C.on === 'ground' && Math.abs(C.x - h.x) < 90 && !Win.canGrab(G) && T.at === 'window') tt = 'หย่อนผ้าลง';
+  if (tt) xTip(g, R.top, tt, h.x, ny(h.y) - 70);
+}
+
 /* ---------- Fullscreen ---------- */
 const isIPhone = /iPhone|iPod/.test(navigator.userAgent);
 const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement || null;
@@ -6163,7 +7460,7 @@ function boot(data) {
   requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
   if (inClaude()) setTimeout(roomApi, 300);
 }
-try { Object.defineProperty(window, '__tsr', { value: { S, KS, DS, RS, TS, MS, WS, LS, BS, VS, IS, O, KK, KT, Twr, Leg, Boat, Mov, Kite }, configurable: true }); } catch (e) {}
+try { Object.defineProperty(window, '__tsr', { value: { S, KS, DS, RS, TS, MS, WS, LS, BS, VS, IS, O, KK, KT, Twr, Leg, Boat, Mov, Kite, MODES, XK, Cin, Fart, Bed, Win }, configurable: true }); } catch (e) {}
 try { if (window.claude && window.claude.hot && window.claude.hot.snapshot) window.claude.hot.snapshot(() => ({ names: S.names, li: S.li })); } catch (e) {}
 if (window.claude && window.claude.hot && window.claude.hot.ready) window.claude.hot.ready(boot);
 else boot((window.claude && window.claude.hot && window.claude.hot.data) || {});
