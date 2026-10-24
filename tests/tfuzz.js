@@ -1,12 +1,12 @@
-// Random play on every kitchen, defense night, driving route, takraw court, song, building site, race course, river and house:
+// Random play on every kitchen, defense night, driving route, takraw court, song, building site, race course, river, house and kite field:
 // nothing may throw, go NaN, leave the map,
 // sink into walls, duplicate an item, or fail to end the round.
 const vm = require('vm'), fs = require('fs'), path = require('path');
 const ctx = {}; vm.createContext(ctx);
 const JS = fs.existsSync(path.join(__dirname, 'game.js')) ? __dirname : path.join(__dirname, '..', 'js');   // coop/ (dev) or tests/ (repo)
-for (const f of ['kitchen', 'klevels', 'defense', 'dlevels', 'drive', 'rlevels', 'takraw', 'tlevels', 'rhythm', 'mlevels', 'tower', 'wlevels', 'leg', 'llevels', 'boat', 'blevels', 'move', 'vlevels']) vm.runInContext(fs.readFileSync(path.join(JS, f + '.js'), 'utf8'), ctx);
-vm.runInContext('this.Kit=Kit;this.Def=Def;this.Drv=Drv;this.Tak=Tak;this.KL=KLEVELS;this.DL=DLEVELS;this.RL=RLEVELS;this.TL=TLEVELS;this.Rhy=Rhy;this.ML=MLEVELS;this.Twr=Twr;this.WL=WLEVELS;this.Leg=Leg;this.LL=LLEVELS;this.Boat=Boat;this.BL=BLEVELS;this.Mov=Mov;this.VL=VLEVELS;', ctx);
-const { Kit, Def, Drv, Tak, KL, DL, RL, TL, Rhy, ML, Twr, WL, Leg, LL, Boat, BL, Mov, VL } = ctx;
+for (const f of ['kitchen', 'klevels', 'defense', 'dlevels', 'drive', 'rlevels', 'takraw', 'tlevels', 'rhythm', 'mlevels', 'tower', 'wlevels', 'leg', 'llevels', 'boat', 'blevels', 'move', 'vlevels', 'kite', 'ilevels']) vm.runInContext(fs.readFileSync(path.join(JS, f + '.js'), 'utf8'), ctx);
+vm.runInContext('this.Kit=Kit;this.Def=Def;this.Drv=Drv;this.Tak=Tak;this.KL=KLEVELS;this.DL=DLEVELS;this.RL=RLEVELS;this.TL=TLEVELS;this.Rhy=Rhy;this.ML=MLEVELS;this.Twr=Twr;this.WL=WLEVELS;this.Leg=Leg;this.LL=LLEVELS;this.Boat=Boat;this.BL=BLEVELS;this.Mov=Mov;this.VL=VLEVELS;this.Kite=Kite;this.IL=ILEVELS;', ctx);
+const { Kit, Def, Drv, Tak, KL, DL, RL, TL, Rhy, ML, Twr, WL, Leg, LL, Boat, BL, Mov, VL, Kite, IL } = ctx;
 const RUNS = +process.argv[2] || 6;
 let seed = 1; const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
 const found = new Map();
@@ -352,6 +352,47 @@ for (const def of VL) {
     if (Mov.stars(G) > 0) st1++;
   }
   console.log(`moving  ${def.name.padEnd(18)} ${RUNS} random crews (half online), ended ${ends}, lifted ${lifts} times, carried for ${(carried * Mov.DT).toFixed(0)} s, stars by mashing ${st1}`);
+}
+
+// ---- kite: random running and line work, half online (the guest's half late, soft snapshots, junk)
+for (const def of IL) {
+  let ends = 0, st1 = 0, downs = 0;
+  for (let run = 0; run < RUNS; run++) {
+    seed = 8000 + run * 43 + def.name.length;
+    const online = run % 2 === 1, G = Kite.load(def), U = online ? Kite.load(def) : null, q = [];
+    const w = walker(), rate = [0.004, 0.012, 0.03][run % 3];
+    let pull = 0, rel = 0, lastScore = 0, until = 0;
+    try {
+      for (let k = 0; k < Math.round((def.time + Kite.START + 1) / Kite.DT) && !G.over; k++) {
+        const a = w(k, rate);
+        if (k >= until) { const r = rnd(); pull = r < 0.33 ? 1 : 0; rel = r > 0.6 ? rnd() : 0; until = k + 20 + Math.floor(rnd() * 200); }
+        let inp = { run: { mx: a.mx, act: a.act }, line: { pull, rel, act: rnd() < rate } };
+        // most runs get the kite up first (run into the wind letting line out), so the random part happens in the air
+        if (run % 4 !== 3 && G.t > Kite.START && G.t < Kite.START + 6) inp = { run: { mx: -1 }, line: { rel: 1 } };
+        if (!online) Kite.step(G, inp);
+        else {
+          q.push({ at: G.t + 0.05 + rnd() * 0.2, line: inp.line });
+          let late = { pull: 0, rel: 0 }; while (q.length && q[0].at <= G.t) late = q.shift().line;
+          Kite.step(G, { run: inp.run, line: G.t < Kite.START + 6 && run % 4 !== 3 ? inp.line : late });
+          Kite.step(U, { run: { mx: U.inp.mx }, line: inp.line }, true);
+          if (k % 4 === 0) Kite.apply(U, JSON.parse(JSON.stringify(Kite.encode(G))), true);
+          if (rnd() < 0.003) Kite.apply(U, [null, 7, 'x', {}, { t: NaN, st: 'zz', k: 'no' }, { L: 1e9, th: -9, k: [1e9, NaN], r: [NaN, 'q'] }, { in: ['a', 9, -3], sc: -5 }, { ra: [1, 'b'], c: 'boom' }][Math.floor(rnd() * 8)], rnd() < .5);
+          if (!fin(U.k.x, U.k.y, U.L, U.th, U.run.x) || U.L > def.spool + 1e-6) report(`kite ${def.name}: guest went strange`, `${U.k.x} ${U.k.y} ${U.L}`);
+        }
+        const K = G.k;
+        if (!fin(K.x, K.y, G.L, G.th, G.T, G.score, G.run.x)) report(`kite ${def.name}: bad numbers`, `${K.x} ${K.y} ${G.L} ${G.th}`);
+        if (G.L < Kite.LMIN - 1e-6 || G.L > def.spool + 1e-6) report(`kite ${def.name}: line length out of range`, G.L.toFixed(1));
+        if (K.y < -1e-6) report(`kite ${def.name}: kite under the ground`, K.y.toFixed(1));
+        if (G.run.x < def.field[0] - 1e-6 || G.run.x > def.field[1] + 1e-6) report(`kite ${def.name}: runner left the field`, G.run.x.toFixed(1));
+        if (G.score < lastScore - 1e-9) report(`kite ${def.name}: points went down`, `${lastScore} → ${G.score}`);
+        lastScore = G.score;
+      }
+    } catch (e) { report(`kite ${def.name}: threw`, e.stack.split('\n').slice(0, 2).join(' ')); }
+    if (G.over) ends++;
+    if (Kite.stars(G) > 0) st1++;
+    downs += G.stats.snaps + G.stats.cuts + G.stats.crashes;
+  }
+  console.log(`kite    ${def.name.padEnd(18)} ${RUNS} random flights (half online), ended ${ends}, came down ${downs} times, stars after a launch and random play ${st1}`);
 }
 
 console.log('\n--- findings ---');

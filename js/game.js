@@ -35,10 +35,10 @@ const heartsIn = i => (ALL[i].map.join('').match(/\*/g) || []).length;
 const isOpen = i => ALL[i].n - 1 <= (prog.u[ALL[i].ch] || 0);
 const lvLabel = i => `ด่าน ${th(ALL[i].ch)}-${th(ALL[i].n)}`;
 const firstOf = ch => ALL.findIndex(l => l.ch === ch);
-const curLevel = () => (S.kind === 'kit' ? KLEVELS[KS.li] : S.kind === 'def' ? DLEVELS[DS.li] : S.kind === 'drv' ? RLEVELS[RS.li] : S.kind === 'tak' ? TLEVELS[TS.li] : S.kind === 'mus' ? MLEVELS[MS.li] : S.kind === 'twr' ? WLEVELS[WS.li] : S.kind === 'leg' ? LLEVELS[LS.li] : S.kind === 'boat' ? BLEVELS[BS.li] : S.kind === 'mov' ? VLEVELS[VS.li] : ALL[S.li]);
-const curLabel = () => (S.kind === 'kit' ? kLabel(KS.li) : S.kind === 'def' ? NIGHT(DS.li) : S.kind === 'drv' ? ROUTE(RS.li) : S.kind === 'tak' ? COURT(TS.li) : S.kind === 'mus' ? SONG(MS.li) : S.kind === 'twr' ? SITE(WS.li) : S.kind === 'leg' ? COURSE(LS.li) : S.kind === 'boat' ? RIVER(BS.li) : S.kind === 'mov' ? HOUSE(VS.li) : lvLabel(S.li));
+const curLevel = () => (S.kind === 'kit' ? KLEVELS[KS.li] : S.kind === 'def' ? DLEVELS[DS.li] : S.kind === 'drv' ? RLEVELS[RS.li] : S.kind === 'tak' ? TLEVELS[TS.li] : S.kind === 'mus' ? MLEVELS[MS.li] : S.kind === 'twr' ? WLEVELS[WS.li] : S.kind === 'leg' ? LLEVELS[LS.li] : S.kind === 'boat' ? BLEVELS[BS.li] : S.kind === 'mov' ? VLEVELS[VS.li] : S.kind === 'kite' ? ILEVELS[IS.li] : ALL[S.li]);
+const curLabel = () => (S.kind === 'kit' ? kLabel(KS.li) : S.kind === 'def' ? NIGHT(DS.li) : S.kind === 'drv' ? ROUTE(RS.li) : S.kind === 'tak' ? COURT(TS.li) : S.kind === 'mus' ? SONG(MS.li) : S.kind === 'twr' ? SITE(WS.li) : S.kind === 'leg' ? COURSE(LS.li) : S.kind === 'boat' ? RIVER(BS.li) : S.kind === 'mov' ? HOUSE(VS.li) : S.kind === 'kite' ? KFIELD(IS.li) : lvLabel(S.li));
 // the modes driven by the kitchen-style controls (joystick + buttons); takraw is side-on but uses them too
-const topDown = () => S.kind === 'kit' || S.kind === 'def' || S.kind === 'drv' || S.kind === 'tak' || S.kind === 'mov';
+const topDown = () => S.kind === 'kit' || S.kind === 'def' || S.kind === 'drv' || S.kind === 'tak' || S.kind === 'mov' || S.kind === 'kite';
 
 /* ---------- DOM ---------- */
 const app = $('#app'), stage = $('#stage'), cv = $('#cv'), ctx = cv.getContext('2d');
@@ -729,7 +729,7 @@ function readNames() {
 }
 function releaseAll() { for (const id of ['pink', 'mint']) for (const k of ['left', 'right', 'jump']) { KB[id][k] = false; TC[id][k] = false; } JP.pink = JP.mint = false; document.querySelectorAll('.pad button.on').forEach(b => b.classList.remove('on')); touches.clear(); }
 function loadLevel(i, fresh) {
-  S.kind = 'adv'; app.classList.remove('kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov');
+  S.kind = 'adv'; app.classList.remove('kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov', 'kite');
   S.li = i; S.W = Phys.load(ALL[i]); S.parts = []; S.deadId = null; S.flash = 0; S.shake = 0; JP.pink = JP.mint = false;
   if (fresh) { S.deaths = 0; S.elapsed = 0; S.banner = 4.2; }
   buildBg(); updateHud();
@@ -749,6 +749,7 @@ function restart() {
   if (S.kind === 'leg') { legRestart(); return; }
   if (S.kind === 'boat') { boatRestart(); return; }
   if (S.kind === 'mov') { movRestart(); return; }
+  if (S.kind === 'kite') { kiteRestart(); return; }
   if (!S.W) return;
   if (O.role) { onlineRestart(); return; }
   S.deaths++; loadLevel(S.li, false); showScreen(null); setMode('play');
@@ -765,13 +766,13 @@ function renderTips() {
 function pause() {
   if (S.mode !== 'play') return;
   setMode('paused'); releaseAll(); releaseK(); engine(false, 0);
-  O.lastInp = null; KS.lastInp = {}; DS.lastInp = {}; RS.lastInp = {}; TS.lastInp = {}; WS.press = { pink: 0, mint: 0 }; LS.q = []; BS.q = []; VS.lastInp = {};
+  O.lastInp = null; KS.lastInp = {}; DS.lastInp = {}; RS.lastInp = {}; TS.lastInp = {}; WS.press = { pink: 0, mint: 0 }; LS.q = []; BS.q = []; VS.lastInp = {}; IS.lastInp = {};
   const lv = curLevel();
   $('#pNo').textContent = curLabel() + ' · ' + lv.name;
   $('#pHint').textContent = lv.hint;
   $('#bLevels').hidden = !!O.role; $('#bLeave').hidden = !O.role; $('#pNet').hidden = !O.role;
-  $('#bSwap').hidden = !(S.kind === 'drv' && O.role !== 'guest');
-  if (S.kind === 'drv') renderSwapNote();
+  $('#bSwap').hidden = !((S.kind === 'drv' || S.kind === 'kite') && O.role !== 'guest');
+  if (S.kind === 'drv') renderSwapNote(); else if (S.kind === 'kite') iSwapNote();
   renderTips(); showScreen('pause');
 }
 function resume() { if (S.mode !== 'paused') return; showScreen(null); setMode('play'); }
@@ -824,6 +825,7 @@ function next() {
   if (S.kind === 'leg') { legNext(); return; }
   if (S.kind === 'boat') { boatNext(); return; }
   if (S.kind === 'mov') { movNext(); return; }
+  if (S.kind === 'kite') { kiteNext(); return; }
   if (O.role === 'host') { if (S.li < ALL.length - 1) onlineStart(S.li + 1); return; }
   if (S.li >= ALL.length - 1) toTitle(); else startLevel(S.li + 1);
 }
@@ -854,8 +856,20 @@ function renderLevels() {
   renderLegLevels();
   renderBoatLevels();
   renderMovLevels();
+  renderKiteLevels();
+  renderModeCards();
 }
-function goFromTitle() { if (S.tab === 'kit') startKitchen(+$('#bGo').dataset.k || 0); else if (S.tab === 'def') startDefense(+$('#bGo').dataset.d || 0); else if (S.tab === 'drv') startDrive(+$('#bGo').dataset.r || 0); else if (S.tab === 'tak') startTak(+$('#bGo').dataset.t || 0); else if (S.tab === 'mus') startMus(+$('#bGo').dataset.m || 0); else if (S.tab === 'twr') startTwr(+$('#bGo').dataset.w || 0); else if (S.tab === 'leg') startLeg(+$('#bGo').dataset.l || 0); else if (S.tab === 'boat') startBoat(+$('#bGo').dataset.b || 0); else if (S.tab === 'mov') startMov(+$('#bGo').dataset.v || 0); else startLevel(+$('#bGo').dataset.i || 0); }
+// the mode cards on the title: stars (hearts for the adventure) collected in each
+function renderModeCards() {
+  const set = (k, html) => { const el = $('#ms-' + k); if (el) el.innerHTML = html; };
+  const hearts = ALL.reduce((a, l, i) => a + heartsIn(i), 0), got = ALL.reduce((a, l) => a + (prog.h[l.name] || 0), 0);
+  set('adv', `<b>♥ ${th(got)}</b> / ${th(hearts)}`);
+  for (const [k, L, best] of [['kit', KLEVELS, kBest], ['def', DLEVELS, dBest], ['drv', RLEVELS, rBest], ['tak', TLEVELS, tBest], ['mus', MLEVELS, mBest], ['twr', WLEVELS, wBest], ['leg', LLEVELS, lBest], ['boat', BLEVELS, bBest], ['mov', VLEVELS, vBest], ['kite', ILEVELS, iBest]]) {
+    const n = L.reduce((a, l, i) => a + ((best(i) || {}).s || 0), 0);
+    set(k, `<b>★ ${th(n)}</b> / ${th(L.length * 3)}`);
+  }
+}
+function goFromTitle() { if (S.tab === 'kit') startKitchen(+$('#bGo').dataset.k || 0); else if (S.tab === 'def') startDefense(+$('#bGo').dataset.d || 0); else if (S.tab === 'drv') startDrive(+$('#bGo').dataset.r || 0); else if (S.tab === 'tak') startTak(+$('#bGo').dataset.t || 0); else if (S.tab === 'mus') startMus(+$('#bGo').dataset.m || 0); else if (S.tab === 'twr') startTwr(+$('#bGo').dataset.w || 0); else if (S.tab === 'leg') startLeg(+$('#bGo').dataset.l || 0); else if (S.tab === 'boat') startBoat(+$('#bGo').dataset.b || 0); else if (S.tab === 'mov') startMov(+$('#bGo').dataset.v || 0); else if (S.tab === 'kite') startKite(+$('#bGo').dataset.f || 0); else startLevel(+$('#bGo').dataset.i || 0); }
 /* ---------- Main loop ---------- */
 let last = performance.now(), acc = 0;
 function tick() {
@@ -901,6 +915,7 @@ function frame(now) {
   if (S.kind === 'leg') { if (eng) engine(false, 0); legFrame(dt, now); requestAnimationFrame(frame); return; }
   if (S.kind === 'boat') { if (eng) engine(false, 0); boatFrame(dt, now); requestAnimationFrame(frame); return; }
   if (S.kind === 'mov') { if (eng) engine(false, 0); movFrame(dt, now); requestAnimationFrame(frame); return; }
+  if (S.kind === 'kite') { if (eng) engine(false, 0); kiteFrame(dt, now); requestAnimationFrame(frame); return; }
   if (eng) engine(false, 0);
   if (S.mode === 'play') {
     acc += dt;
@@ -990,7 +1005,7 @@ $('#bRestart2').addEventListener('click', restart);
 $('#bLevels').addEventListener('click', toTitle);
 $('#bLevels2').addEventListener('click', toTitle);
 $('#bNext').addEventListener('click', next);
-$('#bAgain').addEventListener('click', () => { if (O.role === 'host') openOnlineRoom(); else if (S.kind === 'kit') startKitchen(KS.li); else if (S.kind === 'def') startDefense(DS.li); else if (S.kind === 'drv') startDrive(RS.li); else if (S.kind === 'tak') startTak(TS.li); else if (S.kind === 'mus') startMus(MS.li); else if (S.kind === 'twr') startTwr(WS.li); else if (S.kind === 'leg') startLeg(LS.li); else if (S.kind === 'boat') startBoat(BS.li); else if (S.kind === 'mov') startMov(VS.li); else startLevel(S.li); });
+$('#bAgain').addEventListener('click', () => { if (O.role === 'host') openOnlineRoom(); else if (S.kind === 'kit') startKitchen(KS.li); else if (S.kind === 'def') startDefense(DS.li); else if (S.kind === 'drv') startDrive(RS.li); else if (S.kind === 'tak') startTak(TS.li); else if (S.kind === 'mus') startMus(MS.li); else if (S.kind === 'twr') startTwr(WS.li); else if (S.kind === 'leg') startLeg(LS.li); else if (S.kind === 'boat') startBoat(BS.li); else if (S.kind === 'mov') startMov(VS.li); else if (S.kind === 'kite') startKite(IS.li); else startLevel(S.li); });
 [nPink, nMint].forEach(i => i.addEventListener('input', readNames));
 snd.addEventListener('change', () => { S.sound = snd.checked; store.set('sound', S.sound); });
 
@@ -1132,7 +1147,7 @@ function renderOnlineRoom() {
       return `<button type="button" class="lv${prog.h[lv.name] != null ? ' done' : ''}" data-i="${i}"${locked ? ' disabled' : ''}><span class="n">${th(lv.n)}</span><span class="nm">${lv.name}</span><span class="hs">${locked ? 'ยังล็อกอยู่' : prog.h[lv.name] != null ? 'ผ่านแล้ว' : 'ยังไม่เคยผ่าน'}</span></button>`;
     }).join('');
   }
-  if (show) { renderOnlineKit(); renderOnlineDef(); renderOnlineDrv(); renderOnlineTak(); renderOnlineMus(); renderOnlineTwr(); renderOnlineLeg(); renderOnlineBoat(); renderOnlineMov(); }
+  if (show) { renderOnlineKit(); renderOnlineDef(); renderOnlineDrv(); renderOnlineTak(); renderOnlineMus(); renderOnlineTwr(); renderOnlineLeg(); renderOnlineBoat(); renderOnlineMov(); renderOnlineKite(); }
 }
 function onlineStart(i) {
   if (O.role !== 'host') return;
@@ -1159,6 +1174,12 @@ function loadOnlineLevel(fresh) {
   }
   if (O.md === 'l') {
     loadLeg(O.lv, { role: O.role, local: O.local });
+    O.loadedEp = O.ep; showScreen(null); setMode('play');
+    return;
+  }
+  if (O.md === 'i') {
+    loadKite(O.lv, { role: O.role, local: O.local });
+    if (!fresh) S.banner = 0;
     O.loadedEp = O.ep; showScreen(null); setMode('play');
     return;
   }
@@ -1204,7 +1225,7 @@ function loadOnlineLevel(fresh) {
     O.loadedEp = O.ep; showScreen(null); setMode('play');
     return;
   }
-  S.kind = 'adv'; app.classList.remove('kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov');
+  S.kind = 'adv'; app.classList.remove('kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov', 'kite');
   const changed = S.li !== O.lv || fresh;
   S.li = O.lv; S.W = Phys.load(ALL[O.lv]);
   S.W.net = { role: O.role, local: O.local };
@@ -1229,6 +1250,7 @@ function leaveOnline() {
   if (LS.G) LS.G.net = null;
   if (BS.G) BS.G.net = null;
   if (VS.G) VS.G.net = null;
+  if (IS.G) IS.G.net = null;
   app.classList.remove('solo');
   $('#hNet').hidden = true;
 }
@@ -1254,12 +1276,12 @@ function onPeers(change) {
 function dropRemoteInput() {
   if (O.role !== 'host') return;
   KS.remote.act = KS.remote.use = false; DS.remote.act = DS.remote.use = false;
-  RS.remote.s = RS.remote.p = 0; RS.remote.act = false; TS.remote.fresh = false; VS.remote.mx = VS.remote.my = 0; VS.remote.act = false;
+  RS.remote.s = RS.remote.p = 0; RS.remote.act = false; TS.remote.fresh = false; VS.remote.mx = VS.remote.my = 0; VS.remote.act = false; IS.remote.mx = IS.remote.my = 0; IS.remote.act = false;
   if (S.W && S.W.mint) S.W.mint.netInp = null;
 }
 function hostHears(pr) {
   // a guest that rejoined starts its counters from zero again: take a fresh baseline
-  if (pr.sid && pr.sid !== O.partnerSid) { O.partnerSid = pr.sid; O.firstSeen = false; KS.seenKa = DS.seenKa = RS.seenKa = TS.seenKa = -1; WS.seenReq = -1; LS.seen = 0; BS.seen = 0; VS.remote.seen = -1; }
+  if (pr.sid && pr.sid !== O.partnerSid) { O.partnerSid = pr.sid; O.firstSeen = false; KS.seenKa = DS.seenKa = RS.seenKa = TS.seenKa = -1; WS.seenReq = -1; LS.seen = 0; BS.seen = 0; VS.remote.seen = -1; IS.remote.seen = -1; }
   if (!O.firstSeen) { O.firstSeen = true; O.seenDead = pr.dead | 0; O.seenRq = pr.rq | 0; }
   if (Number.isFinite(pr.ck)) { O.pCk = pr.ck; O.pCkAt = performance.now(); }
   if ((pr.dead | 0) > O.seenDead || (pr.rq | 0) > O.seenRq) {
@@ -1275,14 +1297,15 @@ function hostHears(pr) {
   if (S.kind === 'leg') { if (O.md === 'l') lHostHears(pr); return; }
   if (S.kind === 'boat') { if (O.md === 'b') bHostHears(pr); return; }
   if (S.kind === 'mov') { if (O.md === 'v') vHostHears(pr); return; }
+  if (S.kind === 'kite') { if (O.md === 'i') iHostHears(pr); return; }
   if (S.W && pr.ep === O.ep && pr.p && S.W.net) Net.applyPlayer(S.W, 'mint', pr.p, performance.now());
 }
 function guestHears(pr) {
   clockSample(pr);
   const lv = pr.lv | 0, ep = pr.ep | 0;
   if (pr.st === 'lobby') { if (S.mode !== 'menu' || scr.online.hidden) openOnlineRoom(); else renderOnlineRoom(); return; }
-  const md = pr.md === 'k' || pr.md === 'd' || pr.md === 'r' || pr.md === 't' || pr.md === 'm' || pr.md === 'w' || pr.md === 'l' || pr.md === 'b' || pr.md === 'v' ? pr.md : 'a';
-  const nLv = md === 'k' ? KLEVELS.length : md === 'd' ? DLEVELS.length : md === 'r' ? RLEVELS.length : md === 't' ? TLEVELS.length : md === 'm' ? MLEVELS.length : md === 'w' ? WLEVELS.length : md === 'l' ? LLEVELS.length : md === 'b' ? BLEVELS.length : md === 'v' ? VLEVELS.length : ALL.length, kind = md === 'k' ? 'kit' : md === 'd' ? 'def' : md === 'r' ? 'drv' : md === 't' ? 'tak' : md === 'm' ? 'mus' : md === 'w' ? 'twr' : md === 'l' ? 'leg' : md === 'b' ? 'boat' : md === 'v' ? 'mov' : 'adv', cur = md === 'k' ? KS.li : md === 'd' ? DS.li : md === 'r' ? RS.li : md === 't' ? TS.li : md === 'm' ? MS.li : md === 'w' ? WS.li : md === 'l' ? LS.li : md === 'b' ? BS.li : md === 'v' ? VS.li : S.li;
+  const md = pr.md === 'k' || pr.md === 'd' || pr.md === 'r' || pr.md === 't' || pr.md === 'm' || pr.md === 'w' || pr.md === 'l' || pr.md === 'b' || pr.md === 'v' || pr.md === 'i' ? pr.md : 'a';
+  const nLv = md === 'k' ? KLEVELS.length : md === 'd' ? DLEVELS.length : md === 'r' ? RLEVELS.length : md === 't' ? TLEVELS.length : md === 'm' ? MLEVELS.length : md === 'w' ? WLEVELS.length : md === 'l' ? LLEVELS.length : md === 'b' ? BLEVELS.length : md === 'v' ? VLEVELS.length : md === 'i' ? ILEVELS.length : ALL.length, kind = md === 'k' ? 'kit' : md === 'd' ? 'def' : md === 'r' ? 'drv' : md === 't' ? 'tak' : md === 'm' ? 'mus' : md === 'w' ? 'twr' : md === 'l' ? 'leg' : md === 'b' ? 'boat' : md === 'v' ? 'mov' : md === 'i' ? 'kite' : 'adv', cur = md === 'k' ? KS.li : md === 'd' ? DS.li : md === 'r' ? RS.li : md === 't' ? TS.li : md === 'm' ? MS.li : md === 'w' ? WS.li : md === 'l' ? LS.li : md === 'b' ? BS.li : md === 'v' ? VS.li : md === 'i' ? IS.li : S.li;
   if (lv >= 0 && lv < nLv && (ep !== O.loadedEp)) { const ch = (pr.fs | 0) === ep || O.loadedEp < 0 || md !== O.md || lv !== cur || S.kind !== kind; O.ep = ep; O.lv = lv; O.md = md; loadOnlineLevel(ch); }
   if (md === 'k') { if (S.kind === 'kit' && ep === O.loadedEp) kGuestHears(pr); return; }
   if (md === 'd') { if (S.kind === 'def' && ep === O.loadedEp) dGuestHears(pr); return; }
@@ -1293,6 +1316,7 @@ function guestHears(pr) {
   if (md === 'l') { if (S.kind === 'leg' && ep === O.loadedEp) lGuestHears(pr); return; }
   if (md === 'b') { if (S.kind === 'boat' && ep === O.loadedEp) bGuestHears(pr); return; }
   if (md === 'v') { if (S.kind === 'mov' && ep === O.loadedEp) vGuestHears(pr); return; }
+  if (md === 'i') { if (S.kind === 'kite' && ep === O.loadedEp) iGuestHears(pr); return; }
   if (!S.W || !S.W.net || ep !== O.loadedEp) return;
   if (pr.p) Net.applyPlayer(S.W, 'pink', pr.p, performance.now());
   if (pr.w) {
@@ -1355,6 +1379,8 @@ function pumpOnline(now) {
     if (BS.G && BS.G.net && live) o.bw = bEncode();
   } else if (S.kind === 'mov') {
     if (VS.G && VS.G.net && live) o.vw = vEncode();
+  } else if (S.kind === 'kite') {
+    if (IS.G && IS.G.net && live) o.iw = iEncode();
   } else if (S.kind === 'tak') {
     if (TS.G && TS.G.net && live) {
       o.p = Tak.encodePlayer(TS.G, O.local, O.role === 'guest' ? TS.kick : null);
@@ -1494,7 +1520,7 @@ function kSnap(G) { return { money: G.money, failed: G.failed, orders: G.orders.
 function loadKitchen(i, net) {
   KS.li = i; KS.G = Kit.load(KLEVELS[i]); KS.G.net = net || null;
   KS.acc = 0; KS.floats = []; KS.act = { n: KS.act.n, ref: null, uref: null }; KS.seenKa = -1; KS.remote = { act: false, ref: null, use: false, uref: null }; KS.endT = 0; KS.savedB = null; KS.prev = kSnap(KS.G);
-  S.kind = 'kit'; app.classList.add('kit'); app.classList.remove('def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov'); setPadLabels('kit');
+  S.kind = 'kit'; app.classList.add('kit'); app.classList.remove('def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov', 'kite'); setPadLabels('kit');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
   releaseK(); buildKitBg(); kHud();
 }
@@ -1926,7 +1952,7 @@ function renderKitchen() {
 S.tab = ['adv', 'kit', 'def', 'drv'].includes(store.get('tab', 'adv')) ? store.get('tab', 'adv') : 'adv';
 function setTab(t) {
   S.tab = t; store.set('tab', t);
-  for (const k of ['adv', 'kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov']) app.classList.toggle('tab-' + k, t === k);
+  for (const k of ['adv', 'kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov', 'kite']) app.classList.toggle('tab-' + k, t === k);
   document.querySelectorAll('.tab').forEach(b => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
   renderLevels();
   if (S.mode === 'menu' && !O.role) {
@@ -1939,7 +1965,8 @@ function setTab(t) {
     else if (t === 'leg') { loadLeg(+$('#bGo').dataset.l || 0); }
     else if (t === 'boat') { loadBoat(+$('#bGo').dataset.b || 0); }
     else if (t === 'mov') { loadMov(+$('#bGo').dataset.v || 0); S.banner = 0; }
-    else if (S.kind !== 'adv') { S.kind = 'adv'; app.classList.remove('kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov'); buildBg(); }
+    else if (t === 'kite') { loadKite(+$('#bGo').dataset.f || 0); S.banner = 0; }
+    else if (S.kind !== 'adv') { S.kind = 'adv'; app.classList.remove('kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov', 'kite'); buildBg(); }
   }
 }
 document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
@@ -2038,7 +2065,7 @@ function dSnap(G) { return { coins: G.coins, ph: G.ph, wi: G.wi, sn: [G.pink.snR
 function loadDefense(i, net) {
   DS.li = i; DS.G = Def.load(DLEVELS[i]); DS.G.net = net || null;
   DS.acc = 0; DS.floats = []; DS.rings = []; DS.act = { n: DS.act.n, uref: null }; DS.seenKa = -1; DS.remote = { act: false, use: false, uref: null }; DS.endT = 0; DS.savedB = null; DS.prev = null;
-  S.kind = 'def'; app.classList.add('def'); app.classList.remove('kit', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov');
+  S.kind = 'def'; app.classList.add('def'); app.classList.remove('kit', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov', 'kite');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
   setPadLabels('def'); releaseK(); buildDefBg(); dHud(true);
 }
@@ -2672,7 +2699,7 @@ function renderSwapNote() {
   $('#bSwap').textContent = `สลับหน้าที่ (ตอนนี้ ${n[r.steer]} คุมพวงมาลัย)`;
 }
 RS.roles = store.get('roles', 'pink') === 'mint' ? { steer: 'mint', pedal: 'pink' } : { steer: 'pink', pedal: 'mint' };
-$('#bSwap').addEventListener('click', () => { swapRoles(); });
+$('#bSwap').addEventListener('click', () => { if (S.kind === 'kite') iSwap(); else swapRoles(); });
 
 /* ---------- flow ---------- */
 function rSnap(G) { const e = G.evR || G.ev; return Object.assign({ money: G.money, orders: G.orders.length, ids: G.orders.map(o => o.id).join() }, e); }
@@ -2680,7 +2707,7 @@ function loadDrive(i, net) {
   RS.li = i; RS.G = Drv.load(RLEVELS[i]); RS.G.net = net || null;
   RS.acc = 0; RS.floats = []; RS.act = { n: RS.act.n }; RS.seenKa = -1; RS.remote = { s: 0, p: 0, act: false }; RS.endT = 0; RS.savedB = null; RS.prev = null;
   RS.cam.x = RS.G.car.x; RS.cam.y = RS.G.car.y;
-  S.kind = 'drv'; app.classList.add('drv'); app.classList.remove('kit', 'def', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov');
+  S.kind = 'drv'; app.classList.add('drv'); app.classList.remove('kit', 'def', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov', 'kite');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
   releaseK(); setDrvPadLabels(); buildDrvBg(); rHud(true);
 }
@@ -3209,7 +3236,7 @@ function loadTak(i, net) {
   TS.li = i; TS.G = Tak.load(TLEVELS[i]); TS.G.net = net || null;
   TS.acc = 0; TS.floats = []; TS.kick = { n: TS.kick.n, req: null }; TS.seenKa = -1; TS.remote = { req: null, fresh: false };
   TS.endT = 0; TS.savedB = null; TS.prev = tSnap(TS.G); TS.lastInp = {}; TS.rimT = 0;
-  S.kind = 'tak'; app.classList.add('tak'); app.classList.remove('kit', 'def', 'drv', 'mus', 'twr', 'leg', 'boat', 'mov');
+  S.kind = 'tak'; app.classList.add('tak'); app.classList.remove('kit', 'def', 'drv', 'mus', 'twr', 'leg', 'boat', 'mov', 'kite');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
   releaseK(); tSetPad(); buildTakBg(); tHud(true);
 }
@@ -3716,7 +3743,7 @@ function loadMus(i, net) {
   MS.li = i; MS.G = Rhy.load(MLEVELS[i]); MS.G.net = net || null; MS.G.local = net ? net.local : null;
   MS.t0 = performance.now() + 700; MS.pausedAt = 0; MS.sched = -9; MS.endT = 0; MS.savedB = null; MS.floats = []; MS.flash = [0, 0, 0, 0]; MS.judge = [null, null, null, null];
   MS.syncFx = []; MS.feverOn = false; MS.synced = !net || net.role === 'host';
-  S.kind = 'mus'; app.classList.add('mus'); app.classList.remove('kit', 'def', 'drv', 'tak', 'twr');
+  S.kind = 'mus'; app.classList.add('mus'); app.classList.remove('kit', 'def', 'drv', 'tak', 'twr', 'leg', 'boat', 'mov', 'kite');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 0;
   releaseK(); buildMusBg(); mHud(true); mPadLabels();
 }
@@ -4053,7 +4080,7 @@ function loadTwr(i, net) {
   WS.li = i; WS.G = Twr.load(WLEVELS[i], 1000 + i * 37 + Math.floor(Math.random() * 1000)); WS.G.net = net || null;
   WS.acc = 0; WS.floats = []; WS.debris = []; WS.camY = 0; WS.endT = 0; WS.savedB = null; WS.press = { pink: 0, mint: 0 };
   WS.req = { n: WS.req.n, id: -1, x: 0, t: 0 }; WS.seenReq = -1; WS.prev = wSnap(WS.G); WS.hop = { pink: 0, mint: 0 };
-  S.kind = 'twr'; app.classList.add('twr'); app.classList.remove('kit', 'def', 'drv', 'tak', 'mus', 'leg', 'boat', 'mov');
+  S.kind = 'twr'; app.classList.add('twr'); app.classList.remove('kit', 'def', 'drv', 'tak', 'mus', 'leg', 'boat', 'mov', 'kite');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
   releaseK(); buildTwrBg(); wHud(true);
 }
@@ -4539,7 +4566,7 @@ function loadLeg(i, net) {
   LS.li = i; LS.G = Leg.load(LLEVELS[i]); LS.G.net = net || null; LS.G.late = net && net.role === 'host' ? 0.35 : 0;
   LS.acc = 0; LS.floats = []; LS.endT = 0; LS.savedB = null; LS.q = []; LS.sent = []; LS.seen = 0; LS.raceAt = null; LS.lift = { pink: 0, mint: 0 };
   LS.prev = lSnap(LS.G); LS.simPerf = performance.now();
-  S.kind = 'leg'; app.classList.add('leg'); app.classList.remove('kit', 'def', 'drv', 'tak', 'mus', 'twr', 'boat', 'mov');
+  S.kind = 'leg'; app.classList.add('leg'); app.classList.remove('kit', 'def', 'drv', 'tak', 'mus', 'twr', 'boat', 'mov', 'kite');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 0;
   releaseK(); buildLegBg(); lHud(true); lPadLabels();
 }
@@ -4958,7 +4985,7 @@ function loadBoat(i, net) {
   BS.li = i; BS.G = Boat.load(BLEVELS[i]); BS.G.net = net || null;
   BS.acc = 0; BS.floats = []; BS.endT = 0; BS.savedB = null; BS.q = []; BS.sent = []; BS.seen = 0; BS.raceAt = null; BS.camD = 0; BS.mine = { pink: -9, mint: -9 }; BS.wake = [];
   BS.prev = bSnap(BS.G); BS.simPerf = performance.now();
-  S.kind = 'boat'; app.classList.add('boat'); app.classList.remove('kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'mov');
+  S.kind = 'boat'; app.classList.add('boat'); app.classList.remove('kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'mov', 'kite');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 0;
   releaseK(); buildBoatBg(); bHud(true); bPadLabels();
 }
@@ -5359,7 +5386,7 @@ function loadMov(i, net) {
   VS.li = i; VS.G = Mov.load(VLEVELS[i]); VS.G.net = net || null;
   VS.acc = 0; VS.floats = []; VS.endT = 0; VS.savedB = null; VS.prev = vSnap(VS.G); VS.lastInp = {}; VS.act = { n: VS.act.n }; VS.remote = { mx: 0, my: 0, act: false, seen: -1 };
   VS.rain = Array.from({ length: 70 }, () => [Math.random() * VW, Math.random() * VH, 0.6 + Math.random() * 0.6]);
-  S.kind = 'mov'; app.classList.add('mov'); app.classList.remove('kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat');
+  S.kind = 'mov'; app.classList.add('mov'); app.classList.remove('kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'kite');
   S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
   releaseK(); setPadLabels('kit'); document.querySelectorAll('.kpad .kb.act').forEach(b => { b.innerHTML = 'ยก<br>วาง'; });
   buildMovBg(); vHud(true);
@@ -5652,6 +5679,427 @@ function vGuestHears(pr) {
   if (G.over && !VS.endT && S.mode === 'play') { VS.endT = G.done ? 2.6 : 1.8; vSave(); }
 }
 
+/* ---------- Kite flying (ชักว่าวคู่) ---------- */
+const IS = { G: null, li: 0, acc: 0, floats: [], endT: 0, savedB: null, prev: null, lastInp: {}, act: { n: 0 }, remote: { mx: 0, my: 0, act: false, seen: -1 },
+  roles: { run: 'pink', line: 'mint' }, cam: { x: 0, s: 1 }, clouds: [], sparks: [], rubT: 0, runT: 0 };
+const KFIELD = i => 'ลานว่าวที่ ' + th(i + 1);
+if (!prog.i) prog.i = {};
+const iBest = i => prog.i[ILEVELS[i].name] || null;
+const iOpen = i => i === 0 || !!(iBest(i - 1) && iBest(i - 1).s >= 1);
+IS.roles = store.get('kroles', 'pink') === 'mint' ? { run: 'mint', line: 'pink' } : { run: 'pink', line: 'mint' };
+const iRoleOf = id => (IS.roles.run === id ? 'run' : 'line');
+Object.assign(sfx, {
+  igust() { tone(160, .9, 'sawtooth', .018, 420); tone(240, .7, 'triangle', .02, 520, .15); },
+  isnap() { tone(1200, .18, 'triangle', .06, 300); tone(90, .25, 'square', .05, 50, .04); },
+  irub() { tone(2200 + Math.random() * 1600, .04, 'sawtooth', .014); },
+  itug() { tone(520, .09, 'triangle', .045, 980); },
+  isprint() { tone(170, .05, 'square', .035, 120); tone(190, .05, 'square', .03, 130, .1); },
+  icrash() { tone(130, .22, 'square', .06, 55); },
+  ilaunch() { tone(660, .1, 'sine', .04, 990); },
+  iup() { tone(880, .1, 'sine', .03, 1320); }
+});
+function iPadLabels() {
+  document.querySelectorAll('.kpad .kb.act').forEach(b => {
+    const id = b.dataset.p === 'local' ? (O.local || 'pink') : b.dataset.p;
+    b.innerHTML = iRoleOf(id) === 'run' ? 'วิ่ง<br>เร็ว' : 'กระ<br>ตุก';
+  });
+  const r = IS.roles.run === 'pink';
+  const set = (sel, v) => { const el = $(sel); if (el) el.textContent = v; };
+  set('#iRolePinkK', r ? 'A D วิ่ง' : 'W S ดึง ผ่อนสาย'); set('#iRolePinkT', r ? 'คนวิ่ง' : 'คนคุมสาย');
+  set('#iRoleMintK', r ? '↑ ↓ ดึง ผ่อนสาย' : '← → วิ่ง'); set('#iRoleMintT', r ? 'คนคุมสาย' : 'คนวิ่ง');
+}
+function iSwap() {
+  if (O.role === 'guest') return;
+  IS.roles = { run: IS.roles.line, line: IS.roles.run };
+  store.set('kroles', IS.roles.run);
+  iPadLabels(); iSwapNote();
+}
+function iSwapNote() { $('#bSwap').textContent = `สลับหน้าที่ (ตอนนี้ ${S.names[IS.roles.run]} เป็นคนวิ่ง)`; }
+
+/* ---------- flow ---------- */
+function iSnap(G) { return { st: G.st, s: Object.assign({}, G.stats), rub: G.rub > 0, over: G.over, cause: G.cause }; }
+function loadKite(i, net) {
+  IS.li = i; IS.G = Kite.load(ILEVELS[i]); IS.G.net = net || null;
+  IS.acc = 0; IS.floats = []; IS.endT = 0; IS.savedB = null; IS.prev = iSnap(IS.G); IS.lastInp = {}; IS.act = { n: IS.act.n }; IS.remote = { mx: 0, my: 0, act: false, seen: -1 };
+  IS.sparks = []; IS.rubT = 0; IS.runT = 0;
+  const f = IS.G.def.field; IS.cam = { x: IS.G.run.x + 120, s: 1.1 };
+  const R = rng(i * 71 + 5); IS.clouds = Array.from({ length: 14 }, () => ({ x: (R() * 2.4 - 0.4) * 2600 + f[0], y: 160 + R() * 900, w: 60 + R() * 110, p: 0.25 + R() * 0.35 }));
+  S.kind = 'kite'; app.classList.add('kite'); app.classList.remove('kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov');
+  S.parts = []; S.flash = 0; S.shake = 0; S.banner = 4.2;
+  releaseK(); iPadLabels(); iHud(true);
+}
+function startKite(i) {
+  readNames(); audio();
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  loadKite(i); showScreen(null); setMode('play');
+}
+function kiteRestart() { if (O.role) { onlineRestart(); return; } loadKite(IS.li); showScreen(null); setMode('play'); }
+function kiteNext() {
+  if (O.role === 'host') { if (IS.li < ILEVELS.length - 1) onlineStartKite(IS.li + 1); return; }
+  if (IS.li < ILEVELS.length - 1 && iOpen(IS.li + 1)) startKite(IS.li + 1); else toTitle();
+}
+let iHudKey = '';
+function iHud(force) {
+  const k = String(IS.li); if (!force && k === iHudKey) return; iHudKey = k;
+  const lv = ILEVELS[IS.li];
+  $('#hNo').textContent = KFIELD(IS.li); $('#hName').textContent = lv.name; $('#hHint').textContent = lv.hint; $('#hHearts').textContent = '';
+}
+function iSave() {
+  if (IS.savedB) return IS.savedB;
+  const G = IS.G, lv = ILEVELS[IS.li], st = Kite.stars(G), sc = Math.round(G.score);
+  const b = prog.i[lv.name] || { s: 0, m: 0 };
+  prog.i[lv.name] = { s: Math.max(b.s, st), m: Math.max(b.m, sc) };
+  store.set('prog2', prog);
+  return (IS.savedB = b);
+}
+function iResults() {
+  const G = IS.G, lv = ILEVELS[IS.li], st = Kite.stars(G), s = G.stats, sc = Math.round(G.score);
+  const b = iSave(), best = sc > b.m;
+  setMode('clear'); releaseAll(); releaseK();
+  $('#cNo').textContent = `${KFIELD(IS.li)} · หมดเวลา`;
+  $('#cName').textContent = lv.name;
+  $('#cStars').hidden = false;
+  $('#cStars').innerHTML = [0, 1, 2].map(i => `<span class="${i < st ? '' : 'off'}">★</span>`).join('');
+  const trouble = s.snaps + s.cuts + s.crashes;
+  const msg = st === 3 ? 'ว่าวติดลมบน ลอยสูงแทบทั้งเกม ทีมนี้ชักว่าวเก่งมาก'
+    : st === 2 ? (trouble ? 'ว่าวลอยดีแล้ว ถ้าตกน้อยกว่านี้จะได้สามดาว' : 'ว่าวลอยดีแล้ว ผ่อนสายตอนลมดีให้ขึ้นสูงกว่านี้อีกนิด')
+    : st === 1 ? 'ผ่านแล้ว ลานถัดไปเปิดให้เล่นแล้ว'
+    : `ว่าวยังลอยไม่สูงพอ ต้องได้ ${th(lv.stars[0])} แต้ม คนวิ่งส่งว่าวขึ้นก่อน คนคุมสายผ่อนสายตอนว่าวกินลม`;
+  $('#cMsg').textContent = msg + (best && b.m ? ' · สถิติใหม่' : '');
+  $('#cStats').innerHTML = `<span>แต้ม <b>${th(sc)}</b></span><span>สูงสุด <b>${th(Math.round(G.best))} ม.</b></span><span>สายขาด <b>${th(s.snaps)}</b> โดนตัด <b>${th(s.cuts)}</b> ตก <b>${th(s.crashes)}</b></span>`;
+  const last = IS.li >= ILEVELS.length - 1, guest = O.role === 'guest';
+  $('#bNext').textContent = 'ลานถัดไป';
+  $('#bNext').hidden = guest || last || !iOpen(IS.li + 1);
+  $('#bAgain').hidden = guest;
+  $('#bAgain').textContent = O.role === 'host' ? 'เลือกด่านอื่น' : 'ชักว่าวลานนี้อีกรอบ';
+  $('#bLevels2').hidden = !!O.role; $('#bLeave2').hidden = !O.role;
+  if (guest) $('#cMsg').textContent += ` · รอ${O.partnerName || 'อีกคน'}เลือกต่อ`;
+  showScreen('clear');
+}
+
+/* ---------- tick ---------- */
+function iFloat(text, x, y, col, size = 16, life = 1.4) { IS.floats.push({ text, x, y, col, life, max: life, size }); }
+const I_CAUSE = { snap: ['สายขาด!', '#ff8a8a'], cut: ['สายโดนตัด!', '#ff8a8a'], crash: ['ว่าวตก!', '#ffb38a'], tree: ['ติดต้นไม้!', '#ffb38a'], wire: ['ติดสายไฟ!', '#ffb38a'] };
+function iEvents(ev) {
+  const G = IS.G;
+  for (const e of ev) {
+    if (e === 'go') { sfx.ilaunch(); }
+    else if (e === 'sprint') sfx.isprint();
+    else if (e === 'tug') sfx.itug();
+    else if (e === 'gust') { sfx.igust(); iFloat('ลมกระโชก!', null, 120, '#bfe6ff', 22, 1.6); }
+    else if (e === 'rub') sfx.irub();
+    else if (e.startsWith('down:')) {
+      const c = I_CAUSE[e.slice(5)] || I_CAUSE.crash;
+      if (e === 'down:snap' || e === 'down:cut') sfx.isnap(); else sfx.icrash();
+      S.shake = Math.max(S.shake, .3);
+      iFloat(c[0], G.k.x, G.k.y + 30, c[1], 20, 1.6);
+    } else if (e === 'relaunch') sfx.iup();
+    else if (e === 'timeup') sfx.win();
+  }
+}
+// the guest: effects from the host's snapshots
+function iGuestDiff() {
+  const G = IS.G, n = iSnap(G), p = IS.prev || n, ev = [];
+  if (p.st === 'count' && n.st === 'fly') ev.push('go');
+  if (n.s.snaps > p.s.snaps) ev.push('down:snap');
+  else if (n.s.cuts > p.s.cuts) ev.push('down:cut');
+  else if (n.s.crashes > p.s.crashes) ev.push('down:' + (n.cause || 'crash'));
+  if (p.st === 'down' && n.st === 'fly') ev.push('relaunch');
+  if (n.s.gusts > p.s.gusts) ev.push('gust');
+  if (n.rub && !p.rub) ev.push('rub');
+  if (n.over && !p.over) ev.push('timeup');
+  iEvents(ev);
+  IS.prev = n;
+}
+const iCtl = (role, q) => (role === 'run' ? { mx: q.mx || 0, act: !!q.act } : { pull: Math.max(0, Math.min(1, -(q.my || 0))), rel: Math.max(0, Math.min(1, q.my || 0)), act: !!q.act });
+function iTick() {
+  const G = IS.G, R = IS.roles;
+  if (!O.role) {
+    const ev = Kite.step(G, { run: iCtl('run', kInput(R.run)), line: iCtl('line', kInput(R.line)) });
+    iEvents(ev); IS.prev = iSnap(G);
+  } else if (O.role === 'host') {
+    const li = kInput(O.local), rid = O.local === 'pink' ? 'mint' : 'pink', rq = IS.remote;
+    IS.lastInp = li;
+    const inp = { [iRoleOf(O.local)]: iCtl(iRoleOf(O.local), li), [iRoleOf(rid)]: iCtl(iRoleOf(rid), { mx: rq.mx, my: rq.my, act: rq.act }) };
+    rq.act = false;
+    iEvents(Kite.step(G, inp)); IS.prev = iSnap(G);
+  } else {
+    // the guest: its own half acts here at once; the other half as the host last said
+    const li = kInput(O.local), mine = iRoleOf(O.local);
+    IS.lastInp = li;
+    if (li.act) IS.act.n++;
+    const inp = mine === 'run' ? { run: iCtl('run', li), line: { pull: G.inp.pull, rel: G.inp.rel } } : { run: { mx: G.inp.mx }, line: iCtl('line', li) };
+    const ev = Kite.step(G, inp, true);
+    iEvents(ev.filter(e => e === 'sprint' || e === 'tug'));
+  }
+  if (G.over && !IS.endT) { IS.endT = 2.2; iSave(); }
+}
+function kiteFrame(dt, now) {
+  const G = IS.G;
+  if (S.mode === 'play' && G) {
+    IS.acc += dt;
+    while (IS.acc >= Kite.DT) { iTick(); IS.acc -= Kite.DT; if (S.mode !== 'play') { IS.acc = 0; break; } }
+    if (IS.endT > 0) { IS.endT -= dt; if (IS.endT <= 0) { IS.endT = -1; iResults(); if (O.role === 'host') O.st = 'clear'; } }
+  } else IS.acc = 0;
+  if (O.role) pumpOnline(now);
+  if (S.mode === 'play') S.banner = Math.max(0, S.banner - dt);
+  S.flash = Math.max(0, S.flash - dt * 2.2); S.shake = Math.max(0, S.shake - dt * 3);
+  stepParts(dt);
+  for (const f of IS.floats) { f.life -= dt; f.y += dt * 20; }
+  IS.floats = IS.floats.filter(f => f.life > 0);
+  if (G) {
+    for (const c of IS.clouds) c.x += G.wind * 0.12 * dt;
+    // rubbing lines: sparks and a scratchy sound
+    if (G.rub > 0 && G.rubAt && S.mode === 'play') { IS.rubT -= dt; if (IS.rubT <= 0) { IS.rubT = 0.11; sfx.irub(); } for (let k = 0; k < 2; k++) IS.sparks.push({ x: G.rubAt[0], y: G.rubAt[1], vx: (Math.random() - .5) * 120, vy: Math.random() * 90, life: .4 }); }
+    for (const p of IS.sparks) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy -= 200 * dt; p.life -= dt; }
+    IS.sparks = IS.sparks.filter(p => p.life > 0);
+    if (Math.abs(G.run.v) > 20) IS.runT += dt * Math.abs(G.run.v) / 22;
+    iHud();
+  }
+  renderKite(dt);
+}
+
+/* ---------- drawing ---------- */
+const ISCENE = {
+  paddy: { sky: ['#7fc8f2', '#cdeeff'], hill: '#8fb58a', ground: '#c9b46a', ground2: '#b9a35a', field: '#d8c47a', far: '#9bc0a0' },
+  march: { sky: ['#62b6ef', '#e2f4ff'], hill: '#93b9a0', ground: '#a9c46c', ground2: '#98b35d', field: '#b9d17c', far: '#a6c9b4' },
+  canal: { sky: ['#78bfe4', '#d8efff'], hill: '#7aa98a', ground: '#8fbf62', ground2: '#7fae55', field: '#a2cd74', far: '#8fb8a0', water: '#4f9fd1' },
+  royal: { sky: ['#6db4ea', '#e6f3ff'], hill: '#a7b8c8', ground: '#96c464', ground2: '#86b356', field: '#a8d276', far: '#b3c4d6', roofs: true },
+  final: { sky: ['#f08a5d', '#ffd99a'], hill: '#9a6f7f', ground: '#8dab5c', ground2: '#7e9b50', field: '#9fbd6a', far: '#b08a95', roofs: true }
+};
+const I_GY = 34;                                                     // the ground line, this far above the bottom of the screen
+function iCamera(dt) {
+  const G = IS.G, K = G.k, rx = G.run.x, C2 = IS.cam;
+  const span = Math.abs(K.x - rx) + 320, tall = Math.max(K.y, 120) + 110;
+  const want = Math.max(0.36, Math.min(1.1, (VH - I_GY - 70) / tall, VW / span));
+  const cx = (Math.min(K.x, rx) + Math.max(K.x, rx)) / 2 + 30;
+  const k = Math.min(1, dt * 2.5);
+  C2.s += (want - C2.s) * k; C2.x += (cx - C2.x) * k;
+}
+function renderKite(dt) {
+  const g = ctx, G = IS.G;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  if (!G) return;
+  iCamera(Math.min(dt || 0, .05));
+  const P = ISCENE[G.def.scene] || ISCENE.paddy, cam = IS.cam, s = cam.s;
+  let ox = 0; if (S.shake > 0) ox = (Math.random() - .5) * 6 * S.shake;
+  const X = x => VW / 2 + (x - cam.x) * s + ox, Y = y => VH - I_GY - y * s, big = Math.max(s, 0.72);
+  g.setTransform(scale, 0, 0, scale, 0, 0);
+  g.textBaseline = 'alphabetic';
+  // sky, sun, height marks
+  const sk = g.createLinearGradient(0, 0, 0, VH); sk.addColorStop(0, P.sky[0]); sk.addColorStop(1, P.sky[1]); g.fillStyle = sk; g.fillRect(0, 0, VW, VH);
+  g.fillStyle = G.def.scene === 'final' ? 'rgba(255,240,200,.9)' : 'rgba(255,250,220,.85)'; g.beginPath(); g.arc(VW - 120, G.def.scene === 'final' ? 300 : 90, 34, 0, Math.PI * 2); g.fill();
+  g.font = `600 10px ${FONT}`; g.textAlign = 'left';
+  for (let m = 10; m <= 120; m += 10) { const y = Y(m * Kite.METER); if (y < 50) break; g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(0, y, VW, 1); g.fillStyle = 'rgba(40,60,90,.45)'; g.fillText(`${th(m)} ม.`, 6, y - 3); }
+  // clouds (drifting with the wind, a little parallax)
+  for (const c of IS.clouds) {
+    const cx = VW / 2 + (c.x - cam.x) * s * c.p, cy = Y(c.y), w = c.w * Math.max(.45, s) * .8;
+    const xx = ((cx % (VW + 400)) + VW + 400) % (VW + 400) - 200;
+    if (cy < -40 || cy > VH) continue;
+    g.fillStyle = 'rgba(255,255,255,.6)'; g.beginPath(); g.ellipse(xx, cy, w, w * .32, 0, 0, Math.PI * 2); g.ellipse(xx + w * .4, cy - w * .14, w * .5, w * .3, 0, 0, Math.PI * 2); g.ellipse(xx - w * .45, cy - w * .08, w * .45, w * .25, 0, 0, Math.PI * 2); g.fill();
+  }
+  // far hills and roofs (slow parallax)
+  const gy = Y(0);
+  g.fillStyle = P.far; g.beginPath(); g.moveTo(0, gy);
+  for (let x = 0; x <= VW; x += 40) { const wx = x - (cam.x * s * 0.2) % 400; g.lineTo(x, gy - 30 - 18 * Math.sin(wx / 90) - 10 * Math.sin(wx / 37)); }
+  g.lineTo(VW, gy); g.fill();
+  if (P.roofs) {
+    const base = -((cam.x * s * 0.3) % 520);
+    for (let i = -1; i < 4; i++) { const x = base + i * 520 + 180; g.fillStyle = G.def.scene === 'final' ? '#8a5a63' : '#c9963f'; g.beginPath(); g.moveTo(x, gy - 30); g.lineTo(x + 34, gy - 72); g.lineTo(x + 68, gy - 30); g.fill(); g.beginPath(); g.moveTo(x + 30, gy - 72); g.lineTo(x + 34, gy - 96); g.lineTo(x + 38, gy - 72); g.fill(); g.fillStyle = '#f2e0b8'; g.fillRect(x + 8, gy - 32, 52, 10); }
+  }
+  // the ground: the field the runner can use is the lighter part
+  g.fillStyle = P.ground; g.fillRect(0, gy, VW, VH - gy);
+  const f = G.def.field;
+  g.fillStyle = P.field; g.fillRect(X(f[0]), gy, (f[1] - f[0]) * s, VH - gy);
+  g.fillStyle = 'rgba(0,0,0,.08)'; for (let x = Math.floor((cam.x - VW / s) / 60) * 60; x < cam.x + VW / s; x += 60) g.fillRect(X(x), gy + 6, 2, 5);
+  if (P.water) { g.fillStyle = P.water; g.fillRect(X(f[1] + 40), gy, 220 * s, VH - gy); g.fillStyle = 'rgba(255,255,255,.4)'; g.fillRect(X(f[1] + 70), gy + 10, 60 * s, 2); }
+  g.fillStyle = 'rgba(80,60,30,.5)'; g.fillRect(X(f[0]) - 2, gy - 10, 3, 10); g.fillRect(X(f[1]) - 1, gy - 10, 3, 10);
+  // the launch spot
+  if (G.def.launchAt) { const lx = X(G.def.launchAt); g.strokeStyle = '#6b4a2a'; g.lineWidth = 2; g.beginPath(); g.moveTo(lx, gy); g.lineTo(lx, gy - 30); g.stroke(); g.fillStyle = C.gold; g.beginPath(); g.moveTo(lx, gy - 30); g.lineTo(lx + 16, gy - 25); g.lineTo(lx, gy - 20); g.fill(); g.font = `600 10px ${FONT}`; g.textAlign = 'center'; g.fillStyle = 'rgba(40,30,20,.75)'; g.fillText('จุดส่งว่าว', lx, gy + 16); }
+  // trees and power lines
+  for (const t of G.def.trees || []) { g.fillStyle = '#6b4a2a'; g.fillRect(X(t.x) - 5 * s, Y(t.y - t.r * .6), 10 * s, Y(0) - Y(t.y - t.r * .6)); g.fillStyle = '#3f8f4a'; g.beginPath(); g.arc(X(t.x), Y(t.y), t.r * s, 0, Math.PI * 2); g.fill(); g.fillStyle = '#58a85d'; g.beginPath(); g.arc(X(t.x) - t.r * s * .3, Y(t.y) - t.r * s * .3, t.r * s * .55, 0, Math.PI * 2); g.fill(); }
+  for (const w of G.def.wires || []) { g.strokeStyle = '#5b5b66'; g.lineWidth = 4 * s; for (const x of [w.x0, w.x1]) { g.beginPath(); g.moveTo(X(x), gy); g.lineTo(X(x), Y(w.y + 24)); g.stroke(); g.fillRect(X(x) - 12 * s, Y(w.y + 24), 24 * s, 3 * s); } g.strokeStyle = '#2b2b33'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(X(w.x0), Y(w.y)); g.quadraticCurveTo(X((w.x0 + w.x1) / 2), Y(w.y - 6), X(w.x1), Y(w.y)); g.stroke(); }
+  // other people's kites
+  for (const r of Kite.rivals(G.def, G.t)) {
+    g.strokeStyle = hexA(r.col, .85); g.lineWidth = 1.4; g.beginPath(); g.moveTo(X(r.ax), Y(r.ay)); g.lineTo(X(r.kx), Y(r.ky)); g.stroke();
+    iFlyer(g, X(r.ax), gy, r.col, big);
+    iKiteShape(g, X(r.kx), Y(r.ky), Math.atan2(r.ky - r.ay, r.kx - r.ax), r.kind, [r.col, r.col], 26 * big, G.t);
+  }
+  // our line and kite
+  const K = G.k, hx = X(G.run.x) + 6 * big, hy = Y(Kite.HAND);
+  if (G.st !== 'down' || G.cause === 'crash' || G.cause === 'tree' || G.cause === 'wire') {
+    const kx = X(K.x), ky = Y(K.y), sag = G.st === 'down' ? 30 : Math.max(0, 1 - G.strain * 2.5) * Math.hypot(kx - hx, ky - hy) * .12;
+    const hot = G.strain > 0.8 ? (Math.sin(S.time * 20) > 0 ? '#ff5d5d' : '#ffd0d0') : G.strain > 0.55 ? '#ffe08a' : 'rgba(255,255,255,.95)';
+    g.strokeStyle = hot; g.lineWidth = 1.6; g.beginPath(); g.moveTo(hx, hy); g.quadraticCurveTo((hx + kx) / 2, (hy + ky) / 2 + sag, kx, ky); g.stroke();
+  }
+  iKiteShape(g, X(K.x), Y(K.y), G.st === 'down' ? -0.6 + Math.sin(S.time * 7) * .6 : G.th + Math.sin(S.time * 3.1) * .05, 'ours', [C.pink, C.mint], 30 * big, G.t);
+  // the two flyers: the runner at the line, the line handler beside with the reel
+  const runner = IS.roles.run, handler = IS.roles.line, step = Math.abs(G.run.v) > 20 ? IS.runT : 0;
+  const face = G.run.v < -20 ? -1 : 1;
+  for (const [id, dx] of [[handler, -38], [runner, 0]]) {
+    g.save(); g.translate(X(G.run.x) + dx * big, gy); g.scale(big, big);
+    drawPlayer(g, { id, x: -12, y: -29, w: 24, h: 29, face: id === runner ? face : 1, sq: 0, walk: step }, S.time);
+    if (id === handler) { g.fillStyle = '#c9963f'; g.beginPath(); g.ellipse(12, -12, 6, 8, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = '#fff'; g.fillRect(9, -14, 6, 4); }
+    g.restore();
+  }
+  // what to do now (a hint over each of them)
+  if (S.mode === 'play' && G.st === 'fly') {
+    const hints = [];
+    const lowK = K.y < 140, sinking = K.vy < -40, gust = Kite.gustSoon(G, G.t);
+    if (G.rub > 0) hints.push([runner, 'สายเสียด! ย้ายที่']);
+    else if (lowK && G.t - Kite.START < 30) hints.push([runner, G.run.x > f[0] + 20 ? '← วิ่งสวนลม' : 'ไม่มีที่วิ่งแล้ว เดินไปขวาก่อน']);
+    else if (sinking && K.y < 300) hints.push([runner, '← วิ่งช่วย']);
+    if (gust || G.strain > 0.75) hints.push([handler, G.L >= G.def.spool - 1 ? 'สายหมดม้วน! ดึงเก็บ' : 'ผ่อนสาย!']);
+    else if (sinking && !lowK) hints.push([handler, 'ดึงสาย!']);
+    else if (lowK && G.t - Kite.START < 30) hints.push([handler, 'ผ่อนสายตอนว่าวขึ้น']);
+    for (const [id, text] of hints) {
+      if (O.role && id !== O.local) continue;
+      const bx = X(G.run.x) + (id === handler ? -38 : 0) * big, by = gy - 52 * big - (id === handler ? 36 : 14);
+      g.font = `600 12px ${FONT}`; const tw = g.measureText(text).width + 14;
+      rr(g, bx - tw / 2, by - 15, tw, 20, 10); g.fillStyle = 'rgba(21,17,46,.85)'; g.fill(); g.fillStyle = id === 'pink' ? C.pink : C.mint; g.textAlign = 'center'; g.fillText(text, bx, by);
+    }
+  }
+  // sparks where lines rub, floating words
+  for (const p of IS.sparks) { g.globalAlpha = Math.min(1, p.life * 3); g.fillStyle = '#ffd36b'; g.fillRect(X(p.x) - 1.5, Y(p.y) - 1.5, 3, 3); }
+  g.globalAlpha = 1;
+  if (G.rub > 0 && G.rubAt) { g.font = `400 16px ${FONT_D}`; g.textAlign = 'center'; g.lineWidth = 4; g.strokeStyle = 'rgba(21,18,43,.8)'; const tx = X(G.rubAt[0]), ty = Y(G.rubAt[1]) - 14; g.strokeText('สายเสียด!', tx, ty); g.fillStyle = '#ffb38a'; g.fillText('สายเสียด!', tx, ty); }
+  for (const fl of IS.floats) {
+    const fx = fl.x == null ? VW / 2 : X(fl.x), fy = fl.x == null ? fl.y - (fl.max - fl.life) * 20 : Y(fl.y);
+    g.globalAlpha = Math.min(1, fl.life * 2.5); g.textAlign = 'center'; g.font = `400 ${fl.size}px ${FONT_D}`; g.lineWidth = 4; g.strokeStyle = 'rgba(21,18,43,.8)'; g.strokeText(fl.text, fx, fy); g.fillStyle = fl.col; g.fillText(fl.text, fx, fy); g.globalAlpha = 1;
+  }
+  drawParts(g);
+  iHudDraw(g, G);
+  if (G.st === 'count') { const n = Math.ceil(Kite.START - G.t); g.font = `400 54px ${FONT_D}`; g.textAlign = 'center'; g.lineWidth = 6; g.strokeStyle = 'rgba(21,18,43,.7)'; g.strokeText(th(n), VW / 2, VH / 2 + 40); g.fillStyle = C.gold; g.fillText(th(n), VW / 2, VH / 2 + 40); }
+  if (S.banner > 0 && G.t < Kite.START + 3) {
+    g.globalAlpha = Math.min(1, S.banner * 1.5); rr(g, VW / 2 - 270, 150, 540, 60, 14); g.fillStyle = 'rgba(21,17,46,.85)'; g.fill();
+    g.textAlign = 'center'; g.font = `400 20px ${FONT_D}`; g.fillStyle = C.gold; g.fillText(G.def.name, VW / 2, 176);
+    g.font = `600 12px ${FONT}`; g.fillStyle = C.paper; g.fillText(`${S.names[IS.roles.run]} วิ่งถอยไปทางซ้ายส่งว่าวขึ้น · ${S.names[IS.roles.line]} ผ่อนสายตอนว่าวกินลม ดึงสายตอนว่าวตก`, VW / 2, 198);
+    g.globalAlpha = 1;
+  }
+  if (O.role && S.mode !== 'menu') drawNetNote(g);
+}
+// a person flying a kite (the other teams), feet at (x, gy)
+function iFlyer(g, x, gy, col, k) {
+  g.save(); g.translate(x, gy); g.scale(k, k);
+  g.fillStyle = col; rr(g, -7, -22, 14, 16, 6); g.fill(); g.fillStyle = '#f2d2b0'; g.beginPath(); g.arc(0, -27, 6, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#3a3048'; g.fillRect(-5, -7, 4, 7); g.fillRect(1, -7, 4, 7);
+  g.restore();
+}
+// a kite at (x, y) on screen; a is the line's angle up from downwind (radians)
+function iKiteShape(g, x, y, a, kind, cols, size, t) {
+  g.save(); g.translate(x, y); g.rotate(-(a - Math.PI / 2) * 0.35 + Math.sin(t * 2.3 + x * .01) * .05);
+  const h = size, w = size * 0.75;
+  // tail ribbons, trailing downwind
+  g.strokeStyle = kind === 'chula' ? cols[0] : '#fff'; g.lineWidth = 2;
+  if (kind !== 'chula') { g.beginPath(); g.moveTo(0, h * .55); for (let i = 1; i <= 8; i++) g.lineTo(i * size * .18, h * .55 + i * size * .1 + Math.sin(t * 6 + i) * size * .06); g.stroke(); }
+  if (kind === 'chula') {
+    // a big five-pointed star kite
+    g.fillStyle = cols[0]; g.beginPath();
+    for (let i = 0; i < 10; i++) { const r = i % 2 ? h * .28 : h * .62, b = -Math.PI / 2 + i * Math.PI / 5; g.lineTo(Math.cos(b) * r, Math.sin(b) * r); }
+    g.closePath(); g.fill(); g.strokeStyle = 'rgba(255,255,255,.8)'; g.lineWidth = 1.5; g.stroke();
+  } else {
+    g.beginPath(); g.moveTo(0, -h * .55); g.lineTo(-w / 2, -h * .1); g.lineTo(0, h * .55); g.closePath(); g.fillStyle = cols[0]; g.fill();
+    g.beginPath(); g.moveTo(0, -h * .55); g.lineTo(w / 2, -h * .1); g.lineTo(0, h * .55); g.closePath(); g.fillStyle = cols[1]; g.fill();
+    g.strokeStyle = '#fff'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(0, -h * .55); g.lineTo(-w / 2, -h * .1); g.lineTo(0, h * .55); g.lineTo(w / 2, -h * .1); g.closePath(); g.moveTo(0, -h * .55); g.lineTo(0, h * .55); g.moveTo(-w / 2, -h * .1); g.lineTo(w / 2, -h * .1); g.stroke();
+    if (kind === 'ours') { g.fillStyle = C.gold; heartPath(g, 0, -h * .08, size * .12); g.fill(); }
+  }
+  g.restore();
+}
+function iHudDraw(g, G) {
+  const def = G.def, left = Math.max(0, def.time - Math.max(0, G.t - Kite.START));
+  // left: time, height, points
+  rr(g, 8, 8, 236, 58, 12); g.fillStyle = 'rgba(21,17,46,.82)'; g.fill();
+  g.textAlign = 'left'; g.font = `400 18px ${FONT_D}`; g.fillStyle = left < 10 ? '#ff8a8a' : C.paper;
+  g.fillText(`${th(Math.floor(left / 60))}:${th(String(Math.floor(left % 60)).padStart(2, '0'))}`, 18, 32);
+  g.font = `400 22px ${FONT_D}`; g.fillStyle = '#bfe6ff'; g.fillText(`${th(Math.round(Kite.height(G)))} ม.`, 84, 33);
+  g.font = `600 11px ${FONT}`; g.fillStyle = '#c9bfef'; g.fillText(`แต้ม ${th(Math.round(G.score))}`, 164, 22);
+  const st = def.stars, kk = Math.min(1, G.score / st[2]), bx = 18, bw = 216;
+  rr(g, bx, 44, bw, 6, 3); g.fillStyle = 'rgba(255,255,255,.15)'; g.fill(); if (kk > 0) { rr(g, bx, 44, Math.max(6, bw * kk), 6, 3); g.fillStyle = C.gold; g.fill(); }
+  g.font = `400 10px ${FONT}`; g.textAlign = 'center';
+  for (let i = 0; i < 3; i++) { g.fillStyle = G.score >= st[i] ? C.gold : 'rgba(255,255,255,.45)'; g.fillText('★', bx + bw * st[i] / st[2] - (i === 2 ? 4 : 0), 62); }
+  // right: the wind, the line's pull, line left on the reel
+  const x0 = VW - 250;
+  rr(g, x0, 8, 242, 58, 12); g.fillStyle = 'rgba(21,17,46,.82)'; g.fill();
+  const gust = Kite.gustSoon(G, G.t), w = G.wind;
+  g.textAlign = 'left'; g.font = `600 11px ${FONT}`; g.fillStyle = gust && Math.sin(S.time * 14) > 0 ? '#ffb38a' : '#c9bfef';
+  g.fillText(gust ? 'ลมกระโชก!' : w < 80 ? 'ลมหยุด' : 'ลม', x0 + 12, 24);
+  // a wind flag that flaps harder in stronger wind
+  const fl = Math.min(1, w / 200), fx = x0 + 74, fy = 14;
+  g.strokeStyle = '#d9cfe9'; g.lineWidth = 2; g.beginPath(); g.moveTo(fx, fy - 2); g.lineTo(fx, fy + 22); g.stroke();
+  g.fillStyle = gust ? '#ff8a8a' : '#ffcf5a'; g.beginPath(); g.moveTo(fx, fy);
+  for (let i = 1; i <= 5; i++) g.lineTo(fx + i * 9 * (0.4 + fl * .6), fy + 3 + Math.sin(S.time * (4 + fl * 10) + i) * (2 + (1 - fl) * 4) + (1 - fl) * i * 2);
+  for (let i = 5; i >= 0; i--) g.lineTo(fx + i * 9 * (0.4 + fl * .6), fy + 10 + Math.sin(S.time * (4 + fl * 10) + i) * (2 + (1 - fl) * 4) + (1 - fl) * i * 2);
+  g.fill();
+  g.fillStyle = '#c9bfef'; g.fillText('สายตึง', x0 + 128, 24);
+  const sn = Math.min(1, G.strain);
+  rr(g, x0 + 168, 16, 62, 8, 4); g.fillStyle = 'rgba(255,255,255,.15)'; g.fill();
+  if (sn > 0) { rr(g, x0 + 168, 16, Math.max(8, 62 * sn), 8, 4); g.fillStyle = sn > .8 ? '#ff6b6b' : sn > .55 ? '#ffcf5a' : '#7fe0a0'; g.fill(); }
+  const left2 = Math.max(0, def.spool - G.L);
+  g.fillStyle = left2 < 60 ? '#ffb38a' : '#c9bfef'; g.fillText(`สายในม้วน ${th(Math.round(left2 / Kite.METER))} ม.`, x0 + 12, 54);
+  const rb = Math.min(1, left2 / def.spool);
+  rr(g, x0 + 128, 46, 102, 6, 3); g.fillStyle = 'rgba(255,255,255,.15)'; g.fill(); if (rb > 0) { rr(g, x0 + 128, 46, Math.max(6, 102 * rb), 6, 3); g.fillStyle = '#bfe6ff'; g.fill(); }
+  // the runner's sprint and the handler's tug, ready or not
+  const rs = G.run.sprintCd > 0, tc = G.tugCd > 0;
+  g.font = `600 11px ${FONT}`; g.textAlign = 'center';
+  for (const [x, wait, text, id] of [[70, rs, 'วิ่งเร็ว', IS.roles.run], [VW - 70, tc, 'กระตุก', IS.roles.line]]) {
+    rr(g, x - 52, VH - 26, 104, 20, 10); g.fillStyle = 'rgba(21,17,46,.72)'; g.fill();
+    g.fillStyle = wait ? 'rgba(255,255,255,.45)' : (id === 'pink' ? C.pink : C.mint); g.fillText(wait ? `${text} (รอ)` : `${text}ได้`, x, VH - 12);
+  }
+}
+
+/* ---------- title list ---------- */
+function renderKiteLevels() {
+  let total = 0;
+  $('#ilevels').innerHTML = ILEVELS.map((lv, i) => {
+    const b = iBest(i), open = iOpen(i);
+    if (b) total += b.s;
+    const hs = b ? `<span class="st">${kStars(b.s)}</span> ${th(b.m)} แต้ม` : open ? 'ยังไม่เคยชัก' : 'ยังล็อกอยู่';
+    return `<button type="button" class="lv${b && b.s ? ' done' : ''}" data-f="${i}"${open ? '' : ' disabled'}><span class="n">${th(i + 1)}</span><span class="nm">${lv.name}</span><span class="hs">${hs}</span></button>`;
+  }).join('');
+  $('#iStarsAll').textContent = `ดาวรวม ${th(total)}/${th(ILEVELS.length * 3)}`;
+  let next = ILEVELS.findIndex((l, i) => iOpen(i) && !(iBest(i) && iBest(i).s >= 3));
+  if (next < 0) next = 0;
+  $('#bGo').dataset.f = next;
+  if (S.tab === 'kite') $('#bGo').textContent = iBest(next) ? `ชักว่าว${KFIELD(next)}` : 'ไปชักว่าว';
+}
+$('#ilevels').addEventListener('click', e => { const b = e.target.closest('[data-f]'); if (b && !b.disabled) startKite(+b.dataset.f); });
+
+/* ---------- online: the guest sends its stick and presses; the host flies the kite ---------- */
+function onlineStartKite(i) {
+  if (O.role !== 'host') return;
+  O.md = 'i'; O.lv = i; O.ep++; O.st = 'play'; O.seenDead = O.partner ? (O.partner.dead | 0) : 0; O.seenRq = O.partner ? (O.partner.rq | 0) : 0;
+  loadOnlineLevel(true);
+}
+$('#oLevelsI').addEventListener('click', e => { const b = e.target.closest('[data-f]'); if (b && !b.disabled) onlineStartKite(+b.dataset.f); });
+function renderOnlineKite() {
+  $('#oLevelsI').innerHTML = ILEVELS.map((lv, i) => {
+    const b = iBest(i), open = iOpen(i);
+    return `<button type="button" class="lv${b && b.s ? ' done' : ''}" data-f="${i}"${open ? '' : ' disabled'}><span class="n">${th(i + 1)}</span><span class="nm">${lv.name}</span><span class="hs">${b ? `<span class="st">${kStars(b.s)}</span>` : open ? 'ยังไม่เคยชัก' : 'ยังล็อกอยู่'}</span></button>`;
+  }).join('');
+}
+function iEncode() {
+  const G = IS.G;
+  if (O.role === 'host') return Object.assign(Kite.encode(G), { ro: IS.roles.run === 'mint' ? 'm' : 'p' });
+  const q = IS.lastInp || {}, r2 = v => Math.round((v || 0) * 100) / 100;
+  return { mx: r2(q.mx), my: r2(q.my), a: IS.act.n };
+}
+function iHostHears(pr) {
+  if (!IS.G || pr.ep !== O.ep || !pr.iw || typeof pr.iw !== 'object') return;
+  const m = pr.iw, rq = IS.remote;
+  rq.mx = Number.isFinite(m.mx) ? Math.max(-1, Math.min(1, m.mx)) : 0; rq.my = Number.isFinite(m.my) ? Math.max(-1, Math.min(1, m.my)) : 0;
+  const a = Number.isInteger(m.a) ? m.a : 0;
+  if (rq.seen < 0) rq.seen = a;
+  if (a > rq.seen) { rq.seen = a; rq.act = true; }
+}
+function iGuestHears(pr) {
+  const G = IS.G;
+  if (!G || !pr.iw) return;
+  Kite.apply(G, pr.iw, true);
+  if (typeof pr.iw.ro === 'string') { const r = pr.iw.ro === 'm' ? { run: 'mint', line: 'pink' } : { run: 'pink', line: 'mint' }; if (r.run !== IS.roles.run) { IS.roles = r; iPadLabels(); } }
+  iGuestDiff();
+  if (G.over && !IS.endT && S.mode === 'play') { IS.endT = 2.2; iSave(); }
+}
+
 /* ---------- Fullscreen ---------- */
 const isIPhone = /iPhone|iPod/.test(navigator.userAgent);
 const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement || null;
@@ -5715,7 +6163,7 @@ function boot(data) {
   requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
   if (inClaude()) setTimeout(roomApi, 300);
 }
-try { Object.defineProperty(window, '__tsr', { value: { S, KS, DS, RS, TS, MS, WS, LS, BS, VS, O, KK, KT, Twr, Leg, Boat, Mov }, configurable: true }); } catch (e) {}
+try { Object.defineProperty(window, '__tsr', { value: { S, KS, DS, RS, TS, MS, WS, LS, BS, VS, IS, O, KK, KT, Twr, Leg, Boat, Mov, Kite }, configurable: true }); } catch (e) {}
 try { if (window.claude && window.claude.hot && window.claude.hot.snapshot) window.claude.hot.snapshot(() => ({ names: S.names, li: S.li })); } catch (e) {}
 if (window.claude && window.claude.hot && window.claude.hot.ready) window.claude.hot.ready(boot);
 else boot((window.claude && window.claude.hot && window.claude.hot.data) || {});
