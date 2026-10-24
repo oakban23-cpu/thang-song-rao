@@ -1,11 +1,12 @@
-// Random play on every kitchen, defense night, driving route, takraw court, song and building site: nothing may throw, go NaN, leave the map,
+// Random play on every kitchen, defense night, driving route, takraw court, song, building site, race course, river and house:
+// nothing may throw, go NaN, leave the map,
 // sink into walls, duplicate an item, or fail to end the round.
 const vm = require('vm'), fs = require('fs'), path = require('path');
 const ctx = {}; vm.createContext(ctx);
 const JS = fs.existsSync(path.join(__dirname, 'game.js')) ? __dirname : path.join(__dirname, '..', 'js');   // coop/ (dev) or tests/ (repo)
-for (const f of ['kitchen', 'klevels', 'defense', 'dlevels', 'drive', 'rlevels', 'takraw', 'tlevels', 'rhythm', 'mlevels', 'tower', 'wlevels']) vm.runInContext(fs.readFileSync(path.join(JS, f + '.js'), 'utf8'), ctx);
-vm.runInContext('this.Kit=Kit;this.Def=Def;this.Drv=Drv;this.Tak=Tak;this.KL=KLEVELS;this.DL=DLEVELS;this.RL=RLEVELS;this.TL=TLEVELS;this.Rhy=Rhy;this.ML=MLEVELS;this.Twr=Twr;this.WL=WLEVELS;', ctx);
-const { Kit, Def, Drv, Tak, KL, DL, RL, TL, Rhy, ML, Twr, WL } = ctx;
+for (const f of ['kitchen', 'klevels', 'defense', 'dlevels', 'drive', 'rlevels', 'takraw', 'tlevels', 'rhythm', 'mlevels', 'tower', 'wlevels', 'leg', 'llevels', 'boat', 'blevels', 'move', 'vlevels']) vm.runInContext(fs.readFileSync(path.join(JS, f + '.js'), 'utf8'), ctx);
+vm.runInContext('this.Kit=Kit;this.Def=Def;this.Drv=Drv;this.Tak=Tak;this.KL=KLEVELS;this.DL=DLEVELS;this.RL=RLEVELS;this.TL=TLEVELS;this.Rhy=Rhy;this.ML=MLEVELS;this.Twr=Twr;this.WL=WLEVELS;this.Leg=Leg;this.LL=LLEVELS;this.Boat=Boat;this.BL=BLEVELS;this.Mov=Mov;this.VL=VLEVELS;', ctx);
+const { Kit, Def, Drv, Tak, KL, DL, RL, TL, Rhy, ML, Twr, WL, Leg, LL, Boat, BL, Mov, VL } = ctx;
 const RUNS = +process.argv[2] || 6;
 let seed = 1; const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
 const found = new Map();
@@ -247,6 +248,112 @@ for (const def of WL) {
   }
   console.log(`tower   ${def.name.padEnd(18)} ${RUNS} random sites (half online with a lagging guest and junk), ended ${ends}, most floors ${best}`);
 }
+// ---- three-legged race: random presses on either leg at random moments, half online (late presses, junk snapshots)
+for (const def of LL) {
+  let ends = 0, fin1 = 0;
+  for (let run = 0; run < RUNS; run++) {
+    seed = 5000 + run * 31 + def.name.length;
+    const online = run % 2 === 1, G = Leg.load(def), U = online ? Leg.load(def) : null, q = [];
+    const rate = [3, 6, 12][run % 3];
+    try {
+      for (let k = 0; k < Math.round((def.limit + Leg.START + 2) / Leg.DT) && !G.over; k++) {
+        for (const w of ['pink', 'mint']) if (rnd() < rate * Leg.DT) { const leg = rnd() < .5 ? 'in' : 'out'; if (online && w === 'mint') q.push({ at: G.t + 0.05 + rnd() * 0.25, leg, t: G.t }); else Leg.press(G, w, leg, G.t); }
+        while (q.length && q[0].at <= G.t) { const p = q.shift(); Leg.press(G, 'mint', p.leg, p.t); }
+        Leg.step(G);
+        if (online) { Leg.guestStep(U); if (k % 4 === 0) Leg.apply(U, JSON.parse(JSON.stringify(Leg.encode(G)))); if (rnd() < 0.005) Leg.apply(U, [null, 7, 'x', {}, { t: NaN, x: 1e9, st: 'zz' }, { pd: [[[9, 'q']], 5], b: -4 }, { it: [[1, 2]] }, { it: 'no', p: [[NaN, 1e9, 99]] }][Math.floor(rnd() * 8)]); }
+        if (!fin(G.x, G.t, G.bal, G.owe) || G.x < 0 || G.x > def.length || G.bal < 0 || G.bal > 1) report(`race ${def.name}: bad numbers`, `${G.x} ${G.bal} ${G.owe}`);
+        if (G.pend.pink.length > 2 || G.pend.mint.length > 2) report(`race ${def.name}: press queue grew`, JSON.stringify(G.pend));
+        if (online && (!fin(U.x, U.t, U.bal) || U.x > def.length)) report(`race ${def.name}: guest went strange`, `${U.x} ${U.bal}`);
+      }
+    } catch (e) { report(`race ${def.name}: threw`, e.message); }
+    if (G.over) ends++;
+    if (G.finished && Leg.stars(G) > 0) fin1++;
+  }
+  console.log(`race    ${def.name.padEnd(18)} ${RUNS} random races (half online), ended ${ends}, stars by mashing ${fin1}`);
+}
+
+// ---- long boat: random strokes either way on either side, half online (late strokes, soft snapshots, junk)
+for (const def of BL) {
+  let ends = 0, st1 = 0;
+  for (let run = 0; run < RUNS; run++) {
+    seed = 6000 + run * 37 + def.name.length;
+    const online = run % 2 === 1, G = Boat.load(def), U = online ? Boat.load(def) : null, q = [];
+    const rate = [2, 4, 8][run % 3];
+    try {
+      for (let k = 0; k < Math.round((def.limit + Boat.START + 2) / Boat.DT) && !G.over; k++) {
+        for (const w of ['pink', 'mint']) if (rnd() < rate * Boat.DT) { const kind = rnd() < .75 ? 'fwd' : 'back'; if (online && w === 'mint') q.push({ at: G.t + 0.05 + rnd() * 0.25, kind, t: G.t }); else Boat.press(G, w, kind, G.t); }
+        while (q.length && q[0].at <= G.t) { const p = q.shift(); Boat.press(G, 'mint', p.kind, p.t); }
+        Boat.step(G);
+        if (online) { Boat.guestStep(U); if (k % 4 === 0) Boat.apply(U, JSON.parse(JSON.stringify(Boat.encode(G))), true); if (rnd() < 0.005) Boat.apply(U, [null, 7, 'x', {}, { t: NaN, x: 1e9, st: 'zz' }, { pd: [[[9, 'q']], 5], b: -4 }, { it: [[1, 2]] }, { it: 'no', p: [[NaN, 1e9, 99]] }][Math.floor(rnd() * 8)], rnd() < .5); }
+        if (!fin(G.x, G.d, G.h, G.u, G.s, G.w, G.hull) || G.hull < 0 || G.hull > Boat.HULL) report(`boat ${def.name}: bad numbers`, `${G.x} ${G.d} ${G.h} ${G.hull}`);
+        const [l, r] = Boat.banks(def, G.d);
+        if (G.x < l - 5 || G.x > r + 5) report(`boat ${def.name}: boat on the bank`, `${G.x.toFixed(1)} not in ${l.toFixed(1)}..${r.toFixed(1)} at ${G.d.toFixed(0)}`);
+        if (online && !fin(U.x, U.d, U.h, U.hull)) report(`boat ${def.name}: guest went strange`, `${U.x} ${U.d}`);
+      }
+    } catch (e) { report(`boat ${def.name}: threw`, e.message); }
+    if (G.over) ends++;
+    if (Boat.stars(G) > 0) st1++;
+  }
+  console.log(`boat    ${def.name.padEnd(18)} ${RUNS} random paddles (half online), ended ${ends}, stars by mashing ${st1}`);
+}
+
+// ---- moving house: random walking, grabbing and letting go, half online (the guest walks itself, late presses, junk)
+for (const def of VL) {
+  let ends = 0, st1 = 0, lifts = 0, carried = 0;
+  for (let run = 0; run < RUNS; run++) {
+    seed = 7000 + run * 41 + def.name.length;
+    const online = run % 2 === 1, G = Mov.load(def), U = online ? Mov.load(def) : null, toHost = [], toGuest = [], rq = { mx: 0, my: 0, act: false, seen: -1 };
+    const wp = walker(), wm = walker(), actP = [0.004, 0.012, 0.03][run % 3];
+    let presses = 0;
+    try {
+      for (let k = 0; k < Math.round((def.time + 1) / Mov.DT) && !G.over; k++) {
+        const ip = wp(k, actP), im = wm(k, actP);
+        // now and then (playing on one machine) both step up to a piece of furniture and lift it, so random pushing
+        // also drives carried furniture into walls, doors and other pieces
+        if (!online && k % 700 === 350) {
+          const big = G.items.map((it, i) => i).filter(i => Mov.KINDS[G.items[i].k].two && G.items[i].st === 'floor');
+          if (big.length && G.p.pink.hold < 0 && G.p.mint.hold < 0) {
+            const i = big[Math.floor(rnd() * big.length)], it = G.items[i], h0 = Mov.handle(it, 0), h1 = Mov.handle(it, 1);
+            if (Mov.spotFree(G, h0[0], h0[1], i) && Mov.spotFree(G, h1[0], h1[1], i)) { G.p.pink.x = h0[0]; G.p.pink.y = h0[1]; G.p.mint.x = h1[0]; G.p.mint.y = h1[1]; ip.act = im.act = true; lifts++; }
+          }
+        }
+        if (!online) Mov.step(G, { pink: ip, mint: im });
+        else {
+          if (im.act) presses++;
+          Mov.guestStep(U, 'mint', im.mx, im.my);
+          if (k % 4 === 0) toHost.push({ at: G.t + 0.05 + rnd() * 0.2, m: JSON.parse(JSON.stringify(Mov.guestMsg(U, 'mint', im, presses))) });
+          while (toHost.length && toHost[0].at <= G.t) Mov.hostHears(G, 'mint', toHost.shift().m, rq);
+          if (rnd() < 0.003) Mov.hostHears(G, 'mint', [null, 7, 'x', {}, { t: NaN, x: 1e9, st: 'zz' }, { pd: [[[9, 'q']], 5], b: -4 }, { it: [[1, 2]] }, { it: 'no', p: [[NaN, 1e9, 99]] }][Math.floor(rnd() * 8)], rq);
+          Mov.step(G, { pink: ip, mint: { mx: rq.mx, my: rq.my, act: rq.act } }); rq.act = false;
+          if (k % 4 === 0) toGuest.push({ at: G.t + 0.05 + rnd() * 0.2, m: JSON.parse(JSON.stringify(Mov.encode(G))) });
+          while (toGuest.length && toGuest[0].at <= G.t) Mov.apply(U, toGuest.shift().m, 'mint');
+          if (rnd() < 0.003) Mov.apply(U, [null, 7, 'x', {}, { t: NaN, x: 1e9, st: 'zz' }, { pd: [[[9, 'q']], 5], b: -4 }, { it: [[1, 2]] }, { it: 'no', p: [[NaN, 1e9, 99]] }][Math.floor(rnd() * 8)], 'mint');
+        }
+        for (const X of online ? [G, U] : [G]) {
+          const who = X === G ? 'host' : 'guest';
+          for (const w of ['pink', 'mint']) {
+            const P = X.p[w];
+            if (!fin(P.x, P.y, P.fx, P.fy)) { report(`moving ${def.name}: bad numbers (${who})`, `${w} ${P.x} ${P.y}`); continue; }
+            if (P.x < 0 || P.y < 0 || P.x > Mov.W * Mov.T || P.y > Mov.H * Mov.T) report(`moving ${def.name}: ${who} player left the map`, `${w} ${P.x.toFixed(0)},${P.y.toFixed(0)}`);
+            if (X === G && Mov.circleHitsWalls(def, P.x, P.y, Mov.PR - 1)) report(`moving ${def.name}: player in a wall`, `${w} ${P.x.toFixed(1)},${P.y.toFixed(1)}`);
+          }
+        }
+        G.items.forEach((it, i) => {
+          if (!fin(it.x, it.y, it.a, it.dmg) || it.dmg < 0 || it.dmg > 100) report(`moving ${def.name}: bad item numbers`, JSON.stringify(it));
+          else if (Mov.KINDS[it.k].two && (it.st === 'floor' || it.st === 'carried' || it.st === 'placed') && Mov.rectHitsWalls(def, Mov.poly(it))) report(`moving ${def.name}: furniture in a wall`, `${it.k} ${it.st} ${it.x.toFixed(1)},${it.y.toFixed(1)} ${it.a.toFixed(2)}`);
+          const holders = ['pink', 'mint'].filter(w => G.p[w].hold === i).length;
+          if ((it.st === 'held' && holders !== 1) || (it.st === 'carried' && holders !== 2) || ((it.st === 'floor' || it.st === 'placed') && holders)) report(`moving ${def.name}: who holds what got mixed up`, `${it.k} ${it.st} held by ${holders}`);
+        });
+        if (G.money < 0 || G.stats.delivered > G.items.length) report(`moving ${def.name}: bad money`, `${G.money} ${G.stats.delivered}`);
+        if (G.items.some(it => it.st === 'carried')) carried++;
+      }
+    } catch (e) { report(`moving ${def.name}: threw`, e.stack.split('\n').slice(0, 2).join(' ')); }
+    if (G.over) ends++;
+    if (Mov.stars(G) > 0) st1++;
+  }
+  console.log(`moving  ${def.name.padEnd(18)} ${RUNS} random crews (half online), ended ${ends}, lifted ${lifts} times, carried for ${(carried * Mov.DT).toFixed(0)} s, stars by mashing ${st1}`);
+}
+
 console.log('\n--- findings ---');
 for (const [k, v] of found) console.log(`${k}  ×${v.n}  (${v.info})`);
 console.log(found.size ? `${found.size} kinds of problem` : 'TOPDOWN FUZZ CLEAN');

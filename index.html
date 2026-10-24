@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>ทางสองเรา</title>
-<meta name="description" content="เกมสองคน ผจญภัย ครัววุ่นวาย ป้องกันบ้าน ขับรถคู่ ตะกร้อ ดนตรีจังหวะคู่ และต่อตึก เล่นเครื่องเดียวกันหรือออนไลน์คนละเครื่อง">
+<meta name="description" content="เกมสองคน ผจญภัย ครัววุ่นวาย ป้องกันบ้าน ขับรถคู่ ตะกร้อ ดนตรี ต่อตึก วิ่งสามขา เรือยาว และย้ายบ้าน เล่นเครื่องเดียวกันหรือออนไลน์คนละเครื่อง">
 <meta name="theme-color" content="#15122b">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="mobile-web-app-capable" content="yes">
@@ -174,7 +174,7 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
 .tab.on{background:var(--gold);color:var(--ink)}
 .tab .new{margin-left:4px}
 .tab.on .new{background:var(--ink);color:var(--gold)}
-.app:not(.tab-adv) [data-mode="adv"],.app:not(.tab-kit) [data-mode="kit"],.app:not(.tab-def) [data-mode="def"],.app:not(.tab-drv) [data-mode="drv"],.app:not(.tab-tak) [data-mode="tak"],.app:not(.tab-mus) [data-mode="mus"],.app:not(.tab-twr) [data-mode="twr"]{display:none!important}
+.app:not(.tab-adv) [data-mode="adv"],.app:not(.tab-kit) [data-mode="kit"],.app:not(.tab-def) [data-mode="def"],.app:not(.tab-drv) [data-mode="drv"],.app:not(.tab-tak) [data-mode="tak"],.app:not(.tab-mus) [data-mode="mus"],.app:not(.tab-twr) [data-mode="twr"],.app:not(.tab-leg) [data-mode="leg"],.app:not(.tab-boat) [data-mode="boat"],.app:not(.tab-mov) [data-mode="mov"]{display:none!important}
 .mpad{position:absolute;left:0;right:0;bottom:0;z-index:4;display:none;justify-content:space-between;align-items:flex-end;padding:0 8px 8px;pointer-events:none}
 .app.touch.playing.mus .mpad{display:flex}
 .app.touch.playing.mus .pad,.app.touch.playing.mus .kpad{display:none!important}
@@ -191,13 +191,24 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
 .app.solo .wpad .side{--pc:var(--local, var(--pink))}
 .wpad button{width:clamp(76px,21vmin,118px);height:clamp(76px,21vmin,118px);border-radius:50%;border:3px solid var(--pc);background:rgba(21,18,43,.45);color:var(--pc);font:600 16px var(--f-ui);padding:0;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .wpad button.on{background:var(--pc);color:var(--ink)}
-.app.drv .kpad .kb.use{display:none}
+.lpad{position:absolute;left:0;right:0;bottom:0;z-index:4;display:none;justify-content:space-between;align-items:flex-end;padding:0 8px 8px;pointer-events:none}
+.app.touch.playing.leg #lpad,.app.touch.playing.boat #bpad{display:flex}
+.app.touch.playing.boat .pad,.app.touch.playing.boat .kpad{display:none!important}
+.bpad button[data-k="fwd"]{width:clamp(72px,21vmin,112px);height:clamp(72px,21vmin,112px)}
+.app.touch.playing.leg .pad,.app.touch.playing.leg .kpad{display:none!important}
+.lpad .side{display:flex;gap:10px;pointer-events:auto}.lpad .side.pink{--pc:var(--pink)}.lpad .side.mint{--pc:var(--mint)}
+.app.solo .lpad .side{--pc:var(--local, var(--pink))}
+.lpad button{width:clamp(64px,18vmin,100px);height:clamp(64px,18vmin,100px);border-radius:50%;border:3px solid var(--pc);background:rgba(21,18,43,.45);color:var(--pc);font:600 14px var(--f-ui);padding:0;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.lpad button[data-k="in"]{border-style:double;border-width:5px}
+.lpad button.on{background:var(--pc);color:var(--ink)}
+.lpad i{font-style:normal}
+.app.drv .kpad .kb.use,.app.mov .kpad .kb.use{display:none}
 .kstars{margin:4px 0 0;font:400 40px/1.2 var(--f-display);letter-spacing:.12em;color:var(--gold)}
 .kstars .off{color:var(--line)}
 .lv .st{font-size:12px;color:var(--gold);letter-spacing:.06em}
 .kpad{position:absolute;inset:0;z-index:4;display:none;pointer-events:none}
-.app.touch.playing.kit .kpad,.app.touch.playing.def .kpad,.app.touch.playing.drv .kpad,.app.touch.playing.tak .kpad{display:block}
-.app.touch.playing.kit .pad,.app.touch.playing.def .pad,.app.touch.playing.drv .pad,.app.touch.playing.tak .pad{display:none!important}
+.app.touch.playing.kit .kpad,.app.touch.playing.def .kpad,.app.touch.playing.drv .kpad,.app.touch.playing.tak .kpad,.app.touch.playing.mov .kpad{display:block}
+.app.touch.playing.kit .pad,.app.touch.playing.def .pad,.app.touch.playing.drv .pad,.app.touch.playing.tak .pad,.app.touch.playing.mov .pad{display:none!important}
 .kside{position:absolute;bottom:6px;display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:auto}
 .kside.pink{left:0;--pc:var(--pink)}
 .kside.mint{right:0;--pc:var(--mint)}
@@ -242,8 +253,11 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
           <button class="tab" type="button" role="tab" data-tab="def" aria-selected="false">ป้องกันบ้าน</button>
           <button class="tab" type="button" role="tab" data-tab="drv" aria-selected="false">ขับรถคู่</button>
           <button class="tab" type="button" role="tab" data-tab="tak" aria-selected="false">ตะกร้อ</button>
-          <button class="tab" type="button" role="tab" data-tab="mus" aria-selected="false">ดนตรี <span class="new">ใหม่</span></button>
-          <button class="tab" type="button" role="tab" data-tab="twr" aria-selected="false">ต่อตึก <span class="new">ใหม่</span></button>
+          <button class="tab" type="button" role="tab" data-tab="mus" aria-selected="false">ดนตรี</button>
+          <button class="tab" type="button" role="tab" data-tab="twr" aria-selected="false">ต่อตึก</button>
+          <button class="tab" type="button" role="tab" data-tab="leg" aria-selected="false">วิ่งสามขา <span class="new">ใหม่</span></button>
+          <button class="tab" type="button" role="tab" data-tab="boat" aria-selected="false">เรือยาว <span class="new">ใหม่</span></button>
+          <button class="tab" type="button" role="tab" data-tab="mov" aria-selected="false">ย้ายบ้าน <span class="new">ใหม่</span></button>
         </div>
         <p class="tag" data-mode="kit">เปิดร้านอาหารตามสั่งด้วยกัน หั่น ทอด ตำ จัดจาน ส่งให้ทันก่อนลูกค้าหมดความอดทน ยิ่งเร็วยิ่งได้ทิป ด่านหลังๆ เตาลุกไฟ แล้วครัวก็ลอยไปบนเรือ</p>
         <p class="tag" data-mode="def">ผีน้อยบุกมาเคาะบ้านทุกคืน ฮีโร่ยิงผีเอง แค่เดินไปยืนให้ดี ยืนใกล้กันจะมีสายใจเชื่อมไว้เผาผี ใครล้มอีกคนต้องไปช่วยพยุง เก็บเหรียญมาสร้างตะเกียงกับซ่อมบ้าน</p>
@@ -251,10 +265,13 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
         <p class="tag" data-mode="tak">ตะกร้อลอดห่วงสองคน ช่วยกันเดาะ ส่งลูกให้กันกลางอากาศ แล้วกระโดดเตะลงห่วง ลูกจะได้แต้มต้องผ่านเท้าเพื่อนก่อน ยิ่งส่งกันหลายทอดแต้มยิ่งคูณ</p>
         <p class="tag" data-mode="mus">วงดนตรีสองคน ชมพูตีกลองยาว มิ้นต์ตีระนาด ตีให้ตรงจังหวะตอนโน้ตตกถึงเส้น คอมโบกับพลังวงใช้ร่วมกัน โน้ตที่มาพร้อมกันต้องตีพร้อมกันเป๊ะ ติดกันสี่ครั้งวงจะเข้าขา แต้มสองเท่า</p>
         <p class="tag" data-mode="twr">ต่อตึกด้วยกันคนละครึ่ง ปั้นจั่นของใครของมัน กดปล่อยให้ครึ่งตึกตรงกับชั้นล่างของตัวเอง ส่วนที่ยื่นเกินโดนตัดทิ้ง รอยต่อตรงกลางต้องชนกันพอดี ไม่งั้นตึกจะโยกหนักขึ้นเรื่อยๆ ลงเป๊ะทั้งคู่ได้หมวกนิรภัยคืน</p>
+        <p class="tag" data-mode="leg">วิ่งสามขางานกีฬาสี ขาในของสองคนผูกติดกัน ต้องกดขาในพร้อมกัน แล้วขานอกพร้อมกัน สลับไปเรื่อยๆ กดห่างกันน้อยก้าวยิ่งยาว กดผิดขาหรือคนละขาจะเซจนล้ม แข่งกับอีกสามทีมผ่านโคลน เนิน รั้ว และพื้นเปียก</p>
+        <p class="tag" data-mode="boat">เรือยาวพายคู่ ชมพูพายซ้าย มิ้นต์พายขวา พายพร้อมกันเรือไปตรงและพุ่งไกล พายข้างเดียวเรือเลี้ยวไปอีกฝั่ง หลบหิน เรือแม่ค้า ขอนไม้ และวังน้ำวน เก็บกระทงลดเวลา แล้วแข่งกับเรือคู่แข่งในงานประเพณี</p>
+        <p class="tag" data-mode="mov">รับจ้างย้ายบ้านสองคน โซฟา ตู้ เตียง เปียโน ต้องยกคนละปลาย เดินไปทางเดียวกันของจะไปตรงๆ เดินสวนกันของจะหมุน ค่อยๆ เลี้ยวผ่านประตูแคบ ชนแรงของบุบ วางให้ตรงเส้นประ ย้ายเสร็จเร็วได้ทิป</p>
         <p class="tag" data-mode="adv">ทุกด่านคนเดียวผ่านไม่ได้ ต้องเหยียบหัวกัน ยืนกดเปิดทางให้กัน ช่วยกันเข็นหิน และคิดลำดับให้ดี จนเดินเข้าประตูหัวใจได้พร้อมกันทั้งคู่</p>
         <div class="duo">
-          <label class="who pink"><span class="chip" aria-hidden="true"></span><span class="role">ตัวชมพู · <b data-kb data-mode="adv">W A D</b><b data-kb data-mode="kit">W A S D</b><b data-kb data-mode="def">W A S D</b><b data-kb data-mode="drv" id="rolePinkK">A D เลี้ยว</b><b data-kb data-mode="tak">A D W</b><b data-kb data-mode="mus">A D</b><b data-kb data-mode="twr">W</b><b data-tc data-mode="drv" id="rolePinkT">พวงมาลัย</b><b data-tc>ปุ่มฝั่งซ้าย</b></span><input id="nPink" maxlength="10" value="เค้า" autocomplete="off"></label>
-          <label class="who mint"><span class="chip" aria-hidden="true"></span><span class="role">ตัวมิ้นต์ · <b data-kb data-mode="adv">↑ ← →</b><b data-kb data-mode="kit">ลูกศร</b><b data-kb data-mode="def">ลูกศร</b><b data-kb data-mode="drv" id="roleMintK">↑ ↓ คันเร่ง เบรก</b><b data-kb data-mode="tak">← → ↑</b><b data-kb data-mode="mus">← →</b><b data-kb data-mode="twr">↑</b><b data-tc data-mode="drv" id="roleMintT">คันเร่ง</b><b data-tc>ปุ่มฝั่งขวา</b></span><input id="nMint" maxlength="10" value="ตัวเอง" autocomplete="off"></label>
+          <label class="who pink"><span class="chip" aria-hidden="true"></span><span class="role">ตัวชมพู · <b data-kb data-mode="adv">W A D</b><b data-kb data-mode="kit">W A S D</b><b data-kb data-mode="def">W A S D</b><b data-kb data-mode="drv" id="rolePinkK">A D เลี้ยว</b><b data-kb data-mode="tak">A D W</b><b data-kb data-mode="mus">A D</b><b data-kb data-mode="twr">W</b><b data-kb data-mode="leg">A D</b><b data-kb data-mode="boat">W S</b><b data-kb data-mode="mov">W A S D</b><b data-tc data-mode="drv" id="rolePinkT">พวงมาลัย</b><b data-tc>ปุ่มฝั่งซ้าย</b></span><input id="nPink" maxlength="10" value="เค้า" autocomplete="off"></label>
+          <label class="who mint"><span class="chip" aria-hidden="true"></span><span class="role">ตัวมิ้นต์ · <b data-kb data-mode="adv">↑ ← →</b><b data-kb data-mode="kit">ลูกศร</b><b data-kb data-mode="def">ลูกศร</b><b data-kb data-mode="drv" id="roleMintK">↑ ↓ คันเร่ง เบรก</b><b data-kb data-mode="tak">← → ↑</b><b data-kb data-mode="mus">← →</b><b data-kb data-mode="twr">↑</b><b data-kb data-mode="leg">← →</b><b data-kb data-mode="boat">↑ ↓</b><b data-kb data-mode="mov">ลูกศร</b><b data-tc data-mode="drv" id="roleMintT">คันเร่ง</b><b data-tc>ปุ่มฝั่งขวา</b></span><input id="nMint" maxlength="10" value="ตัวเอง" autocomplete="off"></label>
         </div>
         <p class="keys" data-kb data-mode="kit">ชมพู <kbd>Space</kbd> หยิบ/วาง <kbd>Shift</kbd> ซ้าย ใช้ (หั่น ตำ ล้าง ฉีด) · มิ้นต์ <kbd>Enter</kbd> หยิบ/วาง <kbd>Shift</kbd> ขวา ใช้ · <kbd>Esc</kbd> พักเกม</p>
         <p class="keys" data-tc data-mode="kit">หมุนเครื่องเป็นแนวนอน ถือกันคนละฝั่ง แต่ละฝั่งมีจอยสติ๊กกับปุ่มหยิบ/วางและปุ่มใช้ (หั่น ตำ ล้าง ฉีด)</p>
@@ -268,6 +285,12 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
         <p class="keys" data-tc data-mode="mus">หมุนเครื่องเป็นแนวนอน ถือกันคนละฝั่ง แต่ละฝั่งมีปุ่มเสียงต่ำกับเสียงสูง แตะตอนโน้ตตกถึงวงกลม · เปิดเสียงด้วยจะเล่นง่ายขึ้นมาก</p>
         <p class="keys" data-kb data-mode="twr">ชมพูกด <kbd>W</kbd> หรือ <kbd>Space</kbd> ปล่อยครึ่งตึก · มิ้นต์กด <kbd>↑</kbd> หรือ <kbd>Enter</kbd> · ปล่อยตอนขอบด้านในตรงกับชั้นล่าง · <kbd>Esc</kbd> พักเกม</p>
         <p class="keys" data-tc data-mode="twr">หมุนเครื่องเป็นแนวนอน ถือกันคนละฝั่ง แต่ละฝั่งมีปุ่มปล่อยปุ่มเดียว แตะตอนครึ่งตึกของตัวเองตรงกับเส้นประของชั้นล่าง</p>
+        <p class="keys" data-kb data-mode="leg">ชมพู <kbd>D</kbd> ขาใน <kbd>A</kbd> ขานอก · มิ้นต์ <kbd>←</kbd> ขาใน <kbd>→</kbd> ขานอก · กดขาเดียวกันพร้อมกัน สลับใน นอก ใน นอก · <kbd>Esc</kbd> พักเกม</p>
+        <p class="keys" data-tc data-mode="leg">หมุนเครื่องเป็นแนวนอน ถือกันคนละฝั่ง แต่ละฝั่งมีปุ่มขาในกับขานอก กดขาเดียวกันพร้อมกัน สลับใน นอก ใน นอก</p>
+        <p class="keys" data-kb data-mode="boat">ชมพูพายฝั่งซ้าย <kbd>W</kbd> พาย <kbd>S</kbd> ทวน · มิ้นต์พายฝั่งขวา <kbd>↑</kbd> พาย <kbd>↓</kbd> ทวน · อยากเลี้ยวขวาให้ชมพูพาย อยากเลี้ยวซ้ายให้มิ้นต์พาย · <kbd>Esc</kbd> พักเกม</p>
+        <p class="keys" data-tc data-mode="boat">หมุนเครื่องเป็นแนวนอน ถือกันคนละฝั่ง ฝั่งซ้ายพายซ้าย ฝั่งขวาพายขวา แต่ละฝั่งมีปุ่มพายกับปุ่มทวน พายพร้อมกันเรือไปตรง</p>
+        <p class="keys" data-kb data-mode="mov">ชมพูเดิน <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> ยก/วาง <kbd>Space</kbd> · มิ้นต์เดินลูกศร ยก/วาง <kbd>Enter</kbd> · ของใหญ่ต้องจับคนละปลาย เดินไปทางเดียวกันของไปตรง เดินสวนกันของหมุน · <kbd>Esc</kbd> พักเกม</p>
+        <p class="keys" data-tc data-mode="mov">หมุนเครื่องเป็นแนวนอน ถือกันคนละฝั่ง แต่ละฝั่งมีจอยสติ๊กกับปุ่มยก/วาง ของใหญ่ต้องจับคนละปลาย เดินไปทางเดียวกันของไปตรง เดินสวนกันของหมุน</p>
         <p class="keys" data-kb data-mode="adv">ชมพูกด <kbd>W</kbd> กระโดด มิ้นต์กด <kbd>↑</kbd> กระโดด · <kbd>R</kbd> เริ่มด่านใหม่ · <kbd>Esc</kbd> พักเกม · <kbd>F</kbd> เต็มจอ · ใครพลาดต้องเริ่มด่านใหม่ทั้งคู่</p>
         <p class="keys" data-tc data-mode="adv">หมุนเครื่องเป็นแนวนอน ถือกันคนละฝั่ง ปุ่มซ้ายของจอเป็นของชมพู ปุ่มขวาเป็นของมิ้นต์ · ใครพลาดต้องเริ่มด่านใหม่ทั้งคู่</p>
         <div class="lv-head" data-mode="kit"><h3>ร้านของเรา</h3><span class="note" id="kStarsAll"></span></div>
@@ -288,6 +311,15 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
         <div class="lv-head" data-mode="twr"><h3>ไซต์ก่อสร้าง</h3><span class="note" id="wStarsAll"></span></div>
         <p class="ch-note" data-mode="twr">ได้อย่างน้อย ๑ ดาวเพื่อเปิดไซต์ถัดไป ดาวคิดจากจำนวนชั้นที่ต่อได้</p>
         <div class="levels" id="wlevels" data-mode="twr"></div>
+        <div class="lv-head" data-mode="leg"><h3>สนามแข่ง</h3><span class="note" id="lStarsAll"></span></div>
+        <p class="ch-note" data-mode="leg">ชนะอย่างน้อยหนึ่งทีมเพื่อเปิดสนามถัดไป ชนะทีมแดงแชมป์เก่าได้สามดาว</p>
+        <div class="levels" id="llevels" data-mode="leg"></div>
+        <div class="lv-head" data-mode="boat"><h3>สายน้ำ</h3><span class="note" id="bStarsAll"></span></div>
+        <p class="ch-note" data-mode="boat">ถึงเส้นชัยได้อย่างน้อย ๑ ดาวเพื่อเปิดสายน้ำถัดไป ดาวคิดจากเวลาที่หักกระทงแล้ว</p>
+        <div class="levels" id="blevels" data-mode="boat"></div>
+        <div class="lv-head" data-mode="mov"><h3>บ้านที่รับย้าย</h3><span class="note" id="vStarsAll"></span></div>
+        <p class="ch-note" data-mode="mov">ได้อย่างน้อย ๑ ดาวเพื่อเปิดบ้านหลังถัดไป ดาวคิดจากเงินที่ได้ ของบุบได้เงินน้อยลง เสร็จเร็วได้ทิป</p>
+        <div class="levels" id="vlevels" data-mode="mov"></div>
         <div data-mode="adv">
         <div class="lv-head"><h3>บทที่ ๑ · ฝึกมือ</h3><span class="note" id="tHearts1"></span></div>
         <p class="ch-note">ด่านละหนึ่งกลไก ไว้ทำความรู้จักของในเกม</p>
@@ -391,6 +423,12 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
             <div class="levels" id="oLevelsM"></div>
             <div class="lv-head"><h3>ต่อตึกด้วยกัน</h3></div>
             <div class="levels" id="oLevelsW"></div>
+            <div class="lv-head"><h3>วิ่งสามขา</h3></div>
+            <div class="levels" id="oLevelsL"></div>
+            <div class="lv-head"><h3>เรือยาวพายคู่</h3></div>
+            <div class="levels" id="oLevelsB"></div>
+            <div class="lv-head"><h3>ย้ายบ้านแบกของ</h3></div>
+            <div class="levels" id="oLevelsV"></div>
           </div>
         </div>
         <div class="actions">
@@ -429,6 +467,14 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
       <div class="side pink" data-p="pink"><button type="button" data-k="lo"><i>ต่ำ</i></button><button type="button" data-k="hi"><i>สูง</i></button></div>
       <div class="side mint" data-p="mint"><button type="button" data-k="lo"><i>ต่ำ</i></button><button type="button" data-k="hi"><i>สูง</i></button></div>
     </div>
+    <div class="lpad bpad" id="bpad">
+      <div class="side pink" data-p="pink"><button type="button" data-k="back"><i>ทวน</i></button><button type="button" data-k="fwd"><i>พาย</i></button></div>
+      <div class="side mint" data-p="mint"><button type="button" data-k="fwd"><i>พาย</i></button><button type="button" data-k="back"><i>ทวน</i></button></div>
+    </div>
+    <div class="lpad" id="lpad">
+      <div class="side pink" data-p="pink"><button type="button" data-k="out"><i>ขานอก</i></button><button type="button" data-k="in"><i>ขาใน</i></button></div>
+      <div class="side mint" data-p="mint"><button type="button" data-k="in"><i>ขาใน</i></button><button type="button" data-k="out"><i>ขานอก</i></button></div>
+    </div>
     <div class="wpad" id="wpad">
       <div class="side pink" data-p="pink"><button type="button">ปล่อย</button></div>
       <div class="side mint" data-p="mint"><button type="button">ปล่อย</button></div>
@@ -446,6 +492,9 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
 <script src="js/takraw.js"></script>
 <script src="js/rhythm.js"></script>
 <script src="js/tower.js"></script>
+<script src="js/leg.js"></script>
+<script src="js/boat.js"></script>
+<script src="js/move.js"></script>
 <script src="js/levels.js"></script>
 <script src="js/klevels.js"></script>
 <script src="js/dlevels.js"></script>
@@ -453,6 +502,9 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
 <script src="js/tlevels.js"></script>
 <script src="js/mlevels.js"></script>
 <script src="js/wlevels.js"></script>
+<script src="js/llevels.js"></script>
+<script src="js/blevels.js"></script>
+<script src="js/vlevels.js"></script>
 <script src="js/game.js"></script>
 </body>
 </html>
