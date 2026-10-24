@@ -243,6 +243,84 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
 .knob{position:absolute;left:50%;top:50%;width:42%;height:42%;margin:-21% 0 0 -21%;border-radius:50%;background:var(--pc);opacity:.85;pointer-events:none}
 .rotate{display:none;position:absolute;left:0;right:0;bottom:150px;margin:0;text-align:center;font-size:13px;color:var(--muted)}
 @media (orientation:portrait){.app.touch.playing .rotate{display:block}}
+
+/* ---------- the art pass: softer light, cute details, a little bounce ---------- */
+body{background:radial-gradient(90% 60% at 50% 0%, #221b46, var(--night) 70%)}
+#cv{box-shadow:0 0 0 1px var(--line), 0 18px 44px rgba(0,0,0,.5), 0 0 70px rgba(130,100,230,.12)}
+.hud .lv-no{padding:1px 12px;border-radius:999px;background:rgba(255,207,90,.1);box-shadow:inset 0 0 0 1px rgba(255,207,90,.3)}
+.screen{background:radial-gradient(70% 55% at 15% 6%, rgba(255,111,156,.16), transparent 70%),radial-gradient(60% 50% at 90% 96%, rgba(79,224,191,.14), transparent 70%),var(--scrim)}
+.panel{position:relative;isolation:isolate;border-color:#4a3f8c;
+  background:radial-gradient(120% 60% at 50% -12%, rgba(255,207,90,.09), transparent 60%),linear-gradient(180deg,#2a2259 0%,#221c47 45%,#1c173d 100%);
+  box-shadow:0 24px 60px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.08)}
+.panel::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none;
+  background:radial-gradient(circle at 7% 10%, rgba(255,255,255,.55) 0 1px, transparent 1.7px),radial-gradient(circle at 93% 5%, rgba(255,230,160,.7) 0 1.3px, transparent 2px),
+  radial-gradient(circle at 71% 3%, rgba(255,255,255,.4) 0 1px, transparent 1.7px),radial-gradient(circle at 34% 2%, rgba(255,255,255,.35) 0 .9px, transparent 1.5px),
+  radial-gradient(circle at 97% 38%, rgba(255,255,255,.3) 0 1px, transparent 1.7px),radial-gradient(circle at 2.5% 55%, rgba(255,230,160,.45) 0 1px, transparent 1.7px),
+  radial-gradient(circle at 96% 88%, rgba(255,170,200,.4) 0 1.2px, transparent 1.9px),radial-gradient(circle at 4% 94%, rgba(160,255,230,.35) 0 1.2px, transparent 1.9px)}
+.title{display:inline-block;padding-right:.1em;background:linear-gradient(180deg,#fff0b8 0%,#ffcf5a 52%,#ffa95c 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 3px 0 rgba(120,66,20,.6)) drop-shadow(0 10px 20px rgba(255,170,90,.22))}
+.title::after{content:"\2665";display:inline-block;margin-left:.16em;font-size:.4em;vertical-align:1em;color:var(--pink);-webkit-text-fill-color:var(--pink);animation:beat 1.6s ease-in-out infinite}
+.panel h2{background:linear-gradient(180deg,#fff0b8 0%,#ffcf5a 55%,#ffad5c 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 2px 0 rgba(120,66,20,.55))}
+#sClear h2::before{content:"\2665";display:block;font-size:30px;line-height:1.1;color:var(--pink);-webkit-text-fill-color:var(--pink);animation:beat 1.4s ease-in-out infinite}
+@keyframes beat{0%,100%{transform:scale(1)}14%{transform:scale(1.25)}28%{transform:scale(1)}42%{transform:scale(1.14)}56%{transform:scale(1)}}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+@keyframes blink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.1)}}
+@keyframes starPop{0%{transform:scale(0) rotate(-50deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}
+@keyframes sprinkle{0%{transform:translateY(-35%);opacity:0}12%{opacity:1}100%{transform:translateY(40%);opacity:0}}
+/* the two of them peeking in next to the title */
+.peek{position:absolute;top:50px;right:26px;display:flex;align-items:flex-end;gap:5px;pointer-events:none}
+.pk{position:relative;width:44px;height:50px;border-radius:19px 19px 15px 15px;animation:bob 2.6s ease-in-out infinite;box-shadow:inset 0 -6px 0 rgba(0,0,0,.14),0 8px 16px rgba(0,0,0,.35)}
+.pk.p{background:radial-gradient(circle at 28% 20%,rgba(255,255,255,.8) 0 3.5px,transparent 4.5px),linear-gradient(180deg,#ffb8cf,#ff6f9c 60%,#e0507f)}
+.pk.m{height:46px;background:radial-gradient(circle at 28% 20%,rgba(255,255,255,.8) 0 3.5px,transparent 4.5px),linear-gradient(180deg,#b0f4e2,#4fe0bf 60%,#2fb898);animation-delay:-1.2s}
+.pk::before{content:"";position:absolute;left:8px;right:8px;top:16px;height:13px;animation:blink 4.2s infinite;
+  background:radial-gradient(circle at 19% 32%,#fff 0 1.4px,transparent 2px),radial-gradient(circle at 70% 32%,#fff 0 1.4px,transparent 2px),radial-gradient(circle at 24% 50%,#2a1f4a 0 3.7px,transparent 4.2px),radial-gradient(circle at 76% 50%,#2a1f4a 0 3.7px,transparent 4.2px)}
+.pk.m::before{animation-delay:-1.9s}
+.pk::after{content:"";position:absolute;left:2px;right:2px;top:29px;height:8px;background:radial-gradient(closest-side,rgba(255,110,150,.6),transparent) 0 0/12px 8px no-repeat,radial-gradient(closest-side,rgba(255,110,150,.6),transparent) 100% 0/12px 8px no-repeat}
+.pk b{position:absolute;left:50%;top:29px;width:8px;height:4px;margin-left:-4px;border:2px solid #2a1f4a;border-top:0;border-radius:0 0 8px 8px}
+.pk.p i{position:absolute;top:-7px;right:2px;width:24px;height:14px;background:radial-gradient(circle,#d99520 0 3px,transparent 3.6px) 50% 50%/8px 8px no-repeat,radial-gradient(closest-side,#ffcf5a 80%,transparent) 0 0/12px 14px no-repeat,radial-gradient(closest-side,#ffcf5a 80%,transparent) 100% 0/12px 14px no-repeat}
+.pk.m i{position:absolute;top:-11px;left:50%;width:2px;height:12px;background:#3f8f4a;border-radius:2px}
+.pk.m i::after{content:"";position:absolute;left:1px;top:-4px;width:14px;height:8px;background:#7cc46d;border-radius:0 100% 0 100%;transform:rotate(-22deg);transform-origin:0 100%}
+.pk.m i::before{content:"";position:absolute;right:1px;top:0;width:9px;height:6px;background:#5fae55;border-radius:100% 0 100% 0;transform:rotate(18deg);transform-origin:100% 100%}
+@media (max-width:520px){.peek{top:68px;right:16px;transform:scale(.82);transform-origin:100% 0}}
+/* mode cards, level buttons, name cards, buttons */
+.tab.mode{background:linear-gradient(180deg,#30285f,#272052);box-shadow:0 2px 0 rgba(0,0,0,.25);transition:border-color .15s,background .15s,transform .15s,box-shadow .15s}
+.tab.mode:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(0,0,0,.35)}
+.tab.mode.on{background:linear-gradient(180deg,#4b3e8e,#3a2f72);box-shadow:0 0 0 3px rgba(255,207,90,.16),0 8px 20px rgba(0,0,0,.4)}
+.tab.mode .pic{box-shadow:inset 0 0 0 1px rgba(255,255,255,.12),0 3px 8px rgba(0,0,0,.35);transition:transform .2s}
+.tab.mode:hover .pic,.tab.mode.on .pic{transform:rotate(-5deg) scale(1.06)}
+.lv{background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.012));transition:border-color .15s,transform .15s,box-shadow .15s,background .15s}
+.lv:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 16px rgba(0,0,0,.3);background:linear-gradient(180deg,rgba(255,207,90,.1),rgba(255,207,90,.02))}
+.lv .n{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;font-size:21px;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.16),rgba(255,255,255,.03) 70%);box-shadow:inset 0 0 0 1.5px rgba(255,207,90,.4)}
+.lv.done{border-color:rgba(255,207,90,.42);background:linear-gradient(180deg,rgba(255,207,90,.1),rgba(255,207,90,.025))}
+.lv.done .n{color:var(--ink);background:radial-gradient(circle at 35% 30%,#fff0b8,#ffcf5a 58%,#d9a032);box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.who{background:linear-gradient(135deg,rgba(255,111,156,.16),rgba(43,36,86,.92) 58%)}
+.who.mint{background:linear-gradient(135deg,rgba(79,224,191,.15),rgba(43,36,86,.92) 58%)}
+.chip{background:linear-gradient(180deg,#ffb8cf,var(--pink));box-shadow:inset 0 -3px 0 rgba(0,0,0,.15)}
+.who.mint .chip{background:linear-gradient(180deg,#b0f4e2,var(--mint))}
+.cta{background:linear-gradient(180deg,#ffe596,#ffcc4d 55%,#f5b42e);box-shadow:0 4px 0 var(--gold-deep),0 8px 20px rgba(255,190,60,.25),inset 0 1px 0 rgba(255,255,255,.65);transition:transform .1s,filter .15s}
+.cta:hover{filter:brightness(1.06)}
+.ghost{transition:border-color .15s,background .15s}
+.ghost:hover{background:rgba(255,255,255,.05)}
+.tips li{background:linear-gradient(180deg,#30285f,#292257)}
+.code-show b{background:linear-gradient(180deg,#fff0b8,#ffcf5a 55%,#ffa95c);-webkit-background-clip:text;background-clip:text;color:transparent}
+.o-card{background:linear-gradient(180deg,#30285f,#272052)}
+/* the results: stars pop in one by one, sprinkles fall when any star is won */
+.kstars span{display:inline-block;animation:starPop .55s cubic-bezier(.3,1.6,.5,1) both}
+.kstars span:nth-child(2){animation-delay:.2s}
+.kstars span:nth-child(3){animation-delay:.4s}
+.kstars span:not(.off){text-shadow:0 0 18px rgba(255,207,90,.55),0 3px 0 #b98a1f}
+#sClear .panel{overflow:hidden}
+#sClear .panel:has(.kstars:not([hidden]) span:not(.off))::after{content:"";position:absolute;left:0;right:0;top:0;height:120%;pointer-events:none;animation:sprinkle 2.8s ease-in .3s both;
+  background:radial-gradient(circle at 8% 4%,#ff8fb5 0 3px,transparent 3.6px),radial-gradient(circle at 19% 14%,#ffd36b 0 2.5px,transparent 3px),radial-gradient(circle at 31% 2%,#4fe0bf 0 3px,transparent 3.6px),
+  radial-gradient(circle at 42% 18%,#9fb4ff 0 2.5px,transparent 3px),radial-gradient(circle at 55% 6%,#ff8fb5 0 2.5px,transparent 3px),radial-gradient(circle at 66% 16%,#ffd36b 0 3px,transparent 3.6px),
+  radial-gradient(circle at 77% 3%,#4fe0bf 0 2.5px,transparent 3px),radial-gradient(circle at 88% 12%,#ffb08a 0 3px,transparent 3.6px),radial-gradient(circle at 95% 22%,#ff8fb5 0 2.5px,transparent 3px),
+  radial-gradient(circle at 13% 26%,#9fb4ff 0 2.5px,transparent 3px),radial-gradient(circle at 36% 30%,#ffb08a 0 2px,transparent 2.6px),radial-gradient(circle at 61% 28%,#4fe0bf 0 2px,transparent 2.6px),
+  radial-gradient(circle at 83% 32%,#ffd36b 0 2.5px,transparent 3px),radial-gradient(circle at 4% 36%,#ffd36b 0 2px,transparent 2.6px),radial-gradient(circle at 50% 38%,#ff8fb5 0 2px,transparent 2.6px)}
+/* touch buttons: a soft dome, a glow when pressed */
+.pad button,.kb,.mpad button,.wpad button,.lpad button{background:radial-gradient(circle at 50% 28%,rgba(255,255,255,.16),rgba(21,18,43,.5) 68%);box-shadow:0 4px 12px rgba(0,0,0,.35),inset 0 -3px 0 rgba(0,0,0,.25);transition:transform .08s}
+.pad button.on,.kb.on,.mpad button.on,.wpad button.on,.lpad button.on{background:var(--pc);transform:scale(.93);box-shadow:0 0 20px var(--pc)}
+.joy{background:radial-gradient(circle at 50% 40%,rgba(255,255,255,.08),rgba(21,18,43,.4) 70%);box-shadow:0 4px 12px rgba(0,0,0,.3)}
+.knob{background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.65),var(--pc) 55%);box-shadow:0 4px 10px rgba(0,0,0,.35)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -267,6 +345,7 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
       <div class="panel">
         <p class="eyebrow">เกมสำหรับสองคน เล่นเครื่องเดียวกันหรือคนละเครื่อง</p>
         <h1 class="title">ทางสองเรา</h1>
+        <div class="peek" aria-hidden="true"><span class="pk p"><i></i><b></b></span><span class="pk m"><i></i><b></b></span></div>
         <div class="tabs modes" role="tablist" aria-label="เลือกโหมด">
           <button class="tab mode on" type="button" role="tab" data-tab="adv" aria-selected="true"><span class="pic"><svg viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" fill="#33406e"/><rect x="2" y="38" width="44" height="10" fill="#5e9b52"/><rect x="15" y="9" width="18" height="29" rx="9" fill="#b5835a"/><rect x="18.5" y="13" width="11" height="25" rx="5.5" fill="#1a1530"/><path d="M24 30l-3.8-3.6a2.4 2.4 0 0 1 3.8-3a2.4 2.4 0 0 1 3.8 3z" fill="#ff6f9c"/><rect x="3" y="24" width="11" height="14" rx="5" fill="#ff6f9c"/><circle cx="6.3" cy="29" r="1.4" fill="#1a1530"/><circle cx="10.7" cy="29" r="1.4" fill="#1a1530"/><rect x="34" y="24" width="11" height="14" rx="5" fill="#4fe0bf"/><circle cx="37.3" cy="29" r="1.4" fill="#1a1530"/><circle cx="41.7" cy="29" r="1.4" fill="#1a1530"/></svg></span><span class="nm">ผจญภัย</span><span class="ms" id="ms-adv"></span></button>
           <button class="tab mode" type="button" role="tab" data-tab="kit" aria-selected="false"><span class="pic"><svg viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" fill="#4a2f45"/><rect x="33" y="24" width="13" height="5" rx="2.5" fill="#8a5a3a"/><circle cx="21" cy="27" r="14" fill="#26232e"/><circle cx="21" cy="27" r="11" fill="#3d3a47"/><path d="M13 26c0-5 5-8 9-6s7 2 6 7-5 8-9 7-6-3-6-8z" fill="#fff"/><circle cx="21" cy="26.5" r="3.6" fill="#ffcf5a"/><path d="M15 9c-2 2 2 3 0 5M21 7c-2 2 2 3 0 5M27 9c-2 2 2 3 0 5" stroke="#d9d3ee" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg></span><span class="nm">ครัววุ่นวาย</span><span class="ms" id="ms-kit"></span></button>
