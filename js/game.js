@@ -49,7 +49,7 @@ app.classList.toggle('touch', isTouch);
 
 /* ---------- State ---------- */
 // every kind of screen; the one showing is a class on #app
-const KINDS = ['kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov', 'kite', 'cin', 'fart', 'bed', 'win', 'trap'];
+const KINDS = ['kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov', 'kite', 'cin', 'fart', 'bed', 'win', 'trap', 'isle'];
 function setKind(k) { S.kind = k; for (const x of KINDS) app.classList.toggle(x, x === k); }
 const MODES = {};
 const S = { mode: 'menu', li: 0, W: null, deathT: 0, winT: 0, flash: 0, banner: 0, deaths: 0, elapsed: 0, parts: [], time: 0, deadId: null, shake: 0, gates: [], names: { pink: 'เค้า', mint: 'ตัวเอง' }, sound: true, music: true };
@@ -238,7 +238,12 @@ const TRACKS = {
   trap: { bpm: 112, beats: 4, div: 2, vol: 0.75, chords: ['Dm', 'Dm', 'C', 'Am', 'Bb', 'C', 'Dm', 'A7'],
     mel: [{ i: 'marimba', v: .06, n: 'D5 . F5 . A5 - G5 F5 | E5 . D5 . A4 - - - | C5 . E5 . G5 - F5 E5 | D5 . C5 . A4 - - - | Bb4 . D5 . F5 - E5 D5 | C5 . E5 . G5 - A5 - | F5 . E5 . D5 . A4 . | C#5 - E5 - D5 - - -' }],
     arp: { i: 'pluck', v: .02, p: '0 2 1 2 0 2 1 2' }, bass: { i: 'bass', v: .06, p: '0 . 0 2 . 0 2 .' },
-    drums: { tom: ['x . . x . . x .', .22], shaker: ['. x . x . x . x', .35], block: ['. . x . . . . x', .15] } }
+    drums: { tom: ['x . . x . . x .', .22], shaker: ['. x . x . x . x', .35], block: ['. . x . . . . x', .15] } },
+  // stranded: a lazy island marimba over a plucked strum, a bouncy bass and a shaker
+  isle: { bpm: 96, beats: 4, div: 2, vol: 0.8, chords: ['F', 'Bb', 'C7', 'F', 'Dm', 'Gm', 'C7', 'F'],
+    mel: [{ i: 'marimba', v: .06, n: 'A4 . C5 . F5 . D5 C5 | D5 . F5 . Bb4 - - - | G4 . Bb4 . E5 . D5 C5 | A4 - C5 - F4 - - - | F5 . E5 . D5 . A4 . | Bb4 . D5 . G5 - F5 - | E5 . C5 . Bb4 . G4 . | F4 - A4 - F5 - - -' }],
+    arp: { i: 'pluck', v: .022, p: '0 1 2 1 0 1 2 1' }, bass: { i: 'bass', v: .06, p: '0 . 2 . 0 . 2 .' },
+    drums: { shaker: ['x x . x x x . x', .3], block: ['. . x . . . x .', .14], tom: ['x . . . . . . .', .15] } }
 };
 
 // turn the written parts into steps once
@@ -334,7 +339,7 @@ function drum(a, out, k, at, v) {
 
 /* the conductor: which track (or none) fits what is on screen, faded in and out, muffled while paused */
 const BGM = { name: undefined, tr: null, step: 0, next: 0, fadeIn: false, hold: 0, prevMode: '', banner: 0, amb: {}, ambKind: null };
-const MODE_TRACK = { adv: 'adv', kit: 'kit', def: 'def', drv: 'drv', tak: 'tak', twr: 'twr', leg: 'leg', boat: 'boat', mov: 'mov', kite: 'kite', cin: 'cin', fart: 'fart', bed: 'bed', win: 'win', trap: 'trap' };
+const MODE_TRACK = { adv: 'adv', kit: 'kit', def: 'def', drv: 'drv', tak: 'tak', twr: 'twr', leg: 'leg', boat: 'boat', mov: 'mov', kite: 'kite', cin: 'cin', fart: 'fart', bed: 'bed', win: 'win', trap: 'trap', isle: 'isle' };
 function bgmWanted() {
   if (!S.music || document.hidden) return null;
   if (S.mode === 'menu' || S.mode === 'clear' || !scr.title.hidden || !scr.online.hidden) return 'title';
@@ -376,13 +381,14 @@ function resultsJingle() {
 }
 
 /* the sound of each place: crickets at night, birds by day, the jungle, wind, water, a crowd, the air conditioner, the projector */
-const AMB_OF = { adv: ['night'], def: ['night', 'wind'], drv: ['birds'], tak: ['birds'], twr: ['wind', 'birds'], leg: ['crowd', 'birds'], boat: ['water', 'crowd'], mov: ['birds'], kite: ['wind', 'birds'], cin: ['projector'], fart: ['crowd'], bed: ['hum', 'night'], win: ['night'], trap: ['birds', 'jungle'] };
+const AMB_OF = { adv: ['night'], def: ['night', 'wind'], drv: ['birds'], tak: ['birds'], twr: ['wind', 'birds'], leg: ['crowd', 'birds'], boat: ['water', 'crowd'], mov: ['birds'], kite: ['wind', 'birds'], cin: ['projector'], fart: ['crowd'], bed: ['hum', 'night'], win: ['night'], trap: ['birds', 'jungle'], isle: ['sea'] };
 function ambLayer(a, M, kind) {
   const s = a.createBufferSource(); s.buffer = noiseBuf(a); s.loop = true;
   const f = a.createBiquadFilter(), g = a.createGain(), lfo = a.createOscillator(), lg = a.createGain();
   g.gain.value = 0; let base = 0;
   if (kind === 'wind') { f.type = 'bandpass'; f.frequency.value = 480; f.Q.value = .6; base = .05; lfo.frequency.value = .12; lg.gain.value = 260; lfo.connect(lg).connect(f.frequency); }
   else if (kind === 'water') { f.type = 'lowpass'; f.frequency.value = 650; f.Q.value = .3; base = .06; lfo.frequency.value = .27; lg.gain.value = .022; lfo.connect(lg).connect(g.gain); }
+  else if (kind === 'sea') { f.type = 'lowpass'; f.frequency.value = 520; f.Q.value = .3; base = .07; lfo.frequency.value = .11; lg.gain.value = .045; lfo.connect(lg).connect(g.gain); }
   else if (kind === 'crowd') { f.type = 'bandpass'; f.frequency.value = 620; f.Q.value = 1.1; base = .045; lfo.frequency.value = .6; lg.gain.value = .014; lfo.connect(lg).connect(g.gain); }
   else if (kind === 'hum') { f.type = 'lowpass'; f.frequency.value = 230; f.Q.value = .4; base = .07; lfo.frequency.value = .05; lg.gain.value = .006; lfo.connect(lg).connect(g.gain); }
   else if (kind === 'projector') { f.type = 'bandpass'; f.frequency.value = 1300; f.Q.value = 3; base = .012; lfo.frequency.value = 24; lg.gain.value = .005; lfo.connect(lg).connect(g.gain); }
@@ -417,6 +423,12 @@ function ambTick(a, M, now) {
   if (want.includes('jungle')) {
     if (Math.random() < .02) { const f = 5200 + Math.random() * 900, at = now + .05, p = pan(), v = .004 + Math.random() * .004; for (let i = 0; i < 9; i++) ambCall(a, M, f, f, .018, v, at + i * .028, p); }
     if (Math.random() < .005) { const f = 700 + Math.random() * 300, at = now + .05, p = pan(); ambCall(a, M, f, f * 1.05, .22, .012, at, p); ambCall(a, M, f * .8, f * .78, .3, .011, at + .28, p); }
+  }
+  // the island: gulls by day, crickets once it is dark
+  if (want.includes('sea')) {
+    let dark = false; try { dark = Isle.night(MODES.isle.st.G); } catch (e) {}
+    if (dark) { if (Math.random() < .07) { const f = 4200 + Math.random() * 600, at = now + .05, p = pan(), n = 2 + (Math.random() * 3 | 0), v = .006 + Math.random() * .007; for (let i = 0; i < n; i++) ambCall(a, M, f, f, .022, v, at + i * .05, p); } }
+    else if (Math.random() < .006) { const at = now + .05, p = pan(), n = 2 + (Math.random() * 3 | 0); for (let i = 0; i < n; i++) ambCall(a, M, 1500 + Math.random() * 200, 1100, .16, .008, at + i * .2, p); }
   }
   if (want.includes('water') && Math.random() < .03) ambCall(a, M, 700 + Math.random() * 500, 1500 + Math.random() * 600, .05, .012, now + .05, pan());
 }
@@ -9405,6 +9417,496 @@ function trapHud(g, G) {
   }
 }
 
+/* ---------- Stranded (ติดเกาะกับแฟน) ---------- */
+Object.assign(sfx, {
+  sshake() { noise(.25, 2200, .045, 'bandpass', .8, 900); noise(.12, 3500, .02, 'highpass', .7, 0, .08); },
+  sbonk() { tone(330, .08, 'square', .05, 180); tone(900, .35, 'sine', .04, 1500, .06); noise(.08, 700, .06, 'lowpass', 1); },
+  scatch() { tone(520, .06, 'triangle', .05, 780); chime(1175, .25, .035, .05); },
+  spick() { tone(600, .05, 'triangle', .035, 750); },
+  seat() { for (let i = 0; i < 3; i++) noise(.05, 1500 + Math.random() * 800, .045, 'bandpass', 2, 0, i * .11); },
+  sdrink() { for (let i = 0; i < 3; i++) tone(260 + i * 20, .09, 'sine', .05, 160, i * .16); },
+  ssalty() { tone(500, .15, 'sawtooth', .03, 330); tone(330, .35, 'sawtooth', .03, 200, .14); },
+  ssplash() { noise(.35, 1500, .07, 'bandpass', .8, 500); for (let i = 0; i < 3; i++) tone(900 + i * 300, .05, 'sine', .015, 1500, .08 + i * .05); },
+  sfish() { tone(400, .06, 'triangle', .04, 600); tone(600, .06, 'triangle', .04, 400, .08); chime(1319, .3, .035, .14); },
+  srub() { noise(.12, 900 + Math.random() * 300, .05, 'bandpass', 2.5); },
+  ssmoke() { for (let i = 0; i < 2; i++) noise(.1, 600, .06, 'lowpass', 1.2, 0, i * .2); tone(180, .1, 'sawtooth', .02, 140, .02); },
+  slit() { noise(.6, 500, .06, 'bandpass', .7, 2000); chime(784, .4, .045, .2); chime(1175, .5, .04, .32); },
+  swood() { tone(150, .1, 'triangle', .05, 110); noise(.3, 2600, .02, 'bandpass', 3, 0, .05); },
+  spinch() { tone(1800, .04, 'square', .03, 1200); tone(600, .5, 'triangle', .05, 1300, .05); },
+  stoot() { brrt(.3 + Math.random() * .2, 95 + Math.random() * 30, .035); },
+  ssulk() { tone(330, .35, 'triangle', .045, 311); tone(294, .7, 'triangle', .045, 262, .35); },
+  smakeup() { [659, 784, 988, 1319].forEach((f, i) => chime(f, .35, .04, i * .08)); },
+  sflower() { chime(1568, .3, .035); chime(2093, .3, .025, .06); },
+  smonkey() { for (let i = 0; i < 4; i++) tone(700 + (i % 2) * 300, .07, 'square', .02, 900 + (i % 2) * 300, i * .1); },
+  ssteal() { noise(.2, 1800, .04, 'bandpass', 1, 600); },
+  sship() { tone(110, 1.2, 'sawtooth', .04, 108); tone(165, 1.2, 'sawtooth', .025, 162); },
+  sdusk() { chime(392, 1.2, .03); chime(523, 1.2, .025, .2); },
+  sfizz() { noise(.7, 3000, .04, 'highpass', .7, 900); },
+  slove() { chime(1047, .3, .03); },
+  sretry() { tone(392, .25, 'triangle', .05, 370); tone(330, .25, 'triangle', .05, 311, .25); tone(262, .6, 'triangle', .05, 247, .5); },
+  swash() { noise(.9, 500, .05, 'lowpass', .7, 1400); }
+});
+const SI = Isle.T;
+// a word floating up (the same words twice at once just once)
+function sFloat(text, x, y, col, size, life) { if (SM.st.floats.some(f => f.text === text && f.max - f.life < .8)) return; xFloat(SM, text, x, y, col, size, life); }
+const S_WHY = { food: 'หิวจนหมดแรง', water: 'กระหายน้ำจนหมดแรง', cold: 'หนาวจนหมดแรง' };
+const S_ITEM = { coco: 'มะพร้าว', banana: 'กล้วย', fish: 'ปลาดิบ', cooked: 'ปลาย่าง', wood: 'ฟืน', rock: 'หิน', flower: 'ดอกไม้' };
+const SM = xMode({
+  kind: 'isle', md: 's', pres: 'sw', dk: 's', L: SLEVELS, pk: 's', Eng: Isle, pad: 'k', list: 'slevels', olist: 'oLevelsS', starsAll: 'sStarsAll',
+  label: i => 'เกาะที่ ' + th(i + 1), word: 'ไป', goWord: 'ไปติดเกาะ', fresh: 'ยังไม่เคยไป', nextWord: 'เกาะถัดไป', againWord: 'ติดเกาะนี้อีกครั้ง',
+  score: G => G.score,
+  kWords: () => ({ act: 'หยิบ<br>ทำ', use: '' }),
+  onLoad() {
+    const st = SM.st, G = st.G;
+    Object.assign(st, { shakeT: {}, puffs: [], walk: { pink: 0, mint: 0 }, stepT: { pink: 0, mint: 0 }, disp: { pink: { x: G.p.pink.x, y: G.p.pink.y }, mint: { x: G.p.mint.x, y: G.p.mint.y } },
+      night: Isle.night(G) ? 1 : 0, rainK: 0, tideK: 0, said: {}, monkeyT: 0, cryT: { pink: 0, mint: 0 } });
+  },
+  snap: G => ({ st: G.st, over: G.over, won: G.won, h: G.hearts, d: G.day, n: Isle.night(G), su: G.sulk, sh: !!G.ship, lit: G.fire.lit, mk: !!G.monkey, ps: [G.p.pink.st, G.p.mint.st],
+    it: [G.p.pink.item, G.p.mint.item], fa: G.falls.length, pd: G.pads.map(p => p.n).join(','), s: Object.assign({}, G.stats), lv: Math.round(G.love), pa: [G.p.pink.panic > 0, G.p.mint.panic > 0],
+    stn: [G.p.pink.stun > 0, G.p.mint.stun > 0], sk: [G.p.pink.sick > 0, G.p.mint.sick > 0], fu: G.fire.fuel, pr: G.fire.prog }),
+  changes(p, n) {
+    const ev = [];
+    if (p.st === 'count' && n.st === 'run') ev.push('go');
+    if (n.d > p.d) ev.push('dawn:' + n.d);
+    if (n.n && !p.n) ev.push('dusk');
+    if (n.lit && !p.lit) ev.push('lit'); else if (!n.lit && p.lit) ev.push('fireout');
+    if (n.fu > p.fu + 5) ev.push('wood:x');
+    if (n.pr > p.pr + 2) ev.push('rub:x');
+    if (n.s.smoke > p.s.smoke) ev.push('smoke:x');
+    if (n.sh && !p.sh) ev.push('ship');
+    if (n.mk && !p.mk) ev.push('monkey');
+    if (n.s.steals > p.s.steals) ev.push('steal:x');
+    if (n.fa > p.fa) ev.push('fall');
+    if (n.s.catches > p.s.catches) ev.push('catch:x');
+    if (n.s.fish > p.s.fish) ev.push('fish:x');
+    if (n.s.makeups > p.s.makeups) ev.push('makeup:x');
+    if (n.s.gifts > p.s.gifts) ev.push('flower:x');
+    if (n.s.selfish > p.s.selfish) ev.push('selfish:x');
+    if (n.s.retries > p.s.retries) ev.push('retry:x');
+    if (n.pd !== p.pd && n.pd.split(',').reduce((a, b) => a + +b, 0) > p.pd.split(',').reduce((a, b) => a + +b, 0)) ev.push('sos:0:0');
+    ['pink', 'mint'].forEach((id, i) => {
+      if (n.ps[i] === 'down' && p.ps[i] !== 'down') ev.push('down:' + id + ':' + (SM.st.G.p[id].why || 'food'));
+      if (n.ps[i] === 'ok' && p.ps[i] === 'down') ev.push('revive:' + id);
+      if (n.pa[i] && !p.pa[i]) ev.push('pinch:' + id);
+      if (n.stn[i] && !p.stn[i] && n.s.bonks > p.s.bonks) ev.push('bonk:' + id + ':x');
+      if (n.sk[i] && !p.sk[i]) ev.push('sick:' + id);
+      if (n.it[i] !== p.it[i] && n.it[i] && n.it[i] !== 'cooked') ev.push('pick:' + id + ':' + n.it[i]);
+      if (n.it[i] === 'cooked' && p.it[i] === 'fish') ev.push('cooked:' + id);
+    });
+    if (n.su && !p.su) ev.push('sulk:' + n.su);
+    if (n.won && !p.won) ev.push('rescued');
+    else if (n.over && !p.over) ev.push('out:x');
+    return ev;
+  },
+  events(ev) {
+    const st = SM.st, G = st.G, at = id => G.p[id] || { x: VW / 2, y: VH / 2 };
+    for (const e of ev) {
+      const [k, a, b, c] = e.split(':'), p = G.p[a];
+      if (k === 'go') sfx.ilaunch();
+      else if (k === 'shake') { sfx.sshake(); if (p) { const t = Isle.reach(G, p, 'T'); if (t) st.shakeT[t.tx + ',' + t.ty] = .5; } }
+      else if (k === 'empty') { if (p) sFloat('หมดแล้ว', p.x, p.y - 30, '#c9bfef', 14); }
+      else if (k === 'fall') sfx.sshake();
+      else if (k === 'catch') { sfx.scatch(); if (p) sFloat('รับได้!', p.x, p.y - 34, C.gold, 18); }
+      else if (k === 'bonk') { sfx.sbonk(); S.shake = Math.max(S.shake, .35); if (p) { burst(p.x, p.y - 20, 6, C.gold, { type: 'star', size: 4, speed: 70, life: .8, g: 0 }); sFloat(b === a ? 'โป๊ก! หัวตัวเองแท้ๆ' : 'โป๊ก!! ใครเขย่าเนี่ย!', p.x, p.y - 36, '#ffb38a', 18, 1.6); } }
+      else if (k === 'land') sfx.land();
+      else if (k === 'pick') { sfx.spick(); }
+      else if (k === 'eat') { sfx.seat(); if (p && c) sFloat('ป้อนให้!', p.x, p.y - 34, '#ffd1e8', 16); }
+      else if (k === 'drink') { sfx.sdrink(); if (p) sFloat('อึกๆๆ สดชื่น', p.x, p.y - 34, '#bfe6ff', 15); }
+      else if (k === 'salty') { sfx.ssalty(); if (p) sFloat('แหวะ! เค็มปี๋', p.x, p.y - 36, '#9fd8ff', 18, 1.6); }
+      else if (k === 'splash') { sfx.ssplash(); if (p) sFloat('พลาด! ตัวเปียกเลย', p.x, p.y - 34, '#bfe6ff', 15); }
+      else if (k === 'fish') { sfx.sfish(); if (p) sFloat('ได้ปลา!', p.x, p.y - 34, C.gold, 18); }
+      else if (k === 'rub') { sfx.srub(); st.puffs.push({ x: G.fire.x + (Math.random() - .5) * 10, y: G.fire.y - 6, life: .8, s: 4 }); }
+      else if (k === 'smoke') { sfx.ssmoke(); for (let i = 0; i < 4; i++) st.puffs.push({ x: G.fire.x + (Math.random() - .5) * 20, y: G.fire.y - 6, life: 1.4, s: 8 + Math.random() * 6 }); sFloat('แค่กๆ! ถูสลับกันสิ', G.fire.x, G.fire.y - 40, '#c9bfef', 16, 1.6); }
+      else if (k === 'nowood') { if (p) sFloat('ต้องมีฟืนในกองไฟก่อน', p.x, p.y - 34, '#ffb38a', 14); }
+      else if (k === 'lit') { sfx.slit(); burst(G.fire.x, G.fire.y - 10, 12, '#ffb35a', { size: 3, speed: 60, up: 80, life: 1, g: -40 }); sFloat('ไฟติดแล้ว!', G.fire.x, G.fire.y - 44, C.gold, 20); }
+      else if (k === 'singe') { if (p) sFloat('ผมไหม้!', p.x, p.y - 40, '#ffb38a', 18); }
+      else if (k === 'wood') sfx.swood();
+      else if (k === 'cook') sfx.swood();
+      else if (k === 'cooked') { sfx.scatch(); if (p) sFloat('ปลาย่างหอมๆ', p.x, p.y - 34, '#ffd27a', 15); }
+      else if (k === 'sos') { sfx.swood(); }
+      else if (k === 'pinch') { sfx.spinch(); S.shake = Math.max(S.shake, .3); if (p) sFloat('โอ๊ยยย! ปูหนีบก้น!', p.x, p.y - 40, '#ff8a8a', 18, 1.6); }
+      else if (k === 'sick') { if (p) sFloat('ท้องไส้ปั่นป่วน...', p.x, p.y - 36, '#b8e07a', 15, 1.6); }
+      else if (k === 'toot') { sfx.stoot(); if (p) { st.puffs.push({ x: p.x - p.fx * 10, y: p.y + 6, life: 1.2, s: 7, green: true }); const o = G.p[a === 'pink' ? 'mint' : 'pink']; sFloat(Math.hypot(o.x - p.x, o.y - p.y) < 70 ? 'ปู้ด! (ขอโทษ...)' : 'ปู้ด!', p.x, p.y - 30, '#b8e07a', 14); } }
+      else if (k === 'selfish') { sfx.ssulk(); const o = G.p[a === 'pink' ? 'mint' : 'pink']; sFloat('เห้ย! กินคนเดียวเหรอ!', o.x, o.y - 40, '#ff8a8a', 17, 1.8); }
+      else if (k === 'sulk') { sfx.ssulk(); if (p) sFloat('งอนแล้ว! ไม่ช่วยแล้ว!', p.x, p.y - 44, '#ff8a8a', 18, 2); }
+      else if (k === 'makeup') { sfx.smakeup(); const o = G.p[a === 'pink' ? 'mint' : 'pink']; if (o) burst(o.x, o.y - 20, 14, C.pink, { type: 'heart', size: 5, speed: 80, up: 80, life: 1.2, g: -40 }); sFloat('ง้อสำเร็จ! หายงอนแล้ว', VW / 2, 150, C.pink, 20, 1.8); }
+      else if (k === 'flower') { sfx.sflower(); const o = G.p[a === 'pink' ? 'mint' : 'pink']; if (o && a !== 'x') { burst(o.x, o.y - 20, 8, C.pink, { type: 'heart', size: 4, speed: 60, up: 60, life: 1, g: -40 }); sFloat('ให้ดอกไม้! 💗', o.x, o.y - 40, '#ffd1e8', 16); } }
+      else if (k === 'love' && +a > 0 && b !== 'catch') sfx.slove();
+      else if (k === 'monkey') { sfx.smonkey(); sFloat('ลิงมาแล้ว! ระวังของ', VW / 2, 120, '#ffd27a', 18, 1.6); }
+      else if (k === 'steal') { sfx.ssteal(); const m = G.monkey; sFloat(a === 'rock' ? 'ลิงขโมยหินจาก SOS!' : `ลิงขโมย${S_ITEM[a] || 'ของ'}!`, m ? m.x : VW / 2, m ? m.y - 30 : 150, '#ffb38a', 17, 1.6); }
+      else if (k === 'shoo') { sfx.smonkey(); if (p) sFloat('ชิ่ว! ชิ่ว!', p.x, p.y - 34, '#ffd27a', 15); }
+      else if (k === 'monkeydrop') { sfx.land(); if (p) sFloat('จับได้! คืนมานะ', p.x, p.y - 36, C.gold, 17); }
+      else if (k === 'gone') { sFloat(`ลิงเอา${S_ITEM[a] || 'ของ'}หนีเข้าป่าไปแล้ว`, VW / 2, 150, '#c9bfef', 16, 1.8); }
+      else if (k === 'drift') { if (Math.random() < .5) sFloat('มีขอนไม้ลอยมาเกยหาด', VW / 2, 470, '#e8d5b0', 14); }
+      else if (k === 'washed') { sfx.swash(); sFloat('คลื่นพาของบนหาดไปแล้ว!', VW / 2, 440, '#bfe6ff', 16); }
+      else if (k === 'fireout') { sfx.sfizz(); sFloat('ไฟดับ!', G.fire.x, G.fire.y - 40, '#ff8a8a', 18); }
+      else if (k === 'dusk') { sfx.sdusk(); sFloat('ค่ำแล้ว ไปนั่งข้างกองไฟกัน', VW / 2, 150, '#ffd27a', 20, 2); }
+      else if (k === 'dawn') { sfx.hrooster(); sFloat(`เช้าวันที่ ${th(+a)}`, VW / 2, 150, C.gold, 24, 2); }
+      else if (k === 'ship') { sfx.sship(); sFloat(Isle.sosDone(G) ? 'เรือมาแล้ว! จุดไฟให้ควันขึ้น!' : 'เรือมาแล้ว! SOS ยังไม่ครบ!', VW / 2, 150, '#fff6c9', 22, 2.2); }
+      else if (k === 'shipgone') { sfx.ssulk(); sFloat('เรือไม่เห็นเรา... ไปแล้ว', VW / 2, 150, '#c9bfef', 20, 2); }
+      else if (k === 'down' && p) { sfx.die(); sFloat(S_WHY[b] || 'หมดแรง', p.x, p.y - 36, '#ff8a8a', 16, 1.6); }
+      else if (k === 'revive' && p) { sfx.previve(); burst(p.x, p.y - 10, 8, a === 'pink' ? C.pink : C.mint, { type: 'heart', size: 4, speed: 60, up: 60, life: 1, g: -40 }); }
+      else if (k === 'retry') { sfx.sretry(); sFloat(a === 'love' ? 'ทะเลาะกันจนแยกกันอยู่คนละฝั่งเกาะ! เริ่มวันนี้ใหม่' : a === 'ship' ? 'พลาดเรือ! เริ่มวันนี้ใหม่' : 'วันนี้ไม่รอด เริ่มวันนี้ใหม่', VW / 2, 220, '#ff8a8a', 20, 2.4); }
+      else if (k === 'rescued') { sfx.win(); burst(VW / 2, 470, 24, C.gold, { type: 'star', size: 5, speed: 160, up: 140, life: 1.4, g: 80 }); sFloat('รอดแล้ว! เรือมารับแล้ว!', VW / 2, 200, C.gold, 28, 2.4); }
+      else if (k === 'out') { sfx.cout(); sFloat('ติดเกาะต่อไป...', VW / 2, 250, '#ff8a8a', 26, 2.2); }
+    }
+  },
+  tick() {
+    const st = SM.st, G = st.G, q = id => { const k = kInput(id); return { mx: k.mx, my: k.my, act: k.act }; };
+    if (!O.role) { SM.events(Isle.step(G, { pink: q('pink'), mint: q('mint') })); st.prev = SM.snap(G); return; }
+    const li = q(O.local), rid = O.local === 'pink' ? 'mint' : 'pink';
+    st.lastInp = li;
+    if (O.role === 'host') {
+      const rq = st.remote;
+      SM.events(Isle.step(G, { [O.local]: li, [rid]: rq }, false, rid));
+      rq.act = false; st.prev = SM.snap(G);
+    } else {
+      if (li.act) st.n.a++;
+      Isle.step(G, { [O.local]: li, [rid]: { still: true } }, true);
+    }
+  },
+  frameExtra(dt) {
+    const st = SM.st, G = st.G;
+    for (const id of ['pink', 'mint']) {
+      const p = G.p[id], d = st.disp[id], far = Math.hypot(p.x - d.x, p.y - d.y);
+      if (!O.role || id === O.local || far > 90) { d.x = p.x; d.y = p.y; } else { const k = Math.min(1, dt * 14); d.x += (p.x - d.x) * k; d.y += (p.y - d.y) * k; }
+      if ((p.mv || p.panic > 0) && p.st === 'ok') st.walk[id] += dt * (p.panic > 0 ? 20 : 13);
+    }
+    for (const k in st.shakeT) if ((st.shakeT[k] -= dt) <= 0) delete st.shakeT[k];
+    for (const f of st.puffs) { f.life -= dt; f.y -= dt * 22; f.x += dt * 6; f.s += dt * 6; }
+    st.puffs = st.puffs.filter(f => f.life > 0);
+    st.night += ((Isle.night(G) ? 1 : 0) - st.night) * Math.min(1, dt * .8);
+    st.rainK += ((Isle.raining(G) ? 1 : 0) - st.rainK) * Math.min(1, dt * 1.5);
+    st.tideK += ((Isle.tide(G) ? 1 : 0) - st.tideK) * Math.min(1, dt * .7);
+    if (S.mode !== 'play' || G.st !== 'run') return;
+    for (const id of ['pink', 'mint']) { const p = G.p[id]; if (p.mv && p.st === 'ok') { st.stepT[id] -= dt; if (st.stepT[id] <= 0) { st.stepT[id] = .32; if (!O.role || id === O.local) noise(.04, 2400 + Math.random() * 600, .02, 'bandpass', 2); } } }
+    // a fire going: crackles now and then; smoke going up
+    if (G.fire.lit && Math.random() < dt * 3) { noise(.03, 3000 + Math.random() * 2000, .012, 'bandpass', 3); if (Math.random() < .5) st.puffs.push({ x: G.fire.x + (Math.random() - .5) * 8, y: G.fire.y - 14, life: 2, s: 5 }); }
+    if (st.rainK > .5 && Math.random() < dt * 2) noise(.5, 5000, .015, 'highpass', .5);
+    // the panicking one cries out
+    for (const id of ['pink', 'mint']) { const p = G.p[id]; if (p.panic > 0) { st.cryT[id] -= dt; if (st.cryT[id] <= 0) { st.cryT[id] = .45; tone(900 + Math.random() * 300, .25, 'triangle', .025, 1300); } } }
+  },
+  result(G, s) {
+    const sx = G.stats, msg = !G.won ? (G.why === 'love' ? 'ทะเลาะกันบ่อยจนไม่รอด ครั้งหน้าแบ่งของกินกัน อย่าเขย่ามะพร้าวใส่หัวกัน ถ้าใครงอนให้รีบเอาดอกไม้ไปง้อ' : G.why === 'ship' ? 'เรือผ่านไปโดยไม่เห็นเรา ครั้งหน้าเรียงหิน SOS ให้ครบตั้งแต่เช้าวันสุดท้าย แล้วจุดไฟรอไว้' : 'หัวใจหมดก่อนเรือมา ครั้งหน้าคอยดูแถบหิว กระหาย หนาว ของทั้งสองคน แล้วอย่าให้ไฟดับตอนกลางคืน')
+      : s === 3 ? 'รอดแบบหวานๆ ติดเกาะทั้งทียังรักกันมากขึ้นอีก' : s === 2 ? (G.love < 70 ? 'รอดแล้ว แต่ทะเลาะกันบ้าง ลองนั่งพิงกันข้างกองไฟตอนกลางคืน และให้ดอกไม้กันบ่อยๆ' : 'รอดแล้ว ลองให้เรือลำแรกเห็นจะได้แต้มเพิ่ม') : s === 1 ? 'รอดมาได้อย่างหวุดหวิด เกาะถัดไปเปิดแล้ว' : 'รอดแล้ว แต่แต้มยังไม่พอ ต้องได้อย่างน้อย ' + th(G.def.stars[0]) + ' แต้ม';
+    return { head: G.won ? 'รอดแล้ว' : 'ติดเกาะต่อ', msg,
+      stats: `<span>แต้ม <b>${th(G.score)}</b> ความรัก <b>${th(Math.round(G.love))}</b></span><span>หัวใจเหลือ <b>${th(G.hearts)}</b> เริ่มวันใหม่ <b>${th(sx.retries)}</b> หมดแรง <b>${th(sx.downs)}</b></span><span>โดนมะพร้าว <b>${th(sx.bonks)}</b> ปูหนีบ <b>${th(sx.pinches)}</b> งอน-ง้อ <b>${th(sx.makeups)}</b> ได้ปลา <b>${th(sx.fish)}</b></span>` };
+  },
+  encode() { const st = SM.st; return O.role === 'host' ? Isle.encode(st.G) : Isle.guestMsg(st.G, O.local, st.lastInp, st.n.a); },
+  hostHears(m) { Isle.hostHears(SM.st.G, O.local === 'pink' ? 'mint' : 'pink', m, SM.st.remote); },
+  guestHears(m) { Isle.apply(SM.st.G, m, O.local); },
+  fresher: () => ({ seen: -1, mx: 0, my: 0, act: false }),
+  render: isleRender
+});
+
+/* ---------- the island as it lies (drawn once) ---------- */
+function isleGround(g, G) {
+  const tile = (x, y) => Isle.tileAt(G, x, y), TAU = Math.PI * 2, W = Isle.COLS, H = Isle.ROWS, R = rng(G.def.seed || 5);
+  // the sea: deep in the middle, lighter by the shore
+  const sg = g.createLinearGradient(0, 0, 0, VH); sg.addColorStop(0, '#2a7fb8'); sg.addColorStop(1, '#1f6aa6'); g.fillStyle = sg; g.fillRect(0, 0, VW, VH);
+  g.strokeStyle = 'rgba(255,255,255,.08)'; g.lineWidth = 1.5;
+  for (let i = 0; i < 60; i++) { const x = R() * VW, y = R() * VH, w = 14 + R() * 26; g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + w / 2, y - 4, x + w, y); g.stroke(); }
+  // shallows round the island, then the wet sand, the dry sand, the grass, the jungle (rounded, overlapping)
+  const blob = (test, col, grow, r) => { g.fillStyle = col; g.beginPath(); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (test(tile(x, y))) { const px = x * SI - grow, py = y * SI - grow, s = SI + grow * 2; g.moveTo(px + r, py); g.arcTo(px + s, py, px + s, py + s, r); g.arcTo(px + s, py + s, px, py + s, r); g.arcTo(px, py + s, px, py, r); g.arcTo(px, py, px + s, py, r); g.closePath(); } g.fill(); };
+  blob(c => c !== '~', 'rgba(120,210,220,.35)', 14, 22);
+  blob(c => c !== '~', 'rgba(150,225,225,.45)', 7, 16);
+  blob(c => c !== '~', '#d8c08a', 4, 12);
+  blob(c => c !== '~' && c !== '.', '#f0dba3', 3, 12);
+  g.fillStyle = 'rgba(180,150,100,.25)'; for (let i = 0; i < 500; i++) { const x = R() * VW, y = R() * VH; if (tile(Math.floor(x / SI), Math.floor(y / SI)) === ',' ) g.fillRect(x, y, 1.6, 1.6); }
+  blob(c => 'gFBDCwj'.includes(c), '#7fbf5a', 4, 14);
+  blob(c => 'gFBDCwj'.includes(c), '#8ccc63', 1, 12);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (tile(x, y) === 'g') for (let k = 0; k < 3; k++) { const q = hash(x * 3 + k, y * 7), tx = x * SI + 4 + q % 24, ty = y * SI + 6 + (q >> 5) % 22; g.fillStyle = q & 64 ? '#6aa84c' : '#9bd96f'; g.beginPath(); g.moveTo(tx, ty + 3); g.lineTo(tx + 1.5, ty - 4); g.lineTo(tx + 3, ty + 3); g.lineTo(tx + 4.5, ty - 2.5); g.lineTo(tx + 6, ty + 3); g.closePath(); g.fill(); }
+  // shells and pebbles on the sand
+  for (let i = 0; i < 26; i++) { const x = R() * VW, y = R() * VH, c = tile(Math.floor(x / SI), Math.floor(y / SI)); if (c !== ',' && c !== '.') continue; g.fillStyle = ['#fff3e0', '#ffd1dc', '#e8d8c0'][i % 3]; g.beginPath(); g.ellipse(x, y, 3, 2.2, R() * 3, 0, TAU); g.fill(); g.strokeStyle = 'rgba(150,110,80,.4)'; g.lineWidth = .8; g.stroke(); }
+  // the jungle: big round crowns, dark under, lighter on top
+  const jt = []; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (tile(x, y) === 'j') jt.push([x, y, hash(x, y)]);
+  g.fillStyle = 'rgba(20,50,20,.35)'; for (const [x, y, h] of jt) { g.beginPath(); g.arc(x * SI + 18, y * SI + 24, 22, 0, TAU); g.fill(); }
+  g.fillStyle = '#2f6e36'; for (const [x, y, h] of jt) { g.beginPath(); g.arc(x * SI + 16 + (h % 7) - 3, y * SI + 14 + ((h >> 3) % 7) - 3, 21, 0, TAU); g.fill(); }
+  g.fillStyle = '#3f8a43'; for (const [x, y, h] of jt) { g.beginPath(); g.arc(x * SI + 12 + (h % 5), y * SI + 10 + ((h >> 4) % 5), 14, 0, TAU); g.fill(); }
+  g.fillStyle = '#58a651'; for (const [x, y, h] of jt) if (h % 3 === 0) { g.beginPath(); g.arc(x * SI + 10 + (h % 7), y * SI + 8, 6, 0, TAU); g.fill(); }
+  for (const [x, y, h] of jt) if (h % 6 === 0) { g.fillStyle = ['#ff8fb8', '#ffd25a', '#ff7a5a'][h % 3]; g.beginPath(); g.arc(x * SI + 8 + h % 16, y * SI + 18 + (h >> 5) % 10, 2.6, 0, TAU); g.fill(); }
+  // things that stay put: the spring, tide pools, rock piles, dead wood, boulders, the fire pit
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const c = tile(x, y), px = x * SI, py = y * SI, cx = px + 16, cy = py + 16;
+    if (c === 'w') { g.fillStyle = '#7a7a86'; g.beginPath(); g.ellipse(cx, cy + 1, 17, 15, 0, 0, TAU); g.fill(); g.fillStyle = '#4fb6e0'; g.beginPath(); g.ellipse(cx, cy, 13, 11, 0, 0, TAU); g.fill(); g.fillStyle = 'rgba(255,255,255,.45)'; g.beginPath(); g.ellipse(cx - 4, cy - 4, 5, 2.5, -.4, 0, TAU); g.fill(); }
+    else if (c === 'X') { g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.ellipse(cx + 2, cy + 8, 15, 7, 0, 0, TAU); g.fill(); g.fillStyle = '#8c8892'; g.beginPath(); g.arc(cx, cy, 14, 0, TAU); g.fill(); g.fillStyle = '#a8a4ae'; g.beginPath(); g.arc(cx - 3, cy - 3, 9, 0, TAU); g.fill(); }
+  }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const c = tile(x, y), px = x * SI, py = y * SI, cx = px + 16, cy = py + 16;
+    if (c === 'R') { g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.ellipse(cx + 2, cy + 9, 15, 6, 0, 0, TAU); g.fill(); for (const [ox, oy, r, col] of [[-7, 4, 8, '#8a8690'], [6, 5, 8, '#9c98a2'], [0, -4, 9, '#aeaab4'], [-4, -2, 4, '#c4c0ca']]) { g.fillStyle = col; g.beginPath(); g.arc(cx + ox, cy + oy, r, 0, TAU); g.fill(); } }
+    else if (c === 'D') { g.save(); g.translate(cx, cy); g.rotate(-.5); g.fillStyle = 'rgba(0,0,0,.2)'; g.fillRect(-14, 4, 28, 6); g.fillStyle = '#7a5a3a'; rr(g, -14, -4, 28, 9, 4); g.fill(); g.fillStyle = '#9a7650'; g.fillRect(-12, -3, 24, 2); g.strokeStyle = '#7a5a3a'; g.lineWidth = 3; g.beginPath(); g.moveTo(-4, -2); g.lineTo(-9, -12); g.moveTo(6, -2); g.lineTo(11, -10); g.stroke(); g.restore(); }
+    else if (c === 'C') { for (let k = 0; k < 9; k++) { const a = k / 9 * TAU; g.fillStyle = k % 2 ? '#8a8690' : '#a09ca6'; g.beginPath(); g.arc(cx + Math.cos(a) * 13, cy + Math.sin(a) * 11, 5, 0, TAU); g.fill(); } g.fillStyle = '#3a2a22'; g.beginPath(); g.ellipse(cx, cy, 9, 7, 0, 0, TAU); g.fill(); }
+  }
+  // tide pools: a ring of wet stones round clear water
+  for (const pl of G.pools) {
+    const x = pl.x0, y = pl.y0, w = pl.x1 - pl.x0, h = pl.y1 - pl.y0;
+    g.fillStyle = '#8a8478'; rr(g, x - 5, y - 5, w + 10, h + 10, 14); g.fill();
+    for (let k = 0; k < 14; k++) { const a = k / 14 * Math.PI * 2, q = hash(k, x | 0); g.fillStyle = q & 1 ? '#9c968a' : '#7a7468'; g.beginPath(); g.arc(x + w / 2 + Math.cos(a) * (w / 2 + 2), y + h / 2 + Math.sin(a) * (h / 2 + 2), 4 + q % 3, 0, TAU); g.fill(); }
+    const wg = g.createLinearGradient(0, y, 0, y + h); wg.addColorStop(0, '#4fb6e0'); wg.addColorStop(1, '#2f8fbf'); g.fillStyle = wg; rr(g, x + 1, y + 1, w - 2, h - 2, 10); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.18)'; g.beginPath(); g.ellipse(x + w * .35, y + h * .25, w * .2, 3, -.2, 0, TAU); g.fill();
+  }
+  // where the SOS goes: the letters scratched faintly in the sand
+  G.pads.forEach((pd, i) => { g.strokeStyle = 'rgba(140,100,60,.35)'; g.lineWidth = 3; g.setLineDash([4, 5]); isleLetter(g, pd, i, null); g.setLineDash([]); });
+}
+// the shape of each letter of the SOS (pad i: S, O, S), as a path or as the spots for its rocks
+function isleLetterPts(pd, i, n) {
+  const cx = (pd.x0 + pd.x1) / 2, cy = (pd.y0 + pd.y1) / 2, w = (pd.x1 - pd.x0) * .3, h = (pd.y1 - pd.y0) * .4, h2 = h / 2, pts = [];
+  for (let k = 0; k < n; k++) {
+    const u = n === 1 ? .5 : k / (n - 1);
+    if (i === 1) { const a = -Math.PI / 2 + u * Math.PI * 2 * (n - 1) / n; pts.push([cx + Math.cos(a) * w, cy + Math.sin(a) * h]); }
+    else if (u < .5) { const a = -Math.PI / 6 - u * 2 * (Math.PI * 4 / 3); pts.push([cx + Math.cos(a) * w, cy - h2 + Math.sin(a) * h2]); }
+    else { const a = -Math.PI / 2 + (u - .5) * 2 * (Math.PI * 4 / 3); pts.push([cx + Math.cos(a) * w, cy + h2 + Math.sin(a) * h2]); }
+  }
+  return pts;
+}
+function isleLetter(g, pd, i) { const pts = isleLetterPts(pd, i, 24); g.beginPath(); pts.forEach(([x, y], k) => (k ? g.lineTo(x, y) : g.moveTo(x, y))); if (i === 1) g.closePath(); g.stroke(); }
+
+/* ---------- sprites ---------- */
+function isleItem(g, k, x, y, s = 1) {
+  g.save(); g.translate(x, y); g.scale(s, s);
+  if (k === 'coco') { g.fillStyle = '#6b4226'; g.beginPath(); g.arc(0, 0, 7, 0, Math.PI * 2); g.fill(); g.fillStyle = '#8a5a34'; g.beginPath(); g.arc(-2, -2, 4, 0, Math.PI * 2); g.fill(); g.fillStyle = '#3a2214'; for (const [a, b] of [[-2, 2], [1, 3], [2, 0]]) { g.beginPath(); g.arc(a, b, .9, 0, Math.PI * 2); g.fill(); } }
+  else if (k === 'banana') { g.strokeStyle = '#d9a520'; g.lineWidth = 6; g.lineCap = 'round'; g.beginPath(); g.arc(0, -6, 9, Math.PI * .2, Math.PI * .8); g.stroke(); g.strokeStyle = '#ffe066'; g.lineWidth = 4; g.stroke(); g.lineCap = 'butt'; g.fillStyle = '#5a3a1a'; g.fillRect(-8, -1, 3, 3); }
+  else if (k === 'fish' || k === 'cooked') { g.fillStyle = k === 'fish' ? '#8fc7e0' : '#c98a4a'; g.beginPath(); g.ellipse(0, 0, 9, 5, 0, 0, Math.PI * 2); g.fill(); g.beginPath(); g.moveTo(7, 0); g.lineTo(13, -5); g.lineTo(13, 5); g.closePath(); g.fill(); g.fillStyle = '#1a1530'; g.beginPath(); g.arc(-5, -1, 1.2, 0, Math.PI * 2); g.fill(); if (k === 'cooked') { g.strokeStyle = '#7a4a24'; g.lineWidth = 1.2; for (let i = -1; i <= 1; i++) { g.beginPath(); g.moveTo(i * 3 - 1, -4); g.lineTo(i * 3 + 1, 4); g.stroke(); } } else { g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(-4, -3, 6, 1.5); } }
+  else if (k === 'wood') { g.rotate(-.4); g.fillStyle = '#7a5a3a'; rr(g, -11, -3.5, 22, 7, 3); g.fill(); g.fillStyle = '#c9a070'; g.beginPath(); g.ellipse(11, 0, 2.5, 3.5, 0, 0, Math.PI * 2); g.fill(); }
+  else if (k === 'rock') { g.fillStyle = '#8a8690'; g.beginPath(); g.ellipse(0, 1, 8, 6.5, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = '#b0acb6'; g.beginPath(); g.ellipse(-2, -1, 4, 3, 0, 0, Math.PI * 2); g.fill(); }
+  else if (k === 'flower') { g.strokeStyle = '#3f8f4a'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(0, 2); g.lineTo(0, 9); g.stroke(); g.fillStyle = '#ff8fb8'; for (let q = 0; q < 5; q++) { const a = q * 1.2566; g.beginPath(); g.arc(Math.cos(a) * 3.4, Math.sin(a) * 3.4 - 1, 2.6, 0, Math.PI * 2); g.fill(); } g.fillStyle = '#ffcf5a'; g.beginPath(); g.arc(0, -1, 1.8, 0, Math.PI * 2); g.fill(); }
+  g.restore();
+}
+function islePalm(g, x, y, cocos, wob, t) {
+  g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.ellipse(x + 6, y + 10, 24, 11, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#8a6440'; g.beginPath(); g.arc(x, y, 7, 0, Math.PI * 2); g.fill();
+  const sway = Math.sin(t * 1.3 + x) * .05 + Math.sin(t * 30) * wob * .25;
+  for (let k = 0; k < 7; k++) {
+    const a = k / 7 * Math.PI * 2 + sway + .3, L = 26 + (k % 2) * 4;
+    g.save(); g.translate(x, y); g.rotate(a);
+    g.fillStyle = k % 2 ? '#3f9a4a' : '#4fae55'; g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(L * .5, -9, L, 0); g.quadraticCurveTo(L * .5, 7, 0, 0); g.fill();
+    g.strokeStyle = 'rgba(30,80,30,.5)'; g.lineWidth = 1; g.beginPath(); g.moveTo(2, 0); g.lineTo(L - 3, 0); g.stroke();
+    g.restore();
+  }
+  for (let k = 0; k < cocos; k++) { const a = k * 2.4 + 1; isleItem(g, 'coco', x + Math.cos(a) * 5, y + Math.sin(a) * 5, .85); }
+}
+
+/* ---------- each frame ---------- */
+function isleRender() {
+  const g = ctx, st = SM.st, G = st.G, def = G.def, t = S.time;
+  g.setTransform(scale, 0, 0, scale, 0, 0); g.textBaseline = 'alphabetic';
+  let ox = 0; if (S.shake > 0) ox = (Math.random() - .5) * 7 * S.shake;
+  g.save(); g.translate(ox, 0);
+  stamp(g, 'isleGround', def.name, 0, 0, VW, VH, q => isleGround(q, G), true);
+  // the sea moving: glints, and foam along the shore
+  for (let i = 0; i < 26; i++) { const x = (i * 211 + t * 9) % (VW + 40) - 20, y = (i * 97) % VH, a = .25 + .2 * Math.sin(t * 1.5 + i); if (Isle.tileAt(G, Math.floor(x / SI), Math.floor(y / SI)) !== '~') continue; g.strokeStyle = `rgba(255,255,255,${a * .5})`; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + 8, y - 3, x + 16, y); g.stroke(); }
+  // the tide: the wet sand under water
+  if (st.tideK > .02) { g.fillStyle = `rgba(70,170,210,${.55 * st.tideK})`; for (let y = 0; y < Isle.ROWS; y++) for (let x = 0; x < Isle.COLS; x++) if (G.grid[y][x] === '.') g.fillRect(x * SI, y * SI, SI, SI); }
+  // tide pools with their fish
+  for (const f of G.fish) { g.fillStyle = 'rgba(20,40,80,.55)'; g.beginPath(); g.ellipse(f.x, f.y, 6, 3, Math.sin(t * 3 + f.x) * .5, 0, Math.PI * 2); g.fill(); }
+  // the SOS: the rocks on it so far
+  const need = Isle.sosNeed(G);
+  G.pads.forEach((pd, i) => { for (const [x, y] of isleLetterPts(pd, i, need).slice(0, pd.n)) isleItem(g, 'rock', x, y, 1.1); if (pd.n >= need) { g.fillStyle = 'rgba(255,240,180,.25)'; g.beginPath(); g.ellipse((pd.x0 + pd.x1) / 2, (pd.y0 + pd.y1) / 2, 30, 26, 0, 0, Math.PI * 2); g.fill(); } });
+  // flowers, banana bushes
+  for (const f of G.flowers) { const x = (f.tx + .5) * SI, y = (f.ty + .5) * SI; g.fillStyle = '#4f9a4a'; g.beginPath(); g.arc(x, y + 3, 9, 0, Math.PI * 2); g.fill(); if (f.has) { isleItem(g, 'flower', x - 5, y - 2, .9); isleItem(g, 'flower', x + 5, y + 1, .8); } }
+  for (const b of G.bushes) {
+    const x = (b.tx + .5) * SI, y = (b.ty + .5) * SI;
+    g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.ellipse(x + 3, y + 10, 18, 7, 0, 0, Math.PI * 2); g.fill();
+    for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2 + .4; g.save(); g.translate(x, y); g.rotate(a + Math.sin(t + k) * .04); g.fillStyle = k % 2 ? '#3f9a4a' : '#56b25a'; g.beginPath(); g.ellipse(11, 0, 12, 6, 0, 0, Math.PI * 2); g.fill(); g.restore(); }
+    for (let k = 0; k < b.fruit; k++) isleItem(g, 'banana', x - 4 + k * 8, y + 4, .8);
+  }
+  // things lying about
+  for (const it of G.items) isleItem(g, it.k, it.x, it.y);
+  // crabs
+  for (const c of G.crabs) {
+    const walk = Math.sin(t * 18 + c.x) * (Math.abs(c.vx) > 1 ? 2 : 0), sn = Math.sin(t * 6 + c.y) > .7 ? 2 : 0;
+    g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.ellipse(c.x + 1, c.y + 6, 10, 4, 0, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#c0392b'; g.lineWidth = 1.6; for (const s of [-1, 1]) for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(c.x + s * 6, c.y + k * 2 - 1); g.lineTo(c.x + s * 11, c.y + k * 3 + (k % 2 ? walk : -walk)); g.stroke(); }
+    g.fillStyle = '#e74c3c'; g.beginPath(); g.ellipse(c.x, c.y, 8, 6, 0, 0, Math.PI * 2); g.fill();
+    for (const s of [-1, 1]) { g.beginPath(); g.arc(c.x + s * 9, c.y - 6 - sn, 3.4, 0, Math.PI * 2); g.fill(); }
+    g.fillStyle = '#fff'; for (const s of [-1, 1]) { g.beginPath(); g.arc(c.x + s * 2.5, c.y - 5, 1.8, 0, Math.PI * 2); g.fill(); } g.fillStyle = '#1a1530'; for (const s of [-1, 1]) { g.beginPath(); g.arc(c.x + s * 2.5, c.y - 5, .9, 0, Math.PI * 2); g.fill(); }
+  }
+  // the fire
+  const f = G.fire;
+  if (f.lit) {
+    glow(g, '255,170,80', f.x, f.y, 46 + Math.sin(t * 9) * 3, .45);
+    const k = Math.min(1.3, .6 + f.fuel / 70);
+    for (let i = 0; i < 3; i++) { const fx = f.x + (i - 1) * 6, h = (14 + i % 2 * 6) * k * (1 + .12 * Math.sin(t * 15 + i * 2)); g.fillStyle = i === 1 ? '#ff7a2a' : '#ff9a3a'; g.beginPath(); g.moveTo(fx - 6, f.y + 2); g.quadraticCurveTo(fx - 5, f.y - h * .6, fx + Math.sin(t * 11 + i) * 2, f.y - h); g.quadraticCurveTo(fx + 5, f.y - h * .6, fx + 6, f.y + 2); g.closePath(); g.fill(); }
+    g.fillStyle = '#ffd25a'; g.beginPath(); g.moveTo(f.x - 4, f.y + 2); g.quadraticCurveTo(f.x - 3, f.y - 8 * k, f.x, f.y - 12 * k); g.quadraticCurveTo(f.x + 3, f.y - 8 * k, f.x + 4, f.y + 2); g.fill();
+  } else if (f.fuel > 0) { for (let k = 0; k < Math.min(5, Math.ceil(f.fuel / 20)); k++) { g.save(); g.translate(f.x, f.y); g.rotate(k * 1.1); g.fillStyle = '#7a5a3a'; rr(g, -9, -2, 18, 4, 2); g.fill(); g.restore(); } }
+  if (!f.lit && f.prog > 0) { panel(g, f.x - 26, f.y - 38, 52, 10, 5, .85); rr(g, f.x - 24, f.y - 36, Math.max(4, 48 * Math.min(1, f.prog / 100)), 6, 3); g.fillStyle = '#ffb35a'; g.fill(); }
+  // palms (they sway; one just shaken shakes)
+  for (const pm of G.palms) islePalm(g, (pm.tx + .5) * SI, (pm.ty + .5) * SI, pm.cocos, st.shakeT[pm.tx + ',' + pm.ty] || (pm.shakes ? .15 : 0), t);
+  // the two of them
+  const ids = ['pink', 'mint'].sort((a, b) => st.disp[a].y - st.disp[b].y);
+  for (const id of ids) isleHero(g, G, id, st.disp[id].x, st.disp[id].y, t);
+  // a monkey
+  if (G.monkey) {
+    const m = G.monkey, bob = Math.abs(Math.sin(t * 14)) * 3;
+    g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.ellipse(m.x, m.y + 9, 11, 4, 0, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#7a4a28'; g.lineWidth = 3; g.lineCap = 'round'; g.beginPath(); g.moveTo(m.x + 6, m.y + 2); g.quadraticCurveTo(m.x + 18, m.y - 2, m.x + 14, m.y - 12 + Math.sin(t * 8) * 3); g.stroke(); g.lineCap = 'butt';
+    g.fillStyle = '#8a5a34'; g.beginPath(); g.ellipse(m.x, m.y - bob, 9, 10, 0, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.arc(m.x, m.y - 12 - bob, 8, 0, Math.PI * 2); g.fill();
+    for (const s of [-1, 1]) { g.fillStyle = '#8a5a34'; g.beginPath(); g.arc(m.x + s * 8, m.y - 14 - bob, 3.4, 0, Math.PI * 2); g.fill(); g.fillStyle = '#e8b890'; g.beginPath(); g.arc(m.x + s * 8, m.y - 14 - bob, 1.8, 0, Math.PI * 2); g.fill(); }
+    g.fillStyle = '#e8b890'; g.beginPath(); g.ellipse(m.x, m.y - 10 - bob, 5.5, 4.5, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#1a1530'; for (const s of [-1, 1]) { g.beginPath(); g.arc(m.x + s * 2.4, m.y - 12 - bob, 1.2, 0, Math.PI * 2); g.fill(); }
+    g.beginPath(); g.arc(m.x, m.y - 8.5 - bob, 1.6, 0, Math.PI); g.stroke();
+    if (m.item) isleItem(g, m.item, m.x, m.y - 26 - bob, .9);
+    g.font = `600 11px ${FONT}`; g.textAlign = 'center'; g.fillStyle = '#ffd27a'; g.fillText(m.st === 'in' ? 'อู๊กๆ' : m.item ? 'ฮิๆ' : 'เจี๊ยก!', m.x, m.y - 30 - (m.item ? 12 : 0) - bob);
+  }
+  // coconuts coming down: a shadow growing where it will land
+  for (const c of G.falls) {
+    const k = 1 - Math.max(0, c.t) / Isle.FALL_T;
+    g.fillStyle = `rgba(0,0,0,${.15 + .3 * k})`; g.beginPath(); g.ellipse(c.x, c.y + 4, 4 + 8 * k, 2 + 4 * k, 0, 0, Math.PI * 2); g.fill();
+    isleItem(g, 'coco', c.x, c.y - 70 * (1 - k * k), 1);
+    if (c.t < Isle.CATCH_W + .1) { g.strokeStyle = `rgba(255,207,90,${.8})`; g.lineWidth = 2; g.beginPath(); g.arc(c.x, c.y + 4, Isle.BONK_R + 4, 0, Math.PI * 2); g.stroke(); }
+  }
+  // smoke and puffs
+  for (const p of st.puffs) { g.fillStyle = p.green ? `rgba(160,200,90,${p.life * .4})` : `rgba(220,220,230,${Math.min(.5, p.life * .35)})`; g.beginPath(); g.arc(p.x, p.y, p.s, 0, Math.PI * 2); g.fill(); }
+  // the ship, out at sea
+  if (G.ship) {
+    const x = G.ship.x, y = VH - 50; g.save(); g.translate(x, y); g.scale(.85, .85); g.translate(-x, -y);
+    g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(x - 70, y + 10, 50, 2);
+    g.fillStyle = '#f5f0e6'; g.beginPath(); g.moveTo(x - 46, y - 2); g.lineTo(x + 50, y - 2); g.lineTo(x + 38, y + 12); g.lineTo(x - 40, y + 12); g.closePath(); g.fill();
+    g.fillStyle = '#c94a4a'; g.fillRect(x - 40, y + 6, 78, 4);
+    g.fillStyle = '#fff'; rr(g, x - 20, y - 16, 40, 14, 3); g.fill(); g.fillStyle = '#4a6a9a'; for (let i = 0; i < 4; i++) g.fillRect(x - 16 + i * 9, y - 12, 5, 5);
+    g.fillStyle = '#e8574f'; g.fillRect(x + 4, y - 28, 9, 12); g.fillStyle = 'rgba(200,200,210,.5)'; for (let i = 0; i < 3; i++) { g.beginPath(); g.arc(x - 2 - i * 9 + Math.sin(t * 2 + i), y - 34 - i * 6, 5 + i * 2, 0, Math.PI * 2); g.fill(); } g.restore();
+  }
+  // rain
+  if (st.rainK > .02) { g.strokeStyle = `rgba(200,220,255,${.35 * st.rainK})`; g.lineWidth = 1.2; g.beginPath(); for (let i = 0; i < 90; i++) { const x = (i * 97 + t * 60) % (VW + 40) - 20, y = (i * 53 + t * 520) % (VH + 40) - 20; g.moveTo(x, y); g.lineTo(x - 4, y + 12); } g.stroke(); g.fillStyle = `rgba(40,50,80,${.18 * st.rainK})`; g.fillRect(0, 0, VW, VH); }
+  g.restore();
+  // dusk and night: darker, a pool of light round the fire (drawn small and stretched: soft and cheap)
+  const c = Isle.clock(G), dusk = Math.max(0, Math.min(1, (c.t - (c.dayLen - 20)) / 20)) * (c.night ? 0 : 1);
+  if (dusk > 0) { g.fillStyle = `rgba(255,140,80,${.12 * dusk})`; g.fillRect(0, 0, VW, VH); }
+  if (st.night > .02) isleNight(g, G, st.night, t);
+  drawParts(g);
+  xDrawFloats(g, SM);
+  isleHud(g, G);
+  xCountdown(g, G, Isle.START);
+  xBannerDraw(g, G, Isle.START, def.name, 'อยู่ให้รอดสามวัน กิน ดื่ม อยู่ข้างกองไฟตอนกลางคืน อย่าทะเลาะกัน วันสุดท้ายเรียง SOS แล้วจุดไฟรอเรือ');
+  if (O.role && S.mode !== 'menu') drawNetNote(g);
+}
+const ISLE_NIGHT = { cv: null, g: null };
+function isleNight(g, G, k, t) {
+  if (!ISLE_NIGHT.cv) { ISLE_NIGHT.cv = document.createElement('canvas'); ISLE_NIGHT.cv.width = 192; ISLE_NIGHT.cv.height = 109; ISLE_NIGHT.g = ISLE_NIGHT.cv.getContext('2d'); }
+  const q = ISLE_NIGHT.g, s = 192 / VW;
+  q.globalCompositeOperation = 'source-over'; q.clearRect(0, 0, 192, 109); q.fillStyle = `rgba(12,16,48,${.72 * k})`; q.fillRect(0, 0, 192, 109);
+  q.globalCompositeOperation = 'destination-out';
+  const light = (x, y, r, a) => { const gr = q.createRadialGradient(x * s, y * s, 0, x * s, y * s, r * s); gr.addColorStop(0, `rgba(0,0,0,${a})`); gr.addColorStop(1, 'rgba(0,0,0,0)'); q.fillStyle = gr; q.fillRect(x * s - r * s, y * s - r * s, r * s * 2, r * s * 2); };
+  if (G.fire.lit) light(G.fire.x, G.fire.y, 150 + Math.sin(t * 9) * 6, .95);
+  for (const id of ['pink', 'mint']) light(G.p[id].x, G.p[id].y, 55, .55);
+  q.globalCompositeOperation = 'source-over';
+  g.save(); g.imageSmoothingEnabled = true; g.drawImage(ISLE_NIGHT.cv, 0, 0, VW, VH); g.restore();
+  // stars over the sea
+  g.fillStyle = `rgba(255,250,220,${.5 * k})`; for (let i = 0; i < 24; i++) { const x = (i * 173 + 37) % VW, y = (i * 61) % 90 + 4; g.globalAlpha = k * (.4 + .4 * Math.sin(t * 2 + i)); twinkle(g, x, y, 2.5); } g.globalAlpha = 1;
+}
+function isleHero(g, G, id, x, y, t) {
+  const st = SM.st, p = G.p[id], pink = id === 'pink', col = pink ? C.pink : C.mint, dark = pink ? C.pinkD : C.mintD;
+  g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.ellipse(x, y + 10, 13, 5, 0, 0, Math.PI * 2); g.fill();
+  if (p.st === 'down') {
+    g.fillStyle = dark; g.beginPath(); g.ellipse(x, y + 4, 17, 10, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = col; g.beginPath(); g.ellipse(x, y + 2, 16, 9, 0, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = C.ink; g.lineWidth = 1.6; for (const s of [-1, 1]) { const ex = x + s * 5; g.beginPath(); g.moveTo(ex - 2.4, y); g.lineTo(ex + 2.4, y + 3.6); g.moveTo(ex + 2.4, y); g.lineTo(ex - 2.4, y + 3.6); g.stroke(); }
+    const by = y - 30 + Math.sin(t * 4) * 2, txt = p.why === 'water' ? 'น้ำ...' : p.why === 'cold' ? 'หนาว...' : 'หิว...';
+    g.font = `600 12px ${FONT}`; const tw = g.measureText(txt).width + 16; rr(g, x - tw / 2, by - 12, tw, 20, 10); g.fillStyle = '#fff'; g.fill();
+    g.fillStyle = C.ink; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, x, by - 1); g.textBaseline = 'alphabetic';
+    const left = Math.max(0, 1 - p.dt / Isle.DOWN_T);
+    g.strokeStyle = 'rgba(21,18,43,.55)'; g.lineWidth = 5; g.beginPath(); g.arc(x, y + 2, 24, 0, Math.PI * 2); g.stroke();
+    g.strokeStyle = left < .3 ? '#ff6b6b' : 'rgba(255,255,255,.45)'; g.lineWidth = 2; g.beginPath(); g.arc(x, y + 2, 24, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * left); g.stroke();
+    if (p.rv > 0) { g.strokeStyle = '#9be07a'; g.lineWidth = 4; g.beginPath(); g.arc(x, y + 2, 24, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, p.rv / Isle.REVIVE_T)); g.stroke(); }
+    return;
+  }
+  const w = st.walk[id], bob = p.mv || p.panic > 0 ? Math.abs(Math.sin(w)) * 2.2 : 0, step = p.mv ? Math.sin(w) * 3 : 0;
+  const shiver = Isle.night(G) && p.warm < 40 && !Isle.nearFire(G, p) ? Math.sin(t * 40) * 1.2 : 0, cx = x + shiver;
+  const fx = p.sulk ? 0 : p.fx, fy = p.sulk ? -1 : p.fy;
+  g.fillStyle = dark; for (const s of [-1, 1]) { g.beginPath(); g.ellipse(cx + s * 6, y + 8 + s * step * .6, 4.2, 3, 0, 0, Math.PI * 2); g.fill(); }
+  if (p.inv > 0 && p.panic <= 0 && Math.floor(t * 12) % 2) g.globalAlpha = .55;
+  roundBody(g, cx, y - 3 - bob, 13, id);
+  if (p.sick > 0) { g.fillStyle = 'rgba(150,200,80,.35)'; g.beginPath(); g.arc(cx, y - 3 - bob, 13, 0, Math.PI * 2); g.fill(); }
+  if (p.wet > 0) { g.fillStyle = 'rgba(140,200,255,.8)'; for (let k = 0; k < 2; k++) { const u = (t * 1.6 + k / 2) % 1; g.beginPath(); g.arc(cx - 8 + k * 16, y - 10 + u * 14, 1.6, 0, Math.PI * 2); g.fill(); } }
+  if (p.singe > 0) { g.fillStyle = '#2a2420'; for (let k = 0; k < 7; k++) { const a = Math.PI + k / 6 * Math.PI; g.beginPath(); g.arc(cx + Math.cos(a) * 10, y - 12 - bob + Math.sin(a) * 6, 5, 0, Math.PI * 2); g.fill(); } g.fillStyle = 'rgba(200,200,200,.5)'; g.beginPath(); g.arc(cx + 4, y - 26 - bob - (t * 10 % 8), 3, 0, Math.PI * 2); g.fill(); }
+  else if (pink) cuteBow(g, cx + 5, y - 16 - bob, .95); else cuteSprout(g, cx, y - 15 - bob, 1.05, t);
+  if (p.sulk) {
+    // sulking: turned away, arms crossed, a little storm cloud
+    g.fillStyle = dark; rr(g, cx - 9, y - 4 - bob, 18, 5, 2.5); g.fill();
+    g.fillStyle = '#6a6a80'; for (const [a, b, r] of [[-7, -36, 6], [0, -39, 8], [8, -36, 6]]) { g.beginPath(); g.arc(cx + a, y + b - bob, r, 0, Math.PI * 2); g.fill(); }
+    g.strokeStyle = '#ffe066'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(cx + 1, y - 30); g.lineTo(cx - 2, y - 24); g.lineTo(cx + 2, y - 24); g.lineTo(cx - 1, y - 18); g.stroke();
+  } else {
+    const mood = p.stun > 0 ? 'sleep' : p.panic > 0 ? 'o' : p.sick > 0 ? 'sad' : (Isle.night(G) && Isle.nearFire(G, p) && Isle.nearFire(G, G.p[pink ? 'mint' : 'pink'])) ? 'happy' : '';
+    cuteFace(g, cx + fx * 3.5, y - 5 - bob + Math.max(-1, fy) * 1.5, fx, t, pink, mood, .82, fy);
+  }
+  g.globalAlpha = 1;
+  if (p.stun > 0) for (let k = 0; k < 3; k++) { const a = t * 6 + k * 2.1; g.fillStyle = C.gold; twinkle(g, cx + Math.cos(a) * 12, y - 22 + Math.sin(a) * 4, 3); }
+  if (p.panic > 0) {
+    // a crab hanging on behind, and a scream
+    g.fillStyle = '#e74c3c'; g.beginPath(); g.ellipse(cx - p.pdx * 13, y + 2 - p.pdy * 13, 6, 4.5, 0, 0, Math.PI * 2); g.fill();
+    g.font = `400 15px ${FONT_D}`; g.textAlign = 'center'; g.lineWidth = 3; g.strokeStyle = 'rgba(21,18,43,.8)'; const sy = y - (p.item ? 46 : 32) - Math.sin(t * 20) * 2; g.strokeText('อ๊ากกก!', cx, sy); g.fillStyle = '#ffb3b3'; g.fillText('อ๊ากกก!', cx, sy);
+  }
+  if (p.cook > 0) { g.strokeStyle = '#7a5a3a'; g.lineWidth = 2; g.beginPath(); g.moveTo(cx, y - 4); g.lineTo(G.fire.x, G.fire.y - 6); g.stroke(); isleItem(g, 'fish', G.fire.x, G.fire.y - 8, .8); panel(g, cx - 18, y - 34, 36, 8, 4, .85); rr(g, cx - 16, y - 32, 32 * (1 - p.cook / Isle.COOK_T), 4, 2); g.fillStyle = '#ffb35a'; g.fill(); }
+  else if (p.item) isleItem(g, p.item, cx, y - 26 - bob, .95);
+  if (G.t < Isle.START + 3) { g.globalAlpha = Math.min(1, (Isle.START + 3 - G.t) * 1.5); nameTag(g, S.names[id], x, y - 32, col); g.globalAlpha = 1; }
+}
+
+/* ---------- the boxes: the day and the clock, hearts, love, how each of you is ---------- */
+function isleHud(g, G) {
+  const c = Isle.clock(G), st = SM.st;
+  // the day: a sun (or a moon) going across, and what is coming
+  panel(g, 8, 8, 236, 58, 12, .82);
+  g.textAlign = 'left'; g.font = `400 18px ${FONT_D}`; g.fillStyle = C.paper; g.fillText(`วันที่ ${th(c.day)}/${th(c.days)}`, 18, 32);
+  const u = c.t / c.len, bx = 120, bw = 112;
+  rr(g, bx, 22, bw, 6, 3); g.fillStyle = 'rgba(255,255,255,.12)'; g.fill();
+  rr(g, bx, 22, bw * c.dayLen / c.len, 6, 3); g.fillStyle = 'rgba(255,207,90,.4)'; g.fill();
+  g.fillStyle = c.night ? '#e8e4ff' : C.gold; g.beginPath(); g.arc(bx + bw * u, 25, 6, 0, Math.PI * 2); g.fill();
+  if (c.night) { g.fillStyle = '#2a2350'; g.beginPath(); g.arc(bx + bw * u + 3, 23, 5, 0, Math.PI * 2); g.fill(); }
+  g.font = `600 11px ${FONT}`; g.fillStyle = '#c9bfef';
+  const last = Isle.lastDay(G), ships = G.def.ships || [50, 95], nx = ships[G.shipN];
+  const line = G.ship ? 'เรือกำลังผ่าน!' : last && nx != null && !c.night ? `เรือจะผ่านในอีก ${th(Math.max(0, Math.ceil(nx - c.t)))} วิ` : c.night ? `เช้าในอีก ${th(Math.ceil(c.len - c.t))} วิ` : `ค่ำในอีก ${th(Math.ceil(c.dayLen - c.t))} วิ`;
+  g.fillText(line, 18, 54);
+  const need = Isle.sosNeed(G), got = G.pads.reduce((a, p) => a + Math.min(need, p.n), 0);
+  g.textAlign = 'right'; g.fillStyle = got >= need * 3 ? C.gold : '#c9bfef'; g.fillText(`SOS ${th(got)}/${th(need * 3)}`, 234, 54);
+  // hearts
+  const n = Math.max(Isle.HEARTS, G.hearts), hw = 22 * n + 70, hx = VW - 8 - hw;
+  panel(g, hx, 8, hw, 26, 12, .82);
+  g.font = `600 11px ${FONT}`; g.textAlign = 'left'; g.fillStyle = '#c9bfef'; g.fillText('หัวใจ', hx + 10, 25);
+  for (let i = 0; i < n; i++) { g.fillStyle = i < G.hearts ? C.pink : 'rgba(255,255,255,.2)'; heartPath(g, hx + 60 + i * 22, 20, 7); g.fill(); }
+  // love between you
+  const lw = 220, lx = VW / 2 - lw / 2;
+  panel(g, lx, 8, lw, 30, 14, .82);
+  g.fillStyle = G.love < Isle.SULK + 10 ? '#ff6b6b' : C.pink; heartPath(g, lx + 18, 22, 8); g.fill();
+  rr(g, lx + 32, 19, lw - 44, 8, 4); g.fillStyle = 'rgba(255,255,255,.12)'; g.fill();
+  if (G.love > 0) { rr(g, lx + 32, 19, Math.max(8, (lw - 44) * G.love / 100), 8, 4); g.fillStyle = G.love < Isle.SULK + 10 ? '#ff6b6b' : G.love > 70 ? '#ff8fb8' : '#ffb3cf'; g.fill(); }
+  g.fillStyle = 'rgba(255,255,255,.4)'; g.fillRect(lx + 32 + (lw - 44) * Isle.SULK / 100, 17, 1.5, 12);
+  if (G.sulk) { g.font = `600 11px ${FONT}`; g.textAlign = 'center'; g.fillStyle = '#ff8a8a'; g.fillText(`${S.names[G.sulk]}งอนอยู่! เอาดอกไม้หรือของกินไปง้อ`, VW / 2, 52); }
+  // each one's hunger, thirst and warmth, in their corner
+  for (const id of ['pink', 'mint']) {
+    if (O.role && id !== O.local && false) continue;
+    const p = G.p[id], w = 168, x = id === 'pink' ? 8 : VW - 8 - w, y = VH - 50;
+    panel(g, x, y, w, 42, 12, .82);
+    g.font = `600 10px ${FONT}`; g.textAlign = 'left'; g.fillStyle = id === 'pink' ? C.pink : C.mint; g.fillText(S.names[id], x + 10, y + 15);
+    if (p.item) { g.fillStyle = '#c9bfef'; g.textAlign = 'right'; g.fillText('ถือ' + (S_ITEM[p.item] || ''), x + w - 10, y + 15); }
+    [['หิว', p.food, '#ffb35a'], ['น้ำ', p.water, '#6fc8ff'], ['อุ่น', p.warm, '#ff8a8a']].forEach(([lab, v, col], i) => {
+      const bx = x + 10 + i * 52; g.textAlign = 'left'; g.fillStyle = v < 25 ? '#ff6b6b' : '#c9bfef'; g.fillText(lab, bx, y + 33);
+      rr(g, bx + 18, y + 26, 28, 7, 3.5); g.fillStyle = 'rgba(255,255,255,.12)'; g.fill();
+      if (v > 0) { rr(g, bx + 18, y + 26, Math.max(4, 28 * v / 100), 7, 3.5); g.fillStyle = v < 25 && Math.sin(S.time * 10) > 0 ? '#ff6b6b' : col; g.fill(); }
+    });
+  }
+  if (S.mode !== 'play' || G.st !== 'run' || G.over) return;
+  // a word over each head when it matters
+  for (const id of ['pink', 'mint']) {
+    const p = G.p[id], o = G.p[id === 'pink' ? 'mint' : 'pink'], d = st.disp[id]; if (p.st !== 'ok' || p.sulk) continue;
+    let tip = null;
+    const fall = G.falls.find(cf => Math.hypot(cf.x - p.x, cf.y - p.y) < 40);
+    if (fall) tip = p.item ? 'หลบ! มะพร้าวหล่น' : 'กดรับตอนหล่นถึงพื้น!';
+    else if (o.st === 'down') tip = `ไปยืนข้างๆ ${S.names[o === G.p.pink ? 'pink' : 'mint']}!`;
+    else if (o.sulk) tip = p.item === 'flower' || Isle.FOOD[p.item] ? 'เอาไปให้เลย' : 'เก็บดอกไม้ไปง้อ';
+    else if (G.ship && !Isle.sosDone(G)) tip = 'SOS ยังขาดหิน!';
+    else if (G.ship && !G.fire.lit) tip = 'จุดไฟ! ให้เรือเห็นควัน';
+    else if (p.water < 25) tip = 'คอแห้ง! ไปดื่มน้ำที่ตาน้ำ';
+    else if (p.food < 25) tip = 'หิวแล้ว หาอะไรกิน';
+    else if (Isle.night(G) && !Isle.nearFire(G, p) && p.warm < 50) tip = 'หนาว! ไปที่กองไฟ';
+    else if (!G.fire.lit && G.fire.fuel >= Isle.LIGHT_FUEL && Isle.reach(G, p, 'C')) tip = G.fire.last === id ? 'รออีกคนถู' : 'ถูไม้สลับกัน';
+    else if (!G.fire.lit && G.fire.fuel < Isle.LIGHT_FUEL && Isle.reach(G, p, 'C')) tip = 'ต้องเอาฟืนมาใส่ก่อน';
+    else if (p.item === 'fish' && !G.fire.lit) tip = 'ปลาดิบ ย่างก่อนดีกว่า';
+    else if (p.item === 'rock' && Isle.onPad(G, p) >= 0) tip = 'วางหิน';
+    if (tip) xTip(g, id, tip, d.x, d.y - 40);
+  }
+}
+
 /* ---------- Fullscreen ---------- */
 const isIPhone = /iPhone|iPod/.test(navigator.userAgent);
 const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement || null;
@@ -9469,7 +9971,7 @@ function boot(data) {
   requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
   if (inClaude()) setTimeout(roomApi, 300);
 }
-try { Object.defineProperty(window, '__tsr', { value: { S, KS, DS, RS, TS, MS, WS, LS, BS, VS, IS, O, KK, KT, Twr, Leg, Boat, Mov, Kite, MODES, XK, Cin, Fart, Bed, Win, Trap, BGMX: { TRACKS, bgmStep, mixerFor, stepDur, trackPrep, BGM, soundsInto, sfx } }, configurable: true }); } catch (e) {}
+try { Object.defineProperty(window, '__tsr', { value: { S, KS, DS, RS, TS, MS, WS, LS, BS, VS, IS, O, KK, KT, Twr, Leg, Boat, Mov, Kite, MODES, XK, Cin, Fart, Bed, Win, Trap, Isle, SM, BGMX: { TRACKS, bgmStep, mixerFor, stepDur, trackPrep, BGM, soundsInto, sfx } }, configurable: true }); } catch (e) {}
 try { if (window.claude && window.claude.hot && window.claude.hot.snapshot) window.claude.hot.snapshot(() => ({ names: S.names, li: S.li })); } catch (e) {}
 if (window.claude && window.claude.hot && window.claude.hot.ready) window.claude.hot.ready(boot);
 else boot((window.claude && window.claude.hot && window.claude.hot.data) || {});
