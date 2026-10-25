@@ -49,7 +49,7 @@ app.classList.toggle('touch', isTouch);
 
 /* ---------- State ---------- */
 // every kind of screen; the one showing is a class on #app
-const KINDS = ['kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov', 'kite', 'cin', 'fart', 'bed', 'win'];
+const KINDS = ['kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov', 'kite', 'cin', 'fart', 'bed', 'win', 'trap'];
 function setKind(k) { S.kind = k; for (const x of KINDS) app.classList.toggle(x, x === k); }
 const MODES = {};
 const S = { mode: 'menu', li: 0, W: null, deathT: 0, winT: 0, flash: 0, banner: 0, deaths: 0, elapsed: 0, parts: [], time: 0, deadId: null, shake: 0, gates: [], names: { pink: 'เค้า', mint: 'ตัวเอง' }, sound: true, music: true };
@@ -233,7 +233,12 @@ const TRACKS = {
   win: { bpm: 96, beats: 4, div: 2, vol: 1.15, chords: ['Em', 'Am', 'B7', 'Em', 'Em', 'Am', 'B7', 'Em'],
     mel: [{ i: 'pizz', v: .07, n: 'E4 . G4 . B4 . . . | A4 . C5 . E5 . . . | D#5 . . F#5 . . A5 . | G5 . F#5 . E5 . B4 . | E5 . . G5 . . B5 . | A5 . G5 . F#5 . E5 . | D#5 . E5 . F#5 . B4 . | E4 . . . . . . .' }],
     bass: { i: 'bass', v: .06, p: '0 . 2 . 0 . 2 .' },
-    drums: { block: ['. . x . . . x .', .18] } }
+    drums: { block: ['. . x . . . x .', .18] } },
+  // the trap run: a marimba striding through the jungle over toms and a shaker
+  trap: { bpm: 112, beats: 4, div: 2, vol: 0.75, chords: ['Dm', 'Dm', 'C', 'Am', 'Bb', 'C', 'Dm', 'A7'],
+    mel: [{ i: 'marimba', v: .06, n: 'D5 . F5 . A5 - G5 F5 | E5 . D5 . A4 - - - | C5 . E5 . G5 - F5 E5 | D5 . C5 . A4 - - - | Bb4 . D5 . F5 - E5 D5 | C5 . E5 . G5 - A5 - | F5 . E5 . D5 . A4 . | C#5 - E5 - D5 - - -' }],
+    arp: { i: 'pluck', v: .02, p: '0 2 1 2 0 2 1 2' }, bass: { i: 'bass', v: .06, p: '0 . 0 2 . 0 2 .' },
+    drums: { tom: ['x . . x . . x .', .22], shaker: ['. x . x . x . x', .35], block: ['. . x . . . . x', .15] } }
 };
 
 // turn the written parts into steps once
@@ -329,7 +334,7 @@ function drum(a, out, k, at, v) {
 
 /* the conductor: which track (or none) fits what is on screen, faded in and out, muffled while paused */
 const BGM = { name: undefined, tr: null, step: 0, next: 0, fadeIn: false, hold: 0, prevMode: '', banner: 0, amb: {}, ambKind: null };
-const MODE_TRACK = { adv: 'adv', kit: 'kit', def: 'def', drv: 'drv', tak: 'tak', twr: 'twr', leg: 'leg', boat: 'boat', mov: 'mov', kite: 'kite', cin: 'cin', fart: 'fart', bed: 'bed', win: 'win' };
+const MODE_TRACK = { adv: 'adv', kit: 'kit', def: 'def', drv: 'drv', tak: 'tak', twr: 'twr', leg: 'leg', boat: 'boat', mov: 'mov', kite: 'kite', cin: 'cin', fart: 'fart', bed: 'bed', win: 'win', trap: 'trap' };
 function bgmWanted() {
   if (!S.music || document.hidden) return null;
   if (S.mode === 'menu' || S.mode === 'clear' || !scr.title.hidden || !scr.online.hidden) return 'title';
@@ -370,8 +375,8 @@ function resultsJingle() {
   return t0 + 2;
 }
 
-/* the sound of each place: crickets at night, birds by day, wind, water, a crowd, the air conditioner, the projector */
-const AMB_OF = { adv: ['night'], def: ['night', 'wind'], drv: ['birds'], tak: ['birds'], twr: ['wind', 'birds'], leg: ['crowd', 'birds'], boat: ['water', 'crowd'], mov: ['birds'], kite: ['wind', 'birds'], cin: ['projector'], fart: ['crowd'], bed: ['hum', 'night'], win: ['night'] };
+/* the sound of each place: crickets at night, birds by day, the jungle, wind, water, a crowd, the air conditioner, the projector */
+const AMB_OF = { adv: ['night'], def: ['night', 'wind'], drv: ['birds'], tak: ['birds'], twr: ['wind', 'birds'], leg: ['crowd', 'birds'], boat: ['water', 'crowd'], mov: ['birds'], kite: ['wind', 'birds'], cin: ['projector'], fart: ['crowd'], bed: ['hum', 'night'], win: ['night'], trap: ['birds', 'jungle'] };
 function ambLayer(a, M, kind) {
   const s = a.createBufferSource(); s.buffer = noiseBuf(a); s.loop = true;
   const f = a.createBiquadFilter(), g = a.createGain(), lfo = a.createOscillator(), lg = a.createGain();
@@ -408,6 +413,11 @@ function ambTick(a, M, now) {
   const pan = () => Math.random() * 1.6 - .8;
   if (want.includes('night') && Math.random() < .07) { const f = 4200 + Math.random() * 600, at = now + .05, p = pan(), n = 2 + (Math.random() * 3 | 0), v = .006 + Math.random() * .007; for (let i = 0; i < n; i++) ambCall(a, M, f, f, .022, v, at + i * .05, p); }
   if (want.includes('birds') && Math.random() < .014) { const f = 2400 + Math.random() * 1200, at = now + .05, p = pan(), n = 2 + (Math.random() * 3 | 0); for (let i = 0; i < n; i++) ambCall(a, M, f * (1 + i * .04), f * 1.35, .06 + Math.random() * .03, .01, at + i * .09, p); }
+  // the jungle: insects trilling, now and then a bird calling two notes far off
+  if (want.includes('jungle')) {
+    if (Math.random() < .02) { const f = 5200 + Math.random() * 900, at = now + .05, p = pan(), v = .004 + Math.random() * .004; for (let i = 0; i < 9; i++) ambCall(a, M, f, f, .018, v, at + i * .028, p); }
+    if (Math.random() < .005) { const f = 700 + Math.random() * 300, at = now + .05, p = pan(); ambCall(a, M, f, f * 1.05, .22, .012, at, p); ambCall(a, M, f * .8, f * .78, .3, .011, at + .28, p); }
+  }
   if (want.includes('water') && Math.random() < .03) ambCall(a, M, 700 + Math.random() * 500, 1500 + Math.random() * 600, .05, .012, now + .05, pan());
 }
 // the first tap or key press is allowed to start the sound (browsers keep it asleep until then)
@@ -7217,7 +7227,7 @@ function iGuestHears(pr) {
   if (G.over && !IS.endT && S.mode === 'play') { IS.endT = 2.2; iSave(); }
 }
 
-/* ---------- the newer modes (cinema, no farting, one blanket, the window) share one flow ----------
+/* ---------- the newer modes (cinema, no farting, one blanket, the window, the trap run) share one flow ----------
    Each registers itself with xMode({...}); the hooks in the main code (frame, restart, next, title, online) go through
    MODES. What a mode brings: kind, md (online code), pres (its key in the presence message), dk (the level buttons'
    data attribute), L (levels), pk (where its stars are kept), label(i), Eng (the engine), pad ('x': two buttons a side,
@@ -8780,6 +8790,621 @@ function winHud(g, G) {
   if (tt) xTip(g, R.top, tt, h.x, ny(h.y) - 70);
 }
 
+/* ---------- The trap run (ฝ่าดงกับดัก) ---------- */
+Object.assign(sfx, {
+  pstep() { noise(.05, 700 + Math.random() * 500, .042, 'bandpass', 1.2); },
+  pspike() { noise(.12, 4200, .05, 'highpass', .8); tone(1700, .09, 'triangle', .022, 2500); tone(140, .08, 'sine', .045, 80); },
+  ppeek() { tone(2600 + Math.random() * 300, .03, 'triangle', .022); tone(2900, .025, 'triangle', .015, 0, .04); },
+  parrow() { tone(300, .1, 'triangle', .05, 170); noise(.2, 2600, .035, 'bandpass', 2, 900, .03); },
+  proll() { noise(.9, 170, .07, 'lowpass', .8, 90); tone(58, .7, 'sine', .045, 44); },
+  pfire() { noise(.45, 650, .04, 'bandpass', .7, 1500); noise(.2, 2500, .012, 'bandpass', 3, 0, .1); },
+  psaw() { tone(880 + Math.random() * 90, .16, 'sawtooth', .024, 1150); },
+  psplash() { noise(.45, 1400, .08, 'bandpass', .9, 380); tone(320, .2, 'sine', .035, 120); for (let i = 0; i < 3; i++) tone(900 + i * 280, .05, 'sine', .016, 1500, .1 + i * .05); },
+  pplate() { tone(170, .1, 'triangle', .055, 120); noise(.07, 900, .035, 'lowpass', 1); },
+  pgate() { noise(.55, 220, .05, 'lowpass', 1.2, 520); tone(92, .4, 'triangle', .035, 70); },
+  plever() { tone(250, .06, 'square', .035, 190); noise(.05, 1800, .035, 'bandpass', 2); },
+  punlock() { noise(.9, 190, .07, 'lowpass', 1, 600); [392, 523, 659, 784].forEach((f, i) => chime(f, .45, .04, .25 + i * .08)); },
+  pgem() { chime(1568, .3, .045); chime(2093, .35, .035, .06); },
+  phit() { tone(230, .14, 'triangle', .06, 110); noise(.12, 500, .05, 'lowpass', .8); },
+  previve() { [523, 659, 784, 1047].forEach((f, i) => chime(f, .25, .04, i * .06)); },
+  phurt() { tone(440, .18, 'triangle', .055, 392); tone(330, .42, 'triangle', .055, 262, .16); },
+  pcheck() { noise(.35, 900, .045, 'bandpass', 1, 2400); chime(784, .4, .045, .1); chime(1175, .5, .04, .2); }
+});
+const PT = Trap.T, PROWS = Trap.ROWS, PY0 = VH - PROWS * PT, PCH = 16;
+// every plate (and lever pair) takes the colour of what it works, so a plate and its gate or trap can be matched up
+const PCOLS = ['#7cc8ff', '#ffb35a', '#c79bff', '#7be08a', '#ff8fb0', '#ffe066', '#6fe0d6', '#ff9f7a'];
+function trapGroups(def) {
+  const col = {}, of = {}; let n = 0;
+  const give = spec => { let c = null; for (const ch of spec) if (col[ch]) c = col[ch]; if (!c) c = PCOLS[n++ % PCOLS.length]; for (const ch of spec) col[ch] = c; return c; };
+  for (const g in def.gates || {}) of['g' + g] = give(def.gates[g]);
+  for (const s in def.spikes || {}) if (def.spikes[s].stop) of['s' + s] = give(def.spikes[s].stop);
+  (def.things || []).forEach((t, i) => { if (t.stop) of['t' + i] = give(t.stop); });
+  return { col, of };
+}
+const P_WHY = { spike: 'โดนหนาม!', water: 'ตกน้ำ!', arrow: 'โดนธนู!', log: 'โดนท่อนไม้!', rock: 'โดนหินกลิ้ง!', fire: 'ร้อน!', saw: 'โดนใบเลื่อย!' };
+const PM = xMode({
+  kind: 'trap', md: 'p', pres: 'pw', dk: 'q', L: PLEVELS, pk: 'q', Eng: Trap, pad: 'k', list: 'qlevels', olist: 'oLevelsQ', starsAll: 'qStarsAll',
+  label: i => 'เส้นทางที่ ' + th(i + 1), word: 'ไป', goWord: 'ออกผจญภัย', fresh: 'ยังไม่เคยไป', nextWord: 'เส้นทางถัดไป', againWord: 'ลองเส้นทางนี้อีกครั้ง',
+  score: G => G.score,
+  kWords: () => ({ act: 'ดึง<br>คันโยก', use: '' }),
+  onLoad() {
+    const st = PM.st, G = st.G, def = G.def;
+    // where each band of spikes lies (for its sound), how the plates are coloured, the camera
+    const spx = {};
+    for (let y = 0; y < PROWS; y++) for (let x = 0; x < G.W; x++) { const c = G.grid[y][x]; if (Trap.SPIKE.includes(c)) { const r = spx[c] || (spx[c] = [x, x]); r[0] = Math.min(r[0], x); r[1] = Math.max(r[1], x); } }
+    Object.assign(st, { grp: trapGroups(def), spx, spk: {}, strips: st.strips || new Map(), spare: st.spare || [], lastCam: null, walk: { pink: 0, mint: 0 }, stepT: { pink: 0, mint: 0 }, sawT: 0, fireT: 0, peekT: 0, gate: {}, downAt: { pink: -9, mint: -9 },
+      disp: { pink: { x: G.p.pink.x, y: G.p.pink.y }, mint: { x: G.p.mint.x, y: G.p.mint.y } }, cam: 0 });
+    st.cam = trapCamTo(G, st.disp);
+    for (const g of Trap.GATE) st.gate[g] = 0;
+  },
+  snap: G => ({ st: G.st, over: G.over, won: G.won, failed: G.failed, h: G.hearts, cp: G.cp, sig: G.sig, go: Object.keys(G.gopen).filter(k => G.gopen[k]).join(''), op: Object.keys(G.open).filter(k => G.open[k]).join(''),
+    gm: G.gems.map(g => (g.got ? 1 : 0)).join(''), ex: G.extras.map(g => (g.got ? 1 : 0)).join(''), ps: [G.p.pink.st, G.p.mint.st], lv: G.levers.map(l => (l.t > 0 ? 1 : 0)).join(''), s: Object.assign({}, G.stats) }),
+  changes(p, n) {
+    const ev = [], G = PM.st.G;
+    if (p.st === 'count' && n.st === 'run') ev.push('go');
+    ['pink', 'mint'].forEach((id, i) => {
+      if (n.ps[i] === 'down' && p.ps[i] !== 'down' && id !== O.local) ev.push(`down:${id}:${G.p[id].why || 'spike'}`);
+      if (n.ps[i] === 'ok' && p.ps[i] === 'down' && n.s.revives > p.s.revives) ev.push('revive:' + id);
+    });
+    if (n.s.respawns > p.s.respawns) ev.push('respawn:x');
+    for (const k of n.sig) if (!p.sig.includes(k)) ev.push('plate:' + k);
+    for (const k of Trap.GATE) { if (n.go.includes(k) && !p.go.includes(k)) ev.push('open:' + k); if (!n.go.includes(k) && p.go.includes(k)) ev.push('shut:' + k); }
+    for (const k of n.op) if (!p.op.includes(k)) ev.push('unlock:' + k);
+    for (let i = 0; i < n.lv.length; i++) if (n.lv[i] === '1' && p.lv[i] !== '1') ev.push('lever:x');
+    for (let i = 0; i < n.gm.length; i++) if (n.gm[i] === '1' && p.gm[i] !== '1') ev.push('gem:x:' + i);
+    for (let i = 0; i < n.ex.length; i++) if (n.ex[i] === '1' && p.ex[i] !== '1') ev.push('heart:x:' + i);
+    if (n.cp > p.cp) ev.push('check:' + n.cp);
+    if (n.h < p.h) ev.push('hurt');
+    if (n.won && !p.won) ev.push('win');
+    else if (n.over && !p.over) ev.push(n.h <= 0 ? 'out' : 'time');
+    return ev;
+  },
+  events(ev) {
+    const st = PM.st, G = st.G, sx = x => x - st.cam, sy = y => y + PY0;
+    for (const e of ev) {
+      const [k, a, b] = e.split(':'), p = G.p[a];
+      if (k === 'go') sfx.ilaunch();
+      else if (k === 'shoot') { const x = +b; if (x > st.cam - 120 && x < st.cam + VW + 120) { if (a === 'arrow') sfx.parrow(); else sfx.proll(); } }
+      else if (k === 'down' && p) {
+        if (S.time - st.downAt[a] < 1) continue; st.downAt[a] = S.time;
+        if (b === 'water') { sfx.psplash(); burst(sx(p.x), sy(p.y), 14, '#9fd8ff', { size: 3, speed: 110, up: 90, life: .8, g: 260 }); }
+        else { sfx.phit(); burst(sx(p.x), sy(p.y), 10, b === 'fire' ? '#ffb35a' : '#fff3d8', { size: 3, speed: 120, life: .6 }); }
+        S.shake = Math.max(S.shake, .45); xFloat(PM, P_WHY[b] || 'ล้ม!', sx(p.x), sy(p.y) - 30, '#ff8a8a', 18);
+      }
+      else if (k === 'plate') sfx.pplate();
+      else if (k === 'lever') sfx.plever();
+      else if (k === 'unlock') { sfx.punlock(); S.shake = Math.max(S.shake, .3); const L = G.levers.find(l => l.id === a); if (L) xFloat(PM, 'ประตูเปิดแล้ว!', sx(L.x + 40), sy(L.y) - 20, C.gold, 20, 1.8); }
+      else if (k === 'open' || k === 'shut') sfx.pgate();
+      else if (k === 'gem') { sfx.pgem(); const gm = b != null ? G.gems[+b] : null, x = gm ? gm.x : p ? p.x : 0, y = gm ? gm.y : p ? p.y : 0; burst(sx(x), sy(y), 10, '#bff4ff', { type: 'star', size: 4, speed: 90, life: .7 }); xFloat(PM, '+' + th(Trap.GEM_PTS), sx(x), sy(y) - 16, '#bff4ff', 16); }
+      else if (k === 'heart') { sfx.heart(); const hh = b != null ? G.extras[+b] : null, x = hh ? hh.x : p ? p.x : 0, y = hh ? hh.y : p ? p.y : 0; burst(sx(x), sy(y), 10, C.pink, { type: 'heart', size: 4, speed: 80, up: 60, life: 1, g: -30 }); xFloat(PM, 'หัวใจ +๑', sx(x), sy(y) - 16, C.pink, 18); }
+      else if (k === 'check') { sfx.pcheck(); const c = G.checks[+a]; if (c) { xFloat(PM, 'จุดเซฟ!', sx((c.tx + .5) * PT), sy(2 * PT), C.gold, 20, 1.6); burst(sx((c.tx + .5) * PT), sy((c.ty + .5) * PT), 14, '#ffd27a', { size: 3, speed: 70, up: 80, life: 1, g: -40 }); } }
+      else if (k === 'revive' && p) { sfx.previve(); burst(sx(p.x), sy(p.y) - 6, 10, a === 'pink' ? C.pink : C.mint, { type: 'heart', size: 4, speed: 70, up: 70, life: 1, g: -40 }); xFloat(PM, 'ลุกได้แล้ว!', sx(p.x), sy(p.y) - 30, '#9be07a', 18); }
+      else if (k === 'hurt') { sfx.phurt(); xFloat(PM, 'เสียหัวใจไปหนึ่งดวง', VW / 2, 150, '#ff8a8a', 22, 1.8); }
+      else if (k === 'respawn') sfx.portal();
+      else if (k === 'out') { sfx.cout(); xFloat(PM, 'หัวใจหมดแล้ว!', VW / 2, 250, '#ff8a8a', 26, 2.2); }
+      else if (k === 'time') { sfx.cout(); xFloat(PM, 'หมดเวลา!', VW / 2, 250, '#ffb38a', 26, 2.2); }
+      else if (k === 'win') { sfx.win(); const q = G.p.pink; burst(sx(q.x), sy(q.y) - 10, 24, C.gold, { type: 'star', size: 5, speed: 140, up: 120, life: 1.4, g: 60 }); xFloat(PM, 'ถึงวิหารแล้ว!', VW / 2, 200, C.gold, 28, 2.4); }
+    }
+  },
+  tick() {
+    const st = PM.st, G = st.G, q = id => { const k = kInput(id); return { mx: k.mx, my: k.my, act: k.act }; };
+    if (!O.role) { PM.events(Trap.step(G, { pink: q('pink'), mint: q('mint') })); st.prev = PM.snap(G); return; }
+    const li = q(O.local), rid = O.local === 'pink' ? 'mint' : 'pink';
+    st.lastInp = li;
+    if (O.role === 'host') {
+      const rq = st.remote;
+      PM.events(Trap.step(G, { [O.local]: li, [rid]: rq }, false, rid));
+      rq.act = false; st.prev = PM.snap(G);
+    } else {
+      // the guest walks its own player at once (and sees its own falls); the rest comes from the host
+      if (li.act) st.n.a++;
+      PM.events(Trap.step(G, { [O.local]: li, [rid]: { still: true } }, true).filter(e => /^(shoot|down)/.test(e)));
+    }
+  },
+  frameExtra(dt) {
+    const st = PM.st, G = st.G;
+    // what is shown: the other phone's player eases toward where it was last heard of
+    for (const id of ['pink', 'mint']) {
+      const p = G.p[id], d = st.disp[id], far = Math.hypot(p.x - d.x, p.y - d.y);
+      if (!O.role || id === O.local || far > 90) { d.x = p.x; d.y = p.y; } else { const k = Math.min(1, dt * 14); d.x += (p.x - d.x) * k; d.y += (p.y - d.y) * k; }
+      if (p.mv && p.st === 'ok') st.walk[id] += dt * 13;
+    }
+    st.cam += (trapCamTo(G, st.disp) - st.cam) * Math.min(1, dt * 4);
+    for (const g of Trap.GATE) st.gate[g] += ((G.gopen[g] ? 1 : 0) - st.gate[g]) * Math.min(1, dt * 7);
+    if (S.mode !== 'play' || G.st !== 'run') return;
+    // footsteps, saws buzzing close by, the fire bars roaring, spikes on their beat
+    for (const id of ['pink', 'mint']) { const p = G.p[id]; if (p.mv && p.st === 'ok') { st.stepT[id] -= dt; if (st.stepT[id] <= 0) { st.stepT[id] = 0.3; if (!O.role || id === O.local) sfx.pstep(); } } }
+    const near = (x, y, r) => ['pink', 'mint'].some(id => Math.hypot(G.p[id].x - x, G.p[id].y - y) < r);
+    st.sawT -= dt; st.fireT -= dt; st.peekT -= dt;
+    for (const h of G.things) {
+      const d = h.d; if (Trap.stopped(G, d.stop)) continue;
+      if (d.k === 'saw' && st.sawT <= 0) { const [x, y] = Trap.sawPos(d, h.c); if (near(x, y, 110)) { sfx.psaw(); st.sawT = 0.22; } }
+      if (d.k === 'fire' && st.fireT <= 0 && near((d.x + .5) * PT, (d.y + .5) * PT, (d.len + 2) * PT)) { sfx.pfire(); st.fireT = 0.8; }
+    }
+    let up = false, peek = false;
+    for (const g in G.def.spikes || {}) {
+      const s = Trap.spikeState(G, g), r = st.spx[g], seen = r && (r[1] + 1) * PT > st.cam && r[0] * PT < st.cam + VW;
+      if (seen && s !== st.spk[g]) { if (s === 'up') up = true; else if (s === 'warn') peek = true; }
+      st.spk[g] = s;
+    }
+    if (up) sfx.pspike(); else if (peek && st.peekT <= 0) { sfx.ppeek(); st.peekT = 0.3; }
+  },
+  result(G, s) {
+    const sx = G.stats, all = G.gems.length, msg = !G.won ? (G.hearts <= 0 ? 'หัวใจหมดก่อนถึงวิหาร ครั้งหน้ารอดูจังหวะกับดักก่อนค่อยเดิน ใครล้มให้อีกคนรีบไปยืนข้างๆ ช่วยลุก' : 'หมดเวลาก่อนถึงวิหาร ครั้งหน้าผลัดกันยืนบนแผ่นหินให้ไวขึ้นอีกนิด')
+      : s === 3 ? 'ฝ่ากับดักมาได้อย่างเฉียบ คู่นี้รู้ใจกันสุดๆ' : s === 2 ? (sx.downs > 2 ? 'ถึงวิหารแล้ว แต่ล้มบ่อยไปหน่อย ถ้าระวังกว่านี้จะได้สามดาว' : sx.gems < all ? 'ถึงวิหารแล้ว ลองเก็บเพชรให้ครบแล้วไปให้ไวกว่านี้' : 'เก่งมาก ลองไปให้ไวกว่านี้อีกนิด')
+      : s === 1 ? 'ถึงวิหารได้อย่างหวุดหวิด เส้นทางถัดไปเปิดแล้ว' : 'ถึงวิหารแล้ว แต่แต้มยังไม่พอ ต้องได้อย่างน้อย ' + th(G.def.stars[0]) + ' แต้ม';
+    return { head: G.won ? 'ถึงวิหารแล้ว' : G.hearts <= 0 ? 'หัวใจหมด' : 'หมดเวลา', msg,
+      stats: `<span>แต้ม <b>${th(G.score)}</b></span><span>ถึงใน <b>${G.won ? th(Math.round(G.inT)) + ' วิ' : '-'}</b> หัวใจเหลือ <b>${th(G.hearts)}</b></span><span>เพชร <b>${th(sx.gems)}/${th(all)}</b> ล้ม <b>${th(sx.downs)}</b> ช่วยกันลุก <b>${th(sx.revives)}</b></span>` };
+  },
+  encode() {
+    const st = PM.st;
+    if (O.role === 'host') return Trap.encode(st.G);
+    return Trap.guestMsg(st.G, O.local, st.lastInp, st.n.a);
+  },
+  hostHears(m) { Trap.hostHears(PM.st.G, O.local === 'pink' ? 'mint' : 'pink', m, PM.st.remote); },
+  guestHears(m) { Trap.apply(PM.st.G, m, O.local); },
+  fresher: () => ({ seen: -1, mx: 0, my: 0, act: false }),
+  render: trapRender
+});
+// the camera: between the two of them, inside the path
+function trapCamTo(G, d) { return Math.max(0, Math.min(G.W * PT - VW, (d.pink.x + d.mint.x) / 2 - VW / 2)); }
+
+/* ---------- the ground: drawn once in strips of PCH tiles ---------- */
+// A strip is drawn a part at a time (the generator stops between parts), so the one coming up next can be drawn a
+// little each frame before it is needed; one needed at once is finished there and then.
+const P_GRASS = ['#5d9c48', '#62a24c', '#5a9645', '#66a650'], P_PATH = ['#caa56c', '#c49e65', '#cfab72'];
+function* trapChunk(g, G, ci) {
+  const x0 = ci * PCH, W = G.W, def = G.def, grp = PM.st.grp, tile = (x, y) => Trap.tileAt(G, x, y), TAU = Math.PI * 2;
+  g.translate(-x0 * PT, 0);
+  const xs = Math.max(0, x0 - 2), xe = Math.min(W - 1, x0 + PCH + 1), N4 = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+  const isWater = c => Trap.WATER.includes(c), pathy = c => c === '.' || c === '!' || Trap.LEVER.includes(c) || Trap.GATE.includes(c);
+  const stone = (x, y) => tile(x, y) === '.' && N4.some(([dx, dy]) => tile(x + dx, y + dy) === '~');
+  // the ground under everything
+  for (let y = 0; y < PROWS; y++) for (let x = xs; x <= xe; x++) {
+    const c = tile(x, y), px = x * PT, py = y * PT, hh = hash(x, y);
+    if (c === 'T') g.fillStyle = '#2f5a2c';
+    else if (pathy(c)) g.fillStyle = P_PATH[hh % 3];
+    else if (c === 'E') g.fillStyle = (x + y) % 2 ? '#e3bd58' : '#dcb24e';
+    else if (c === '~') g.fillStyle = '#3d8fc2';
+    else if (c === 'o') g.fillStyle = '#6b4a32';
+    else if (Trap.SPIKE.includes(c)) g.fillStyle = '#8f8778';
+    else if (Trap.PLATE.includes(c)) g.fillStyle = N4.filter(([dx, dy]) => tile(x + dx, y + dy) === ',').length >= 2 ? P_GRASS[hh % 4] : P_PATH[hh % 3];
+    else g.fillStyle = P_GRASS[hh % 4];
+    g.fillRect(px, py, PT, PT);
+    if (Trap.SPIKE.includes(c)) {
+      g.fillStyle = '#a39b8a'; g.fillRect(px + 1, py + 1, PT - 2, PT - 5);
+      g.fillStyle = '#4a4238'; g.beginPath(); for (const [ox, oy] of [[9, 9], [23, 9], [9, 23], [23, 23]]) { g.moveTo(px + ox + 3.4, py + oy); g.ellipse(px + ox, py + oy, 3.4, 2.6, 0, 0, TAU); } g.fill();
+      const sp = def.spikes[c]; if (sp && sp.stop) { g.strokeStyle = hexA(grp.of['s' + c], .45); g.lineWidth = 2; g.strokeRect(px + 2, py + 2, PT - 4, PT - 4); }
+    } else if (c === 'E') { g.strokeStyle = 'rgba(140,90,20,.35)'; g.lineWidth = 1; g.strokeRect(px + .5, py + .5, PT - 1, PT - 1); }
+  }
+  // the lanes logs roll down: worn earth
+  for (const d of def.things || []) if (d.k === 'roll') { const cx = (d.x + .5) * PT; g.fillStyle = 'rgba(90,60,30,.16)'; g.fillRect(cx - Trap.LOG_W / 2 + 4, PT * .6, Trap.LOG_W - 8, (PROWS - 1.2) * PT); g.fillStyle = 'rgba(90,60,30,.1)'; for (let y = 1; y < PROWS - 1; y++) g.fillRect(cx - Trap.LOG_W / 2 + 10, y * PT + (hash(d.x, y) % 20), Trap.LOG_W - 20, 2); }
+  yield;
+  // grass: tufts, flowers and ferns; the path: pebbles and grass creeping over its edges
+  for (let y = 1; y < PROWS - 1; y++) for (let x = xs; x <= xe; x++) {
+    const c = tile(x, y), px = x * PT, py = y * PT, hh = hash(x + 7, y + 3);
+    if (c === ',') {
+      for (let k = 0; k < 2; k++) { const q = hash(x * 3 + k, y * 5), tx = px + 4 + q % 24, ty = py + 6 + (q >> 5) % 22; g.fillStyle = q & 64 ? '#4c8a3c' : '#78b75a'; g.beginPath(); g.moveTo(tx, ty + 3); g.lineTo(tx + 1.5, ty - 4); g.lineTo(tx + 3, ty + 3); g.lineTo(tx + 4.5, ty - 2.5); g.lineTo(tx + 6, ty + 3); g.closePath(); g.fill(); }
+      if (hh % 9 === 0) { const fx = px + 8 + hh % 16, fy = py + 8 + (hh >> 6) % 16; g.fillStyle = ['#ffd1e8', '#fff3b0', '#ffffff', '#ffb3b3', '#c9b6ff'][hh % 5]; g.beginPath(); for (let q = 0; q < 5; q++) { const a = q * 1.2566, cx = fx + Math.cos(a) * 2.4, cy = fy + Math.sin(a) * 2.4; g.moveTo(cx + 1.8, cy); g.arc(cx, cy, 1.8, 0, TAU); } g.fill(); g.fillStyle = '#ffcf5a'; g.beginPath(); g.arc(fx, fy, 1.3, 0, TAU); g.fill(); }
+      else if (hh % 13 === 1) { g.fillStyle = '#3f7a34'; g.beginPath(); for (let q = 0; q < 4; q++) { const a = -1.4 + q * .9, cx = px + 16 + Math.cos(a) * 6, cy = py + 16 + Math.sin(a) * 6; g.moveTo(cx + Math.cos(a) * 6, cy + Math.sin(a) * 6); g.ellipse(cx, cy, 6, 2.4, a, 0, TAU); } g.fill(); }
+    } else if (c === '.' || c === '!' || Trap.PLATE.includes(c) || Trap.LEVER.includes(c)) {
+      if (hh % 3 === 0) { g.fillStyle = 'rgba(120,90,50,.35)'; g.beginPath(); g.ellipse(px + 6 + hh % 20, py + 8 + (hh >> 4) % 18, 2.4, 1.7, 0, 0, TAU); g.fill(); }
+      if (hh % 5 === 1) { g.fillStyle = 'rgba(255,240,210,.35)'; g.beginPath(); g.arc(px + 10 + (hh >> 3) % 14, py + 10 + (hh >> 7) % 14, 1.4, 0, TAU); g.fill(); }
+      // grass creeping over the edge of the path
+      let any = false;
+      for (const [dx, dy] of N4) {
+        if (tile(x + dx, y + dy) !== ',') continue; if (!any) { g.fillStyle = '#5d9c48'; g.beginPath(); any = true; }
+        for (let k = 0; k < 3; k++) { const q = hash(x * 11 + k, y * 7 + dx + 3 * dy), t = 3 + (q % 26), r = 2.4 + (q >> 4) % 3, bx = dx ? (dx < 0 ? px : px + PT) : px + t, by = dy ? (dy < 0 ? py : py + PT) : py + t; g.moveTo(bx + r, by); g.arc(bx, by, r, 0, TAU); }
+      }
+      if (any) g.fill();
+    }
+  }
+  yield;
+  // water: a lighter rim along the banks, lily pads; pits: a dark hole; stepping stones; banks: wet earth and reeds
+  for (let y = 0; y < PROWS; y++) for (let x = xs; x <= xe; x++) {
+    const c = tile(x, y), px = x * PT, py = y * PT, hh = hash(x, y);
+    if (c === '~') {
+      for (const [dx, dy] of N4) { if (isWater(tile(x + dx, y + dy))) continue; g.fillStyle = 'rgba(190,235,255,.5)'; if (dx) g.fillRect(dx < 0 ? px : px + PT - 4, py, 4, PT); else g.fillRect(px, dy < 0 ? py : py + PT - 4, PT, 4); g.fillStyle = 'rgba(30,70,110,.35)'; if (dx) g.fillRect(dx < 0 ? px + 4 : px + PT - 7, py, 3, PT); else g.fillRect(px, dy < 0 ? py + 4 : py + PT - 7, PT, 3); }
+      if (hh % 7 === 0) { const lx = px + 10 + hh % 12, ly = py + 12 + (hh >> 5) % 10; g.fillStyle = '#4f9a4a'; g.beginPath(); g.moveTo(lx, ly); g.ellipse(lx, ly, 6, 4.5, 0, 0, Math.PI * 1.75); g.closePath(); g.fill(); }
+    } else if (c === 'o') {
+      // a chasm: dark all through, a lip of earth where it meets the ground, darker under the near edge
+      const pit = (dx, dy) => tile(x + dx, y + dy) === 'o';
+      g.fillStyle = '#16101c'; g.fillRect(px, py, PT, PT);
+      if (!pit(0, -1)) { g.fillStyle = '#4a3324'; g.fillRect(px, py, PT, 9); g.fillStyle = '#2a1d16'; g.fillRect(px, py + 9, PT, 5); }
+      if (!pit(0, 1)) { g.fillStyle = '#7a5a3a'; g.fillRect(px, py + PT - 4, PT, 4); }
+      if (!pit(-1, 0)) { g.fillStyle = '#5a3f2a'; g.fillRect(px, py, 4, PT); }
+      if (!pit(1, 0)) { g.fillStyle = '#5a3f2a'; g.fillRect(px + PT - 4, py, 4, PT); }
+      if (pit(0, -1) && hh % 5 === 0) { g.fillStyle = 'rgba(120,100,160,.12)'; g.beginPath(); g.arc(px + 8 + hh % 16, py + 8 + (hh >> 4) % 16, 1.2, 0, TAU); g.fill(); }
+    } else if (stone(x, y)) {
+      // a stepping stone: rounded, a little darker at the waterline
+      g.fillStyle = '#3d8fc2'; g.fillRect(px, py, PT, PT);
+      g.fillStyle = 'rgba(40,60,80,.35)'; rr(g, px + 1, py + 3, PT - 2, PT - 2, 8); g.fill();
+      g.fillStyle = '#b9a37e'; rr(g, px + 1, py + 1, PT - 2, PT - 3, 8); g.fill();
+      g.fillStyle = 'rgba(255,255,255,.18)'; rr(g, px + 5, py + 4, PT - 12, 6, 3); g.fill();
+    } else if (c === ',' && (tile(x - 1, y) === '~' || tile(x + 1, y) === '~')) {
+      const ex = tile(x - 1, y) === '~' ? px : px + PT - 7;
+      g.fillStyle = '#6f5a3a'; g.fillRect(ex, py, 7, PT);
+      if (hh % 3 === 0) { g.strokeStyle = '#3f7a34'; g.lineWidth = 1.6; g.beginPath(); for (let k = 0; k < 3; k++) { const rx = ex + 2 + k * 2, ry = py + 8 + (hh >> 3) % 14; g.moveTo(rx, ry + 8); g.lineTo(rx + (k - 1) * 2, ry - 4); } g.stroke(); }
+    }
+  }
+  // saw tracks: a slot in the ground
+  for (const d of def.things || []) {
+    if (d.k !== 'saw') continue;
+    const ax = (d.x0 + .5) * PT, ay = (d.y0 + .5) * PT, bx = (d.x1 + .5) * PT, by = (d.y1 + .5) * PT;
+    g.lineCap = 'round'; g.strokeStyle = '#4a4040'; g.lineWidth = 9; g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.stroke();
+    g.strokeStyle = '#1e1a1e'; g.lineWidth = 4; g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.stroke(); g.lineCap = 'butt';
+    g.fillStyle = '#6f6a70'; g.beginPath(); g.arc(ax, ay, 7, 0, TAU); g.moveTo(bx + 7, by); g.arc(bx, by, 7, 0, TAU); g.fill();
+  }
+  yield;
+  // stone: walls (temple blocks, moss), rock pillars, carved faces that shoot arrows
+  const faces = {}; for (const d of def.things || []) if (d.k === 'arrow') faces[d.x + ',' + d.y] = d.dir;
+  for (let y = 0; y < PROWS; y++) for (let x = xs; x <= xe; x++) {
+    const c = tile(x, y), px = x * PT, py = y * PT, hh = hash(x, y);
+    if (c === '#') {
+      if (tile(x, y + 1) !== '#' && y < PROWS - 1) { g.fillStyle = 'rgba(20,20,10,.28)'; g.fillRect(px, py + PT, PT, 7); }
+      g.fillStyle = '#857a68'; g.fillRect(px, py, PT, PT);
+      g.fillStyle = (hh & 1) ? '#a99e88' : '#a2977f'; g.fillRect(px + 1, py + 1, PT - 2, PT - 9);
+      g.fillStyle = '#93887a'; g.fillRect(px + 1, py + PT - 8, PT - 2, 7);
+      g.fillStyle = 'rgba(60,50,40,.4)'; g.fillRect(px + (hh % 2 ? 12 : 20), py + 1, 1.5, PT - 9); g.fillRect(px + 1, py + 12, PT - 2, 1.2);
+      g.fillStyle = 'rgba(255,255,255,.14)'; g.fillRect(px + 1, py + 1, PT - 2, 2);
+      if (hh % 4 === 0) { g.fillStyle = 'rgba(100,150,70,.75)'; g.beginPath(); g.arc(px + 6 + hh % 20, py + 4, 4, 0, TAU); g.moveTo(px + 14 + hh % 20, py + 3); g.arc(px + 11 + hh % 20, py + 3, 3, 0, TAU); g.fill(); }
+      const dir = faces[x + ',' + y];
+      if (dir) {
+        // a carved face: eyes, and a round mouth facing the path
+        const [dx, dy] = Trap.DIRS[dir], cx = px + 16, cy = py + 14;
+        g.fillStyle = '#7a6f5e'; g.beginPath(); g.arc(cx, cy, 12, 0, TAU); g.fill();
+        g.fillStyle = '#b3a890'; g.beginPath(); g.arc(cx, cy - 1, 11, 0, TAU); g.fill();
+        g.fillStyle = '#3a3128'; g.beginPath(); g.ellipse(cx - 4.5, cy - 3, 2.4, 1.6, 0, 0, TAU); g.moveTo(cx + 6.9, cy - 3); g.ellipse(cx + 4.5, cy - 3, 2.4, 1.6, 0, 0, TAU); g.fill();
+        g.fillStyle = '#ffcf5a'; g.beginPath(); g.arc(cx - 4.5, cy - 3, .9, 0, TAU); g.moveTo(cx + 5.4, cy - 3); g.arc(cx + 4.5, cy - 3, .9, 0, TAU); g.fill();
+        g.fillStyle = '#1c1612'; g.beginPath(); g.arc(cx + dx * 5, cy + 4 + dy * 4, 3.6, 0, TAU); g.fill();
+      }
+    } else if (c === 'R') {
+      g.fillStyle = 'rgba(0,0,0,.25)'; g.beginPath(); g.ellipse(px + 17, py + 25, 15, 7, 0, 0, TAU); g.fill();
+      g.fillStyle = '#6e6a72'; g.beginPath(); g.arc(px + 16, py + 17, 15, 0, TAU); g.fill();
+      g.fillStyle = '#8c8892'; g.beginPath(); g.arc(px + 14, py + 14, 13, 0, TAU); g.fill();
+      g.fillStyle = 'rgba(255,255,255,.2)'; g.beginPath(); g.ellipse(px + 10, py + 9, 5, 3, -.5, 0, TAU); g.fill();
+    }
+  }
+  // fire pillars' braziers, plates, lever sockets, checkpoint posts
+  (def.things || []).forEach((d, i) => {
+    if (d.k !== 'fire') return;
+    const cx = (d.x + .5) * PT, cy = (d.y + .5) * PT;
+    g.fillStyle = '#4a3a34'; g.beginPath(); g.arc(cx, cy - 2, 9, 0, TAU); g.fill(); g.fillStyle = '#20161a'; g.beginPath(); g.arc(cx, cy - 2, 6, 0, TAU); g.fill();
+    if (d.stop) { g.strokeStyle = grp.of['t' + i]; g.lineWidth = 2; g.beginPath(); g.arc(cx, cy - 2, 11, 0, TAU); g.stroke(); }
+  });
+  for (let y = 0; y < PROWS; y++) for (let x = xs; x <= xe; x++) {
+    const c = tile(x, y), px = x * PT, py = y * PT;
+    if (Trap.PLATE.includes(c)) {
+      g.fillStyle = 'rgba(0,0,0,.25)'; rr(g, px + 3, py + 5, PT - 6, PT - 6, 5); g.fill();
+      g.fillStyle = '#9c9484'; rr(g, px + 3, py + 3, PT - 6, PT - 6, 5); g.fill();
+      g.fillStyle = '#b2aa98'; rr(g, px + 5, py + 4, PT - 10, PT - 10, 4); g.fill();
+      g.strokeStyle = hexA(grp.col[c] || '#ffcf5a', .55); g.lineWidth = 2; g.beginPath(); g.arc(px + 16, py + 15, 7, 0, TAU); g.stroke();
+    } else if (Trap.LEVER.includes(c)) {
+      g.fillStyle = 'rgba(0,0,0,.25)'; g.beginPath(); g.ellipse(px + 16, py + 22, 11, 5, 0, 0, TAU); g.fill();
+      g.fillStyle = '#7d7466'; rr(g, px + 6, py + 12, 20, 12, 4); g.fill(); g.fillStyle = '#a0978a'; rr(g, px + 7, py + 12, 18, 8, 3); g.fill();
+      g.fillStyle = '#2a221c'; rr(g, px + 14, py + 13, 4, 6, 2); g.fill();
+    } else if (c === '!') {
+      g.fillStyle = 'rgba(0,0,0,.25)'; g.beginPath(); g.ellipse(px + 16, py + 24, 9, 4, 0, 0, TAU); g.fill();
+      g.fillStyle = '#8a8070'; rr(g, px + 9, py + 8, 14, 16, 4); g.fill(); g.fillStyle = '#a99f8c'; rr(g, px + 10, py + 8, 12, 6, 3); g.fill();
+      g.fillStyle = '#3a2e26'; g.beginPath(); g.ellipse(px + 16, py + 10, 4.5, 2.4, 0, 0, TAU); g.fill();
+    }
+  }
+  // the temple gate at the end: a sun carved in the floor
+  const Ex = [], Ey = [];
+  for (let y = 0; y < PROWS; y++) for (let x = xs; x <= xe; x++) if (tile(x, y) === 'E') { Ex.push(x); Ey.push(y); }
+  if (Ex.length) {
+    const cx = (Math.min(...Ex) + Math.max(...Ex) + 1) / 2 * PT, cy = (Math.min(...Ey) + Math.max(...Ey) + 1) / 2 * PT;
+    g.strokeStyle = 'rgba(150,95,20,.5)'; g.lineWidth = 2.5; g.beginPath(); g.arc(cx, cy, 20, 0, TAU);
+    for (let k = 0; k < 12; k++) { const a = k * Math.PI / 6; g.moveTo(cx + Math.cos(a) * 25, cy + Math.sin(a) * 25); g.lineTo(cx + Math.cos(a) * 34, cy + Math.sin(a) * 34); }
+    g.stroke();
+  }
+  yield;
+  // the gaps in the trees the logs come down: a bare earth slope
+  const lane = {};
+  for (const d of def.things || []) if (d.k === 'roll') { for (let x = d.x - 1; x <= d.x + 1; x++) lane[x] = 1; const cx = (d.x + .5) * PT; for (const y of [0, PROWS - 1]) { g.fillStyle = '#6b4a2e'; g.fillRect(cx - 40, y * PT, 80, PT); g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(cx - 40, y === 0 ? 0 : (PROWS - 1) * PT + PT - 8, 80, 8); g.fillStyle = 'rgba(255,230,190,.12)'; for (let k = 0; k < 5; k++) g.fillRect(cx - 32 + k * 15, y * PT + 6 + (k % 2) * 12, 8, 2); } }
+  // trees along both edges: round crowns with a soft shadow, a lighter top and the odd fruit
+  for (let y = 0; y < PROWS; y++) for (let x = xs; x <= xe; x++) {
+    if (tile(x, y) !== 'T' || ((y === 0 || y === PROWS - 1) && lane[x])) continue;
+    const hh = hash(x, y), px = x * PT + 16 + (hh % 9) - 4, py = y * PT + 16 + ((hh >> 4) % 9) - 4 + (y === 0 ? -4 : 4), r = 19 + (hh >> 8) % 7;
+    g.fillStyle = 'rgba(10,30,10,.3)'; g.beginPath(); g.ellipse(px + 3, py + 8, r, r * .8, 0, 0, TAU); g.fill();
+    g.fillStyle = '#2c6a33'; g.beginPath(); g.arc(px, py, r, 0, TAU); g.fill();
+    g.fillStyle = '#3b8441'; g.beginPath(); g.arc(px - r * .2, py - r * .22, r * .78, 0, TAU); g.fill();
+    g.fillStyle = '#4f9d4f'; g.beginPath(); g.arc(px - r * .35, py - r * .38, r * .42, 0, TAU); g.moveTo(px + r * .55, py - r * .1); g.arc(px + r * .25, py - r * .1, r * .3, 0, TAU); g.fill();
+    if (hh % 5 === 0) { g.fillStyle = hh & 32 ? '#ff8a5a' : '#ffd25a'; g.beginPath(); for (let q = 0; q < 3; q++) { const fx = px + ((hash(q, x) % 20) - 10), fy = py + ((hash(y, q) % 16) - 4); g.moveTo(fx + 2.6, fy); g.arc(fx, fy, 2.6, 0, TAU); } g.fill(); }
+  }
+}
+// the strips on hand: the ones on screen are finished at once; one coming up is drawn a part per frame
+function trapStrip(G, ci, now) {
+  const st = PM.st, key = G.def.name + ':' + ci + ':' + scale, w = PCH * PT, h = PROWS * PT;
+  let c = st.strips.get(ci);
+  if (!c || c.key !== key) {
+    const cv = c ? c.cv : st.spare.pop() || document.createElement('canvas');
+    cv.width = Math.ceil(w * scale); cv.height = Math.ceil(h * scale);
+    const g = cv.getContext('2d', { alpha: false }); g.setTransform(scale, 0, 0, scale, 0, 0); g.textBaseline = 'alphabetic';
+    c = { key, cv, it: trapChunk(g, G, ci), done: false }; st.strips.set(ci, c);
+  }
+  if (now) while (!c.done) c.done = !!c.it.next().done;
+  return c;
+}
+function trapStrips(G, cam) {
+  const st = PM.st, span = PCH * PT, c0 = Math.floor(cam / span), c1 = Math.floor((cam + VW - 1) / span), last = Math.ceil(G.W / PCH) - 1;
+  // let go of strips well off screen (their canvases are kept for the next ones)
+  for (const [ci, c] of st.strips) if (ci < c0 - 1 || ci > c1 + 1) { st.strips.delete(ci); st.spare.push(c.cv); }
+  const out = [];
+  for (let ci = c0; ci <= Math.min(c1, last); ci++) out.push([ci, trapStrip(G, ci, true)]);
+  // the strip coming up (the way the camera is going), then the one behind: one part this frame
+  const dir = cam >= (st.lastCam == null ? cam : st.lastCam) ? 1 : -1; st.lastCam = cam;
+  for (const ci of dir > 0 ? [c1 + 1, c0 - 1] : [c0 - 1, c1 + 1]) {
+    if (ci < 0 || ci > last) continue;
+    const c = trapStrip(G, ci, false);
+    if (!c.done) { c.done = !!c.it.next().done; break; }
+  }
+  return out;
+}
+// the canopy above the path, behind the boxes at the top
+function trapTop(g) {
+  g.fillStyle = '#1d3a22'; g.fillRect(0, 0, VW, PY0);
+  const R = rng(77);
+  for (let i = 0; i < 70; i++) { const x = R() * VW, y = R() * (PY0 + 10), r = 14 + R() * 22; g.fillStyle = ['#25502b', '#2c5f31', '#214627', '#346b37'][i % 4]; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); }
+  // hanging vines and a few flowers
+  for (let i = 0; i < 16; i++) { const x = R() * VW, l = 30 + R() * 50; g.strokeStyle = '#3f7a3a'; g.lineWidth = 2; g.beginPath(); g.moveTo(x, 0); g.quadraticCurveTo(x + 8, l / 2, x - 2, l); g.stroke(); g.fillStyle = '#5fa04f'; for (let k = 8; k < l; k += 10) { g.beginPath(); g.ellipse(x + (k % 20 ? 4 : -3), k, 4, 2, k % 20 ? .5 : -.5, 0, Math.PI * 2); g.fill(); } }
+  for (let i = 0; i < 12; i++) { const x = R() * VW, y = 10 + R() * (PY0 - 20); g.fillStyle = ['#ff8fb8', '#ffd25a', '#ffffff'][i % 3]; for (let q = 0; q < 5; q++) { const a = q * 1.2566; g.beginPath(); g.arc(x + Math.cos(a) * 3, y + Math.sin(a) * 3, 2.2, 0, Math.PI * 2); g.fill(); } }
+  const sh = g.createLinearGradient(0, PY0 - 18, 0, PY0); sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,.35)'); g.fillStyle = sh; g.fillRect(0, PY0 - 18, VW, 18);
+}
+
+/* ---------- sprites ---------- */
+function trapSpikeSprite(q, k) {
+  // k: 1 up, .35 peeking
+  for (const [ox, oy] of [[9, 9], [23, 9], [9, 23], [23, 23]]) {
+    const h = 13 * k, w = 4.2;
+    q.fillStyle = 'rgba(0,0,0,.25)'; q.beginPath(); q.ellipse(ox + 1, oy + 1, w, 2.2, 0, 0, Math.PI * 2); q.fill();
+    q.fillStyle = '#9aa2b4'; q.beginPath(); q.moveTo(ox - w, oy); q.lineTo(ox, oy - h); q.lineTo(ox + w, oy); q.closePath(); q.fill();
+    q.fillStyle = '#e4e9f4'; q.beginPath(); q.moveTo(ox - w * .3, oy); q.lineTo(ox, oy - h); q.lineTo(ox - w, oy); q.closePath(); q.fill();
+    q.fillStyle = '#5d6476'; q.beginPath(); q.moveTo(ox + w * .2, oy); q.lineTo(ox, oy - h); q.lineTo(ox + w, oy); q.closePath(); q.fill();
+  }
+}
+function trapGemSprite(q, col) {
+  q.fillStyle = 'rgba(0,0,0,.2)'; q.beginPath(); q.ellipse(12, 21, 7, 2.5, 0, 0, Math.PI * 2); q.fill();
+  q.fillStyle = col; q.beginPath(); q.moveTo(12, 3); q.lineTo(20, 9); q.lineTo(12, 19); q.lineTo(4, 9); q.closePath(); q.fill();
+  q.fillStyle = 'rgba(255,255,255,.55)'; q.beginPath(); q.moveTo(12, 3); q.lineTo(15, 9); q.lineTo(12, 19); q.lineTo(9, 9); q.closePath(); q.fill();
+  q.fillStyle = 'rgba(255,255,255,.85)'; q.beginPath(); q.moveTo(4, 9); q.lineTo(12, 3); q.lineTo(9, 9); q.closePath(); q.fill();
+  q.strokeStyle = 'rgba(30,40,80,.35)'; q.lineWidth = 1; q.beginPath(); q.moveTo(4, 9); q.lineTo(20, 9); q.stroke();
+}
+function trapSawSprite(q) {
+  q.translate(16, 16);
+  q.fillStyle = '#c9ced8';
+  q.beginPath(); for (let k = 0; k < 16; k++) { const a = k * Math.PI / 8, r = k % 2 ? 11 : 15; q.lineTo(Math.cos(a) * r, Math.sin(a) * r); } q.closePath(); q.fill();
+  q.fillStyle = '#9aa0ae'; q.beginPath(); q.arc(0, 0, 9, 0, Math.PI * 2); q.fill();
+  q.fillStyle = '#e8ecf3'; q.beginPath(); q.arc(-2, -2, 6, 0, Math.PI * 2); q.fill();
+  q.fillStyle = '#5a5f6c'; q.beginPath(); q.arc(0, 0, 3, 0, Math.PI * 2); q.fill();
+}
+function trapFireSprite(q) {
+  const gr = q.createRadialGradient(18, 18, 0, 18, 18, 18); gr.addColorStop(0, 'rgba(255,150,50,.6)'); gr.addColorStop(.45, 'rgba(255,150,50,.3)'); gr.addColorStop(1, 'rgba(255,150,50,0)');
+  q.fillStyle = gr; q.fillRect(0, 0, 36, 36);
+  q.fillStyle = '#ff7a2a'; q.beginPath(); q.arc(18, 18, 7.5, 0, Math.PI * 2); q.fill();
+  q.fillStyle = '#ffd25a'; q.beginPath(); q.arc(18, 18, 4.2, 0, Math.PI * 2); q.fill();
+  q.fillStyle = '#fff6d0'; q.beginPath(); q.arc(18, 18, 1.8, 0, Math.PI * 2); q.fill();
+}
+function trapRockSprite(q) {
+  q.translate(20, 20);
+  q.fillStyle = '#6a6470'; q.beginPath(); q.arc(0, 0, Trap.ROCK_R, 0, Math.PI * 2); q.fill();
+  q.fillStyle = '#8b8592'; q.beginPath(); q.arc(-2, -2, Trap.ROCK_R - 3, 0, Math.PI * 2); q.fill();
+  q.strokeStyle = 'rgba(40,35,45,.55)'; q.lineWidth = 1.5; q.beginPath(); q.moveTo(-8, -3); q.lineTo(-2, 1); q.lineTo(3, -5); q.moveTo(-2, 1); q.lineTo(0, 9); q.moveTo(6, 3); q.lineTo(11, 6); q.stroke();
+  q.fillStyle = 'rgba(255,255,255,.22)'; q.beginPath(); q.ellipse(-6, -8, 5, 3, -.5, 0, Math.PI * 2); q.fill();
+}
+
+/* ---------- each frame ---------- */
+function trapRender() {
+  const g = ctx, st = PM.st, G = st.G, def = G.def, grp = st.grp;
+  g.setTransform(scale, 0, 0, scale, 0, 0); g.textBaseline = 'alphabetic';
+  let ox = 0; if (S.shake > 0) ox = (Math.random() - .5) * 7 * S.shake;
+  const cam = Math.round(st.cam - ox);
+  stamp(g, 'pTop', '', 0, 0, VW, PY0, trapTop, true);
+  for (const [ci, c] of trapStrips(G, cam)) blit(g, c.cv, ci * PCH * PT - cam, PY0, PCH * PT, PROWS * PT);
+  g.save(); g.translate(-cam, PY0);
+  const tx0 = Math.max(0, Math.floor(cam / PT) - 1), tx1 = Math.min(G.W - 1, Math.ceil((cam + VW) / PT) + 1), t = S.time, inView = (x, m = 60) => x > cam - m && x < cam + VW + m;
+  // water glinting, spikes on their beat, plates, gates, levers, checkpoint fires
+  const spk = {};
+  for (const sg in def.spikes || {}) spk[sg] = Trap.spikeState(G, sg);
+  const upC = layer('pSpUp', '', 32, 32, q => trapSpikeSprite(q, 1)), warnC = layer('pSpWarn', '', 32, 32, q => trapSpikeSprite(q, .35)), sprites = [];
+  for (let y = 0; y < PROWS; y++) for (let x = tx0; x <= tx1; x++) {
+    const c = G.grid[y][x], px = x * PT, py = y * PT;
+    if (c === '~') { const k = Math.floor(((t * .6 + hash(x, y) % 100 / 100) % 1) * 8); sprites.push(layer('pWave' + k, '', 32, 32, q => { const u = (k + .5) / 8; q.strokeStyle = `rgba(220,245,255,${.35 * Math.sin(u * Math.PI)})`; q.lineWidth = 1.5; q.beginPath(); q.moveTo(6, 10 + u * 14); q.quadraticCurveTo(16, 6 + u * 14, 26, 10 + u * 14); q.stroke(); }), px, py); }
+    else if (Trap.SPIKE.includes(c)) {
+      const s = spk[c], sp = def.spikes[c];
+      if (s === 'up') sprites.push(upC, px, py); else if (s === 'warn') sprites.push(warnC, px + (Math.sin(t * 60 + x) > 0 ? .5 : -.5), py);
+      if (sp && sp.stop && Trap.stopped(G, sp.stop)) { g.strokeStyle = hexA(grp.of['s' + c], .55 + .25 * Math.sin(t * 5)); g.lineWidth = 2; g.strokeRect(px + 2, py + 2, PT - 4, PT - 4); }
+    }
+    else if (Trap.PLATE.includes(c) && G.sig.includes(c)) { const col = grp.col[c] || C.gold; glow(g, hexRgb(col), px + 16, py + 15, 22, .55); g.fillStyle = 'rgba(0,0,0,.18)'; rr(g, px + 5, py + 5, PT - 10, PT - 10, 4); g.fill(); g.strokeStyle = col; g.lineWidth = 2.5; g.beginPath(); g.arc(px + 16, py + 16, 7, 0, Math.PI * 2); g.stroke(); }
+    else if (Trap.GATE.includes(c)) trapGate(g, G, c, x, y);
+    else if (c === '!') { const i = G.checks.findIndex(k => k.tx === x); if (i >= 0 && i <= G.cp) { const k = Math.floor(t * 9 + y * 1.7) % 4; sprites.push(layer('pFlame' + k, '', 40, 36, q => { const gr = q.createRadialGradient(20, 18, 0, 20, 18, 20); gr.addColorStop(0, 'rgba(255,190,90,.5)'); gr.addColorStop(1, 'rgba(255,190,90,0)'); q.fillStyle = gr; q.fillRect(0, 0, 40, 36); trapFlame(q, 20, 20, 1, k * .4); }), px - 4, py - 10); } }
+  }
+  // the spikes, copied on whole pixels all in one go
+  if (sprites.length) { const m = g.getTransform(); g.save(); g.setTransform(1, 0, 0, 1, 0, 0); for (let i = 0; i < sprites.length; i += 3) g.drawImage(sprites[i], Math.round(m.a * sprites[i + 1] + m.e), Math.round(m.d * sprites[i + 2] + m.f)); g.restore(); }
+  // lamps by each gate in its plates' colour, lit while it is open
+  for (const gk in def.gates || {}) {
+    let top = null; for (let y = 0; y < PROWS && !top; y++) for (let x = tx0; x <= tx1; x++) if (G.grid[y][x] === gk) { top = [x, y]; break; }
+    if (!top) continue;
+    const col = grp.of['g' + gk], lx = (top[0] + .5) * PT, ly = top[1] * PT - 9, on = G.gopen[gk];
+    if (on) glow(g, hexRgb(col), lx, ly, 18, .7);
+    g.fillStyle = '#3a3128'; g.beginPath(); g.arc(lx, ly, 6, 0, Math.PI * 2); g.fill(); g.fillStyle = on ? col : hexA(col, .35); g.beginPath(); g.arc(lx, ly, 4, 0, Math.PI * 2); g.fill();
+  }
+  for (const L of G.levers) if (inView(L.x)) trapLever(g, G, L, t);
+  trapExit(g, G, t, inView);
+  // gems and hearts bobbing
+  for (const gm of G.gems) if (!gm.got && inView(gm.x)) { const b = Math.sin(t * 3 + gm.x * .05) * 2.5, k = Math.floor(gm.x / 97) % 3, col = ['#7cdcff', '#ff9ad0', '#b8f27a'][k]; blit(g, layer('pGem' + k, '', 24, 24, q => trapGemSprite(q, col)), gm.x - 12, gm.y - 14 + b, 24, 24); if ((t * 2 + gm.x) % 3 < .3) { g.fillStyle = 'rgba(255,255,255,.9)'; twinkle(g, gm.x + 6, gm.y - 12 + b, 3.5); } }
+  for (const hh of G.extras) if (!hh.got && inView(hh.x)) { const b = Math.sin(t * 3 + hh.x) * 2.5; glow(g, '255,120,160', hh.x, hh.y + b, 20, .35); g.fillStyle = C.pink; heartPath(g, hh.x, hh.y - 2 + b, 9); g.fill(); g.fillStyle = 'rgba(255,255,255,.6)'; g.beginPath(); g.ellipse(hh.x - 3.5, hh.y - 5 + b, 2.4, 1.6, -.5, 0, Math.PI * 2); g.fill(); }
+  // saws, fire bars
+  G.things.forEach((h, i) => {
+    const d = h.d, stop = Trap.stopped(G, d.stop);
+    if (d.k === 'saw') {
+      const [sx, sy] = Trap.sawPos(d, h.c); if (!inView(sx)) return;
+      if (d.stop) for (const [x, y] of [[d.x0, d.y0], [d.x1, d.y1]]) { const col = grp.of['t' + i]; g.fillStyle = stop ? col : hexA(col, .4); g.beginPath(); g.arc((x + .5) * PT, (y + .5) * PT, 3.5, 0, Math.PI * 2); g.fill(); }
+      g.fillStyle = 'rgba(0,0,0,.25)'; g.beginPath(); g.ellipse(sx + 2, sy + 5, 14, 6, 0, 0, Math.PI * 2); g.fill();
+      g.save(); g.translate(sx, sy); g.rotate(stop ? 0 : t * 14); blit(g, layer('pSaw', '', 32, 32, trapSawSprite), -16, -16, 32, 32); g.restore();
+      if (!stop) { g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 1.5; g.beginPath(); g.arc(sx, sy, 17, t * 14, t * 14 + 1); g.stroke(); }
+    } else if (d.k === 'fire') {
+      const cx = (d.x + .5) * PT, cy = (d.y + .5) * PT; if (!inView(cx, (d.len + 1) * PT)) return;
+      if (stop) { glow(g, '255,140,60', cx, cy - 2, 12, .35); return; }
+      // a chain of fireballs (each one sprite: a glow, an orange ball, a yellow heart), flickering
+      const [ax, ay, bx, by] = Trap.firePts(d, h.c), n = d.len * 2 + 1, fb = layer('pFire', '', 36, 36, trapFireSprite);
+      for (let k = 0; k <= n; k++) { const u = k / n, x = ax + (bx - ax) * u, y = ay + (by - ay) * u, f = 18 * (1 + .15 * Math.sin(t * 22 + k * 2.5)); g.drawImage(fb, x - f, y - f, f * 2, f * 2); }
+    }
+  });
+  // arrows, logs, boulders (kept inside the path: they come out of the trees, not over the boxes at the top)
+  const edge = G.shots.some(s => s.y < 30 || s.y > PROWS * PT - 30);
+  if (edge) { g.save(); g.beginPath(); g.rect(cam - 10, 0, VW + 20, PROWS * PT); g.clip(); }
+  for (const s of G.shots) {
+    if (!inView(s.x, 90)) continue;
+    if (s.k === 'arrow') {
+      const v = Math.hypot(s.vx, s.vy) || 1, ux = s.vx / v, uy = s.vy / v;
+      g.strokeStyle = 'rgba(0,0,0,.2)'; g.lineWidth = 2; g.beginPath(); g.moveTo(s.x + 3, s.y + 5); g.lineTo(s.x - ux * 22 + 3, s.y - uy * 22 + 5); g.stroke();
+      g.strokeStyle = '#8a5a32'; g.lineWidth = 2.4; g.beginPath(); g.moveTo(s.x, s.y); g.lineTo(s.x - ux * 22, s.y - uy * 22); g.stroke();
+      g.fillStyle = '#d8dde8'; g.beginPath(); g.moveTo(s.x + ux * 4, s.y + uy * 4); g.lineTo(s.x - uy * 3.5, s.y + ux * 3.5); g.lineTo(s.x + uy * 3.5, s.y - ux * 3.5); g.closePath(); g.fill();
+      g.fillStyle = '#ff8fb0'; for (const sd of [-1, 1]) { g.beginPath(); g.moveTo(s.x - ux * 16, s.y - uy * 16); g.lineTo(s.x - ux * 22 - uy * 4 * sd, s.y - uy * 22 + ux * 4 * sd); g.lineTo(s.x - ux * 22, s.y - uy * 22); g.closePath(); g.fill(); }
+    } else if (s.k === 'rock') {
+      g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(s.x + 3, s.y + 9, 16, 7, 0, 0, Math.PI * 2); g.fill();
+      g.save(); g.translate(s.x, s.y); g.rotate(s.y * .06 * Math.sign(s.vy || 1)); blit(g, layer('pRock', '', 40, 40, trapRockSprite), -20, -20, 40, 40); g.restore();
+    } else {
+      const w = Trap.LOG_W, h = Trap.LOG_H, x = s.x - w / 2, y = s.y - h / 2, roll = ((s.y * .25) % 8 + 8) % 8;
+      g.fillStyle = 'rgba(0,0,0,.28)'; rr(g, x + 3, y + 7, w, h, 10); g.fill();
+      g.fillStyle = '#7a4a28'; rr(g, x, y, w, h, 10); g.fill();
+      g.fillStyle = '#8f5a32'; rr(g, x, y + 2, w, h - 8, 8); g.fill();
+      g.strokeStyle = 'rgba(60,35,18,.6)'; g.lineWidth = 1.5; for (let k = -1; k < 4; k++) { const yy = y + 2 + ((k * 8 + roll) % 24 + 24) % 24 * (h - 4) / 24; g.beginPath(); g.moveTo(x + 8, yy); g.lineTo(x + w - 8, yy); g.stroke(); }
+      for (const ex of [x + 5, x + w - 5]) { g.fillStyle = '#d9b07a'; g.beginPath(); g.ellipse(ex, s.y, 5, h / 2 - 1, 0, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#a87a48'; g.lineWidth = 1; g.beginPath(); g.ellipse(ex, s.y, 2.6, h / 4, 0, 0, Math.PI * 2); g.stroke(); }
+    }
+  }
+  if (edge) g.restore();
+  // the two of them, the nearer one in front
+  const ids = ['pink', 'mint'].sort((a, b) => st.disp[a].y - st.disp[b].y);
+  for (const id of ids) trapHero(g, G, id, st.disp[id].x, st.disp[id].y, t);
+  g.restore();
+  drawParts(g);
+  xDrawFloats(g, PM);
+  trapHud(g, G);
+  xCountdown(g, G, Trap.START);
+  xBannerDraw(g, G, Trap.START, def.name, `ผลัดกันยืนบนแผ่นหินให้อีกคนผ่าน · ใครล้มให้อีกคนไปยืนข้างๆ · ไปให้ถึงประตูวิหารพร้อมกัน`);
+  if (O.role && S.mode !== 'menu') drawNetNote(g);
+}
+const hexRgb = hex => { const n = parseInt(hex.slice(1), 16); return `${n >> 16 & 255},${n >> 8 & 255},${n & 255}`; };
+function trapFlame(g, x, y, k, t) {
+  const f = 1 + .12 * Math.sin(t * 17), w = Math.sin(t * 11) * 1.5;
+  g.fillStyle = '#ff7a2a'; g.beginPath(); g.moveTo(x - 5 * k, y); g.quadraticCurveTo(x - 4 * k, y - 8 * k * f, x + w, y - 13 * k * f); g.quadraticCurveTo(x + 4 * k, y - 8 * k * f, x + 5 * k, y); g.closePath(); g.fill();
+  g.fillStyle = '#ffd25a'; g.beginPath(); g.moveTo(x - 2.6 * k, y); g.quadraticCurveTo(x - 2 * k, y - 5 * k * f, x + w * .6, y - 8 * k * f); g.quadraticCurveTo(x + 2 * k, y - 5 * k * f, x + 2.6 * k, y); g.closePath(); g.fill();
+}
+// a gate: a row of stakes that sink into the ground as it opens
+function trapGate(g, G, c, x, y) {
+  const k = PM.st.gate[c], px = x * PT, py = y * PT;
+  g.fillStyle = '#3a2e26'; g.fillRect(px + 2, py, 4, PT); g.fillRect(px + PT - 6, py, 4, PT);
+  g.fillStyle = 'rgba(0,0,0,.35)'; for (let s = 0; s < 3; s++) g.fillRect(px + 9 + s * 6, py + 2, 3, PT - 4);
+  if (k > .97) return;
+  const hgt = 1 - k;
+  for (let s = 0; s < 3; s++) {
+    const bx = px + 8 + s * 6;
+    g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(bx + 2, py + 3, 5, (PT - 2) * hgt);
+    g.fillStyle = '#7a5032'; rr(g, bx, py + 1, 5, (PT - 2) * hgt, 2); g.fill();
+    g.fillStyle = '#9a6a44'; g.fillRect(bx + 1, py + 2, 2, (PT - 4) * hgt);
+    g.fillStyle = '#c7ccd6'; g.beginPath(); g.moveTo(bx - .5, py + 1 + (PT - 2) * hgt); g.lineTo(bx + 2.5, py + 5 + (PT - 2) * hgt); g.lineTo(bx + 5.5, py + 1 + (PT - 2) * hgt); g.fill();
+  }
+  g.fillStyle = '#5e3d26'; g.fillRect(px + 6, py + 8, PT - 12, 3 * hgt); g.fillRect(px + 6, py + 21, PT - 12, 3 * hgt);
+}
+function trapLever(g, G, L, t) {
+  const on = !!G.open[L.id], k = on ? 1 : Math.min(1, L.t / (Trap.LEVER_T * .5)), a = -0.7 + k * 1.4, bx = L.x, by = L.y + 1;
+  const col = PM.st.grp.col[L.id] || C.gold;
+  if (on) glow(g, '140,230,120', bx, by, 22, .5);
+  else { glow(g, hexRgb(col), bx, by, 18, .22 + .12 * Math.sin(t * 4)); }
+  g.strokeStyle = '#4a3a2c'; g.lineWidth = 4; g.lineCap = 'round'; g.beginPath(); g.moveTo(bx, by); g.lineTo(bx + Math.sin(a) * 14, by - Math.cos(a) * 14); g.stroke(); g.lineCap = 'butt';
+  g.fillStyle = on ? '#8fe07a' : col; g.beginPath(); g.arc(bx + Math.sin(a) * 14, by - Math.cos(a) * 14, 4.5, 0, Math.PI * 2); g.fill();
+  g.fillStyle = 'rgba(255,255,255,.5)'; g.beginPath(); g.arc(bx + Math.sin(a) * 14 - 1.5, by - Math.cos(a) * 14 - 1.5, 1.5, 0, Math.PI * 2); g.fill();
+}
+// the temple gate: a stone arch glowing more as the two of them come near
+function trapExit(g, G, t, inView) {
+  const E = trapExit.of === G ? trapExit.box : (trapExit.of = G, trapExit.box = (() => { let a = 1e9, b = -1, c = 1e9, d = -1; for (let y = 0; y < PROWS; y++) for (let x = 0; x < G.W; x++) if (G.grid[y][x] === 'E') { a = Math.min(a, x); b = Math.max(b, x); c = Math.min(c, y); d = Math.max(d, y); } return b < 0 ? null : [a, b, c, d]; })());
+  if (!E) return;
+  const x0 = E[0] * PT, x1 = (E[1] + 1) * PT, y0 = E[2] * PT, y1 = (E[3] + 1) * PT; if (!inView(x0, 200)) return;
+  const pulse = .5 + .2 * Math.sin(t * 2.5), dx = x1 + 4, cy = (y0 + y1) / 2;
+  glow(g, '255,220,120', (x0 + x1) / 2, cy, 90, .25 * pulse + .1);
+  // the doorway in the wall behind
+  g.fillStyle = '#5a4a3a'; rr(g, dx - 6, y0 - 10, 34, y1 - y0 + 20, 8); g.fill();
+  g.fillStyle = '#e8c25a'; rr(g, dx - 2, y0 - 4, 26, y1 - y0 + 8, 10); g.fill();
+  g.fillStyle = `rgba(255,250,220,${.55 + .3 * pulse})`; rr(g, dx + 2, y0 + 2, 18, y1 - y0 - 4, 8); g.fill();
+  g.fillStyle = '#c99a3a'; for (let y = y0 + 8; y < y1 - 6; y += 18) { g.beginPath(); g.arc(dx + 11, y, 2.4, 0, Math.PI * 2); g.fill(); }
+  for (let k = 0; k < 4; k++) { const u = (t * .4 + k / 4) % 1; g.fillStyle = `rgba(255,240,180,${.6 * (1 - u)})`; twinkle(g, x0 + 12 + (k * 37) % (x1 - x0 - 20), y1 - 6 - u * (y1 - y0 - 10), 3); }
+}
+function trapHero(g, G, id, x, y, t) {
+  const st = PM.st, p = G.p[id], pink = id === 'pink', col = pink ? C.pink : C.mint, dark = pink ? C.pinkD : C.mintD;
+  g.fillStyle = 'rgba(0,0,0,.22)'; g.beginPath(); g.ellipse(x, y + 10, 13, 5, 0, 0, Math.PI * 2); g.fill();
+  if (p.st === 'down') {
+    // flat on the ground: dizzy eyes, little stars going round, a cry for help and the help ring
+    g.fillStyle = dark; g.beginPath(); g.ellipse(x, y + 4, 17, 10, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = col; g.beginPath(); g.ellipse(x, y + 2, 16, 9, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.45)'; g.beginPath(); g.ellipse(x - 6, y - 2, 4, 2, -.4, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = C.ink; g.lineWidth = 1.6; for (const s of [-1, 1]) { const ex = x + s * 5; g.beginPath(); g.moveTo(ex - 2.4, y); g.lineTo(ex + 2.4, y + 3.6); g.moveTo(ex + 2.4, y); g.lineTo(ex - 2.4, y + 3.6); g.stroke(); }
+    if (p.why === 'water') { g.fillStyle = 'rgba(160,220,255,.85)'; for (let k = 0; k < 3; k++) { const u = (t * 1.5 + k / 3) % 1; g.beginPath(); g.arc(x - 10 + k * 10, y - 6 + u * 12, 2, 0, Math.PI * 2); g.fill(); } }
+    else for (let k = 0; k < 3; k++) { const a = t * 5 + k * 2.1; g.fillStyle = C.gold; twinkle(g, x + Math.cos(a) * 13, y - 10 + Math.sin(a) * 4, 3); }
+    const by = y - 30 + Math.sin(t * 4) * 2;
+    g.font = `600 12px ${FONT}`; const tw = g.measureText('ช่วยด้วย!').width + 16;
+    rr(g, x - tw / 2, by - 12, tw, 20, 10); g.fillStyle = '#fff'; g.fill();
+    g.beginPath(); g.moveTo(x - 4, by + 7); g.lineTo(x + 4, by + 7); g.lineTo(x, by + 12); g.closePath(); g.fill();
+    g.fillStyle = C.ink; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('ช่วยด้วย!', x, by - 1); g.textBaseline = 'alphabetic';
+    const left = Math.max(0, 1 - p.dt / Trap.DOWN_T);
+    g.strokeStyle = 'rgba(21,18,43,.55)'; g.lineWidth = 5; g.beginPath(); g.arc(x, y + 2, 24, 0, Math.PI * 2); g.stroke();
+    g.strokeStyle = left < .3 ? '#ff6b6b' : 'rgba(255,255,255,.45)'; g.lineWidth = 2; g.beginPath(); g.arc(x, y + 2, 24, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * left); g.stroke();
+    if (p.rv > 0) { g.strokeStyle = '#9be07a'; g.lineWidth = 4; g.beginPath(); g.arc(x, y + 2, 24, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, p.rv / Trap.REVIVE_T)); g.stroke(); }
+    return;
+  }
+  if (p.inv > 0 && Math.floor(t * 12) % 2) g.globalAlpha = .45;
+  const w = st.walk[id], bob = p.mv ? Math.abs(Math.sin(w)) * 2.2 : 0, step = p.mv ? Math.sin(w) * 3 : 0, fx = p.fx, fy = p.fy;
+  // little feet, then the round body, the bow or the sprout, the face looking where they go
+  g.fillStyle = dark; for (const s of [-1, 1]) { g.beginPath(); g.ellipse(x + s * 6 + fx * s * step * .3, y + 8 + s * step * .6, 4.2, 3, 0, 0, Math.PI * 2); g.fill(); }
+  roundBody(g, x, y - 3 - bob, 13, id);
+  if (pink) cuteBow(g, x + 5, y - 16 - bob, .95); else cuteSprout(g, x, y - 15 - bob, 1.05, t);
+  cuteFace(g, x + fx * 3.5, y - 5 - bob + Math.max(-1, fy) * 1.5, fx, t, pink, '', .82, fy);
+  g.globalAlpha = 1;
+  if (G.t < Trap.START + 3) { g.globalAlpha = Math.min(1, (Trap.START + 3 - G.t) * 1.5); nameTag(g, S.names[id], x, y - 30, col); g.globalAlpha = 1; }
+}
+
+/* ---------- the boxes at the top: time and points, hearts, how far along the path ---------- */
+function trapHud(g, G) {
+  const def = G.def, st = PM.st, left = Math.max(0, def.time - Math.max(0, G.t - Trap.START));
+  const shown = G.won ? G.score : Math.max(0, Math.round(Trap.FINISH_PTS + G.stats.gems * Trap.GEM_PTS + G.hearts * Trap.HEART_PTS + left * Trap.TIME_PTS - G.stats.downs * Trap.FALL_PTS));
+  xScoreBox(g, left, shown, def.stars, G.won ? 'แต้ม' : 'ถ้าถึงตอนนี้');
+  // hearts
+  const n = Math.max(Trap.HEARTS, G.hearts), hw = 22 * n + 70, hx = VW - 8 - hw;
+  panel(g, hx, 8, hw, 26, 12, .82);
+  g.font = `600 11px ${FONT}`; g.textAlign = 'left'; g.fillStyle = '#c9bfef'; g.fillText('หัวใจ', hx + 10, 25);
+  for (let i = 0; i < n; i++) { g.fillStyle = i < G.hearts ? C.pink : 'rgba(255,255,255,.2)'; heartPath(g, hx + 60 + i * 22, 20, 7); g.fill(); }
+  // gems
+  const all = G.gems.length, gw = 112, gx = VW - 8 - gw;
+  panel(g, gx, 40, gw, 26, 12, .82);
+  blit(g, layer('pGem0', '', 24, 24, q => trapGemSprite(q, '#7cdcff')), gx + 6, 40, 24, 24);
+  g.font = `400 15px ${FONT_D}`; g.textAlign = 'left'; g.fillStyle = '#bff4ff'; g.fillText(`${th(G.stats.gems)}/${th(all)}`, gx + 36, 59);
+  // the path: the start, the checkpoints, the temple; where each of them is
+  const px0 = 262, px1 = gx - 18 < hx - 18 ? gx - 18 : hx - 18, pw = px1 - px0;
+  panel(g, px0, 8, pw, 58, 14, .82);
+  const lx0 = px0 + 22, lx1 = px1 - 34, ly = 40, at = x => lx0 + (lx1 - lx0) * Math.max(0, Math.min(1, x / (G.W * PT)));
+  g.strokeStyle = 'rgba(255,255,255,.18)'; g.lineWidth = 6; g.lineCap = 'round'; g.beginPath(); g.moveTo(lx0, ly); g.lineTo(lx1, ly); g.stroke();
+  const far = Math.max(G.p.pink.x, G.p.mint.x);
+  g.strokeStyle = 'rgba(255,207,90,.55)'; g.beginPath(); g.moveTo(lx0, ly); g.lineTo(at(far), ly); g.stroke(); g.lineCap = 'butt';
+  G.checks.forEach((c, i) => { const x = at((c.tx + .5) * PT); g.fillStyle = i <= G.cp ? '#ffb35a' : 'rgba(255,255,255,.35)'; g.beginPath(); g.arc(x, ly, 4, 0, Math.PI * 2); g.fill(); if (i <= G.cp) trapFlame(g, x, ly - 4, .55, S.time + i); });
+  g.fillStyle = '#e8c25a'; rr(g, lx1 + 6, ly - 11, 18, 20, 5); g.fill(); g.fillStyle = '#fff6d0'; rr(g, lx1 + 10, ly - 7, 10, 16, 4); g.fill();
+  for (const id of ['pink', 'mint']) { const x = at(G.p[id].x), y = ly + (id === 'pink' ? -10 : 10); g.fillStyle = id === 'pink' ? C.pink : C.mint; g.beginPath(); g.arc(x, y, 5, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.stroke(); }
+  g.font = `600 10px ${FONT}`; g.textAlign = 'left'; g.fillStyle = '#c9bfef'; g.fillText(`จุดเซฟ ${th(G.cp + 1)}/${th(G.checks.length)}`, px0 + 14, 22);
+  if (S.mode !== 'play' || G.st !== 'run' || G.over) return;
+  // a word for each of them, over their head
+  for (const id of ['pink', 'mint']) {
+    const p = G.p[id], o = G.p[id === 'pink' ? 'mint' : 'pink'], d = st.disp[id], sx = d.x - st.cam, sy = d.y + PY0 - 36;
+    if (p.st !== 'ok') continue;
+    let tip = null;
+    const under = Trap.tileAt(G, Math.floor(p.x / PT), Math.floor(p.y / PT));
+    if (o.st === 'down') tip = `ไปช่วย${S.names[o === G.p.pink ? 'pink' : 'mint']}!`;
+    else if (Trap.PLATE.includes(under) && G.sig.includes(under)) tip = 'ยืนไว้ ให้อีกคนผ่าน';
+    else if (G.levers.some(L => !G.open[L.id] && Math.hypot(L.x - p.x, L.y - p.y) < Trap.LEVER_R)) tip = 'ดึงคันโยกพร้อมกัน!';
+    else { for (let k = 1; k <= 2 && !tip; k++) for (const [dx, dy] of [[1, 0], [0, 1], [0, -1], [-1, 0]]) { const c = Trap.tileAt(G, Math.floor((p.x + dx * k * 16) / PT), Math.floor((p.y + dy * k * 16) / PT)); if (Trap.GATE.includes(c) && !G.gopen[c]) { tip = 'ให้อีกคนเหยียบแผ่นหิน'; break; } } }
+    if (tip) xTip(g, id, tip, sx, sy);
+  }
+}
+
 /* ---------- Fullscreen ---------- */
 const isIPhone = /iPhone|iPod/.test(navigator.userAgent);
 const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement || null;
@@ -8844,7 +9469,7 @@ function boot(data) {
   requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
   if (inClaude()) setTimeout(roomApi, 300);
 }
-try { Object.defineProperty(window, '__tsr', { value: { S, KS, DS, RS, TS, MS, WS, LS, BS, VS, IS, O, KK, KT, Twr, Leg, Boat, Mov, Kite, MODES, XK, Cin, Fart, Bed, Win, BGMX: { TRACKS, bgmStep, mixerFor, stepDur, trackPrep, BGM, soundsInto, sfx } }, configurable: true }); } catch (e) {}
+try { Object.defineProperty(window, '__tsr', { value: { S, KS, DS, RS, TS, MS, WS, LS, BS, VS, IS, O, KK, KT, Twr, Leg, Boat, Mov, Kite, MODES, XK, Cin, Fart, Bed, Win, Trap, BGMX: { TRACKS, bgmStep, mixerFor, stepDur, trackPrep, BGM, soundsInto, sfx } }, configurable: true }); } catch (e) {}
 try { if (window.claude && window.claude.hot && window.claude.hot.snapshot) window.claude.hot.snapshot(() => ({ names: S.names, li: S.li })); } catch (e) {}
 if (window.claude && window.claude.hot && window.claude.hot.ready) window.claude.hot.ready(boot);
 else boot((window.claude && window.claude.hot && window.claude.hot.data) || {});
