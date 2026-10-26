@@ -1611,11 +1611,15 @@ function peerRoom(code, role) {
   const Peer = peerCtor();
   return new Promise((resolve, reject) => {
     if (!Peer) { reject('no-lib'); return; }
-    let peer = null, conn = null, fn = null, done = false, closed = false, lastSent = 0, retry = null;
+    let peer = null, conn = null, fn = null, done = false, closed = false, lastSent = 0, retry = null, heard = 0;
     try { peer = role === 'host' ? new Peer(PEER_PREFIX + code) : new Peer(); } catch (e) { reject('browser-incompatible'); return; }
     const deliver = data => { if (fn) fn({ peers: data ? [{ peer: 'remote', presence: data, updatedAt: performance.now(), sameTab: false }] : [] }); };
+    // a phone's line can drop for a moment and the guest dials again while the host still thinks the old line is up:
+    // the newest line that opens is the one used (the old one is hung up), and whatever comes in on a line is listened to
+    const use = c => { if (closed) return; const old = conn; conn = c; if (old && old !== c) setTimeout(() => { try { old.close(); } catch (e) {} }, 0); };
     const wire = c => {
-      c.on('data', d => { if (conn === c && d && typeof d === 'object') deliver(d); });
+      c.on('open', () => use(c));
+      c.on('data', d => { if (closed || !d || typeof d !== 'object') return; heard = performance.now(); if (!conn || !conn.open) use(c); deliver(d); });
       c.on('close', () => { if (conn === c) { conn = null; deliver(null); } });
       c.on('error', () => {});
     };
@@ -1632,20 +1636,19 @@ function peerRoom(code, role) {
     const timer = setTimeout(() => fail('timeout'), 15000);
     peer.on('error', err => { if (!done) fail((err && err.type) || 'error'); });
     peer.on('disconnected', () => { if (!closed) { try { peer.reconnect(); } catch (e) {} } });
-    const dial = () => { const c = peer.connect(PEER_PREFIX + code, { serialization: 'json', reliable: false }); conn = c; wire(c); return c; };
+    const dial = () => { const c = peer.connect(PEER_PREFIX + code, { serialization: 'json', reliable: false }); if (!conn) conn = c; wire(c); return c; };
     peer.on('open', () => {
       if (role === 'host') {
-        peer.on('connection', c => {
-          if (conn && conn.open) { c.on('open', () => { try { c.close(); } catch (e) {} }); return; }
-          conn = c; wire(c);
-        });
+        peer.on('connection', c => { wire(c); if (c.open) use(c); });
         done = true; clearTimeout(timer); resolve(room);
       } else {
         const c = dial();
         c.on('open', () => {
           if (done) return;
           done = true; clearTimeout(timer); resolve(room);
-          retry = setInterval(() => { if (!closed && (!conn || !conn.open) && !peer.disconnected) dial(); }, 4000);
+          // dial again when the line is down, or when nothing has come in for a while although it looks up
+          heard = performance.now();
+          retry = setInterval(() => { if (!closed && !peer.disconnected && (!conn || !conn.open || performance.now() - heard > 2500)) { heard = performance.now(); dial(); } }, 800);
         });
       }
     });
@@ -1692,7 +1695,7 @@ async function enterRoom(code, role, tries = 0) {
   }
   O.code = code; O.role = role; O.local = role === 'host' ? 'pink' : 'mint';
   O.ep = 0; O.lv = -1; O.st = 'lobby'; O.loadedEp = -1; O.dead = 0; O.rq = 0; O.firstSeen = false; O.partner = null; O.partnerName = ''; O.wonEp = -1;
-  O.sid = Math.random().toString(36).slice(2, 10); O.partnerSid = null; O.freshEp = -1;
+  O.sid = Math.random().toString(36).slice(2, 10); O.partnerSid = null; O.freshEp = -1; O.hostSid = null; O.hostEp = -1;
   O.ckS = []; O.clockOff = 0; O.rtt = 0; O.pCk = null;
   S.names[O.local] = myName();
   O.room = room; O.lobby = lobby;
@@ -1889,6 +1892,10 @@ function hostHears(pr) {
 function guestHears(pr) {
   clockSample(pr);
   const lv = pr.lv | 0, ep = pr.ep | 0;
+  // the line does not keep order: a late message from before the host's last restart is old news
+  if (pr.sid !== O.hostSid) { O.hostSid = pr.sid; O.hostEp = -1; }
+  if (ep < O.hostEp) return;
+  O.hostEp = ep;
   if (pr.st === 'lobby') { if (S.mode !== 'menu' || scr.online.hidden) openOnlineRoom(); else renderOnlineRoom(); return; }
   const XG = Object.values(MODES).find(m => m.md === pr.md);
   const md = XG || pr.md === 'k' || pr.md === 'd' || pr.md === 'r' || pr.md === 't' || pr.md === 'm' || pr.md === 'w' || pr.md === 'l' || pr.md === 'b' || pr.md === 'v' || pr.md === 'i' ? pr.md : 'a';
@@ -1986,7 +1993,7 @@ function pumpOnline(now) {
     if (O.role === 'host') o.w = Net.encodeWorld(S.W);
   }
   try { const r = O.lobby ? room.presence({ tsr: o }) : room.presence(o); if (r && r.catch) r.catch(() => {}); } catch (e) {}
-  const away = !O.partner;
+  const away = !O.partner || performance.now() - (O.partnerAt || 0) > 2500;   // gone quiet: the line may be down
   const badge = $('#hNet');
   badge.hidden = false;
   badge.classList.toggle('wait', away);
