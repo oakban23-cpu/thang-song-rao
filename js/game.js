@@ -2057,7 +2057,7 @@ function releaseK() {
   for (const id of ['pink', 'mint']) { Object.assign(KK[id], { u: 0, d: 0, l: 0, r: 0, act: 0, use: 0, jp: 0 }); Object.assign(KT[id], { x: 0, y: 0, act: 0, use: 0, jp: 0 }); }
   kjoys.clear(); kbtns.clear();
   document.querySelectorAll('.kpad .on').forEach(b => b.classList.remove('on'));
-  document.querySelectorAll('.kpad .knob').forEach(k => { k.style.transform = ''; });
+  document.querySelectorAll('.kpad .joy').forEach(joyRest);
 }
 function kitKey(e, down) {
   const m = KKEY[e.code];
@@ -2069,24 +2069,44 @@ function kitKey(e, down) {
   return true;
 }
 
-/* touch: joystick + buttons */
+/* touch: joystick + buttons. The joystick floats (like a phone MMORPG): touch anywhere on your own half of the screen
+   (all of it when playing online) and the stick comes to your finger; drag past its rim and it follows. Let go and it
+   goes back to its corner. The buttons stay where they are. */
 const kjoys = new Map(), kbtns = new Map();
 const kpad = $('#kpad');
 const padId = el => (el.dataset.p === 'local' ? (O.local || 'pink') : el.dataset.p);
+const ZONE_JOY = { pink: '.kside.pink .joy', mint: '.kside.mint .joy', solo: '.kside.solo-joy .joy' };
+function joyPlace(s) { s.el.style.transform = `translate(${s.cx - s.hx}px, ${s.cy - s.hy}px)`; }
+function joyStart(e, j) {
+  for (const o of kjoys.values()) if (o.el === j) return;                // that stick already has a finger on it
+  j.style.transform = '';
+  const h = j.getBoundingClientRect(), half = h.width / 2;
+  const s = { el: j, id: padId(j), hx: h.left + half, hy: h.top + half, w: h.width, R: h.width * 0.34, cx: e.clientX, cy: e.clientY };
+  if (Math.hypot(e.clientX - s.hx, e.clientY - s.hy) <= half) { s.cx = s.hx; s.cy = s.hy; }   // on the stick itself: it stays put
+  s.cx = Math.max(half, Math.min(innerWidth - half, s.cx)); s.cy = Math.max(half, Math.min(innerHeight - half, s.cy));
+  joyPlace(s); j.classList.add('live');
+  kjoys.set(e.pointerId, s); joyMove(e);
+}
 function joyMove(e) {
   const s = kjoys.get(e.pointerId);
   if (!s) return;
-  const r = s.el.getBoundingClientRect();
-  let dx = (e.clientX - (r.left + r.width / 2)) / (r.width * 0.34), dy = (e.clientY - (r.top + r.height / 2)) / (r.height * 0.34);
-  const m = Math.hypot(dx, dy);
+  let dx = (e.clientX - s.cx) / s.R, dy = (e.clientY - s.cy) / s.R;
+  let m = Math.hypot(dx, dy);
+  if (m > 1.4) {                                                          // dragged well past the rim: the stick follows
+    const k = 1 - 1.4 / m, half = s.w / 2;
+    s.cx = Math.max(half, Math.min(innerWidth - half, s.cx + (e.clientX - s.cx) * k));
+    s.cy = Math.max(half, Math.min(innerHeight - half, s.cy + (e.clientY - s.cy) * k));
+    joyPlace(s); dx = (e.clientX - s.cx) / s.R; dy = (e.clientY - s.cy) / s.R; m = Math.hypot(dx, dy);
+  }
   if (m > 1) { dx /= m; dy /= m; }
   KT[s.id].x = Math.abs(dx) < 0.18 ? 0 : dx;
   KT[s.id].y = Math.abs(dy) < 0.18 ? 0 : dy;
-  s.el.querySelector('.knob').style.transform = `translate(${dx * r.width * 0.3}px, ${dy * r.height * 0.3}px)`;
+  s.el.querySelector('.knob').style.transform = `translate(${dx * s.w * 0.3}px, ${dy * s.w * 0.3}px)`;
 }
+function joyRest(el) { el.style.transform = ''; el.classList.remove('live'); el.querySelector('.knob').style.transform = ''; }
 kpad.addEventListener('pointerdown', e => {
-  const j = e.target.closest('.joy'), b = e.target.closest('.kb');
-  if (j) { e.preventDefault(); try { j.setPointerCapture(e.pointerId); } catch (er) {} kjoys.set(e.pointerId, { el: j, id: padId(j) }); joyMove(e); audio(); return; }
+  const z = e.target.closest('.kzone'), j = z ? $(ZONE_JOY[z.dataset.zone]) : e.target.closest('.joy'), b = e.target.closest('.kb');
+  if (j && !b) { e.preventDefault(); try { (z || j).setPointerCapture(e.pointerId); } catch (er) {} joyStart(e, j); audio(); return; }
   if (b) {
     e.preventDefault();
     const id = padId(b);
@@ -2097,7 +2117,7 @@ kpad.addEventListener('pointerdown', e => {
 window.addEventListener('pointermove', e => { if (kjoys.has(e.pointerId)) joyMove(e); }, { passive: true });
 const kEnd = e => {
   const s = kjoys.get(e.pointerId);
-  if (s) { KT[s.id].x = 0; KT[s.id].y = 0; s.el.querySelector('.knob').style.transform = ''; kjoys.delete(e.pointerId); }
+  if (s) { KT[s.id].x = 0; KT[s.id].y = 0; joyRest(s.el); kjoys.delete(e.pointerId); }
   const b = kbtns.get(e.pointerId);
   if (b) { if (b.b.dataset.k === 'use') KT[b.id].use = 0; b.b.classList.remove('on'); kbtns.delete(e.pointerId); }
 };
