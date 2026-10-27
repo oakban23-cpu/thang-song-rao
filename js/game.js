@@ -10072,8 +10072,8 @@ const OM = xMode({
       else if (k === 'close') { sfx.dzclose(); dzFloat('ปิดร้านแล้ว!', VW / 2, 200, C.gold, 26, 2); }
       else if (k === 'show') { sfx.dzshow(); }
       else if (k === 'walk') { tone(98, .15, 'sine', .06, 60); tone(98, .15, 'sine', .06, 60, .4); }
-      else if (k === 'flash') { if (b === '-1') tone(300, .05, 'square', .02); else { sfx.dzsnap(); st.flash = Math.max(st.flash, .5); dzFloat('+' + th(Shop.PHOTO_PTS), VW / 2 + (a === 'pink' ? -90 : 90), 300, a === 'mint' ? C.mint : C.pink, 18); } }
-      else if (k === 'duo') { sfx.dzduo(); st.flash = 1; dzFloat('ภาพคู่! +' + th(Shop.DUO_PTS), VW / 2, 250, C.gold, 24, 1.6); }
+      else if (k === 'flash') { if (b === '-1') tone(300, .05, 'square', .02); else { sfx.dzsnap(); st.flash = Math.max(st.flash, .5); st.conf = st.conf || []; for (let i = 0; i < 18; i++) st.conf.push({ x: VW / 2 + (Math.random() - .5) * 300, y: -10 - Math.random() * 80, vy: 90 + Math.random() * 80, r: Math.random() * 6, ph: Math.random() * 6, c: ['#ff8fb8', '#ffd25a', '#5aa8ff', '#5cc87a', '#fff'][i % 5] }); dzFloat('+' + th(Shop.PHOTO_PTS), VW / 2 + (a === 'pink' ? -90 : 90), 300, a === 'mint' ? C.mint : C.pink, 18); } }
+      else if (k === 'duo') { sfx.dzduo(); st.flash = 1; st.conf = st.conf || []; for (let i = 0; i < 40; i++) st.conf.push({ x: Math.random() * VW, y: -10 - Math.random() * 120, vy: 100 + Math.random() * 90, r: Math.random() * 6, ph: Math.random() * 6, c: ['#ff8fb8', '#ffd25a', '#5aa8ff', '#5cc87a', '#fff'][i % 5] }); dzFloat('ภาพคู่! +' + th(Shop.DUO_PTS), VW / 2, 250, C.gold, 24, 1.6); }
     }
   },
   tick() {
@@ -10123,112 +10123,135 @@ const OM = xMode({
   render: shopRender
 });
 
+/* ---------- colour helpers ---------- */
+const dzHex = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+function dzMix(a, b, t) { const p = dzHex(a), q = dzHex(b); return '#' + p.map((v, i) => Math.round(v + (q[i] - v) * t).toString(16).padStart(2, '0')).join(''); }
+const dzLite = c => dzMix(c, '#ffffff', .38), dzDark = c => (c === '#f4f1ea' ? '#b9b2c6' : dzMix(c, '#15122b', .48));
+// each occasion's own colour (tags, bubbles) and its little picture
+const DZ_OCC = ['#3fb6e0', '#d9b25a', '#5468a8', '#cf4fae', '#f2862f', '#f46f99'];
+function dzIcon(g, s, x, y, k = 1, ink = '#fff') {
+  g.save(); g.translate(x, y); g.scale(k, k); g.lineCap = 'round'; g.lineJoin = 'round';
+  g.fillStyle = ink; g.strokeStyle = ink; g.lineWidth = 1.4;
+  if (s === 0) { g.beginPath(); g.arc(0, 0, 6, Math.PI, 0); g.closePath(); g.fill(); g.beginPath(); g.moveTo(0, 0); g.lineTo(0, 7); g.quadraticCurveTo(0, 8.5, -2, 8); g.stroke(); }
+  else if (s === 1) { g.lineWidth = 1.3; g.beginPath(); g.arc(-2.2, 2, 3.6, 0, Math.PI * 2); g.stroke(); g.beginPath(); g.arc(2.2, 2, 3.6, 0, Math.PI * 2); g.stroke(); g.beginPath(); g.moveTo(-2.2, -3.6); g.lineTo(-.6, -5.8); g.lineTo(-2.2, -7.4); g.lineTo(-3.8, -5.8); g.closePath(); g.fill(); }
+  else if (s === 2) { rr(g, -6, -3, 12, 9, 2); g.fill(); g.beginPath(); g.moveTo(-2.5, -3); g.lineTo(-2.5, -5.5); g.lineTo(2.5, -5.5); g.lineTo(2.5, -3); g.stroke(); }
+  else if (s === 3) { g.beginPath(); g.ellipse(0, -2, 4.6, 5.6, 0, 0, Math.PI * 2); g.fill(); g.beginPath(); g.moveTo(0, 3.6); g.quadraticCurveTo(2, 6, 0, 8.5); g.stroke(); }
+  else if (s === 4) { g.beginPath(); g.arc(0, 0, 6, 0, Math.PI * 2); g.stroke(); g.beginPath(); g.moveTo(-6, 0); g.quadraticCurveTo(0, -3, 6, 0); g.moveTo(0, -6); g.quadraticCurveTo(-3, 0, 0, 6); g.stroke(); }
+  else { heartPath(g, 0, 1, 6); g.fill(); }
+  g.restore();
+}
+
 /* ---------- clothes ---------- */
-// a garment by itself (on a hanger, on the floor, held up): centred, about 24 px across at k = 1
+// a garment by itself (on a hanger, on the floor, held up): centred, about 26 px across at k = 1
 function dzGarment(g, n, x, y, k = 1, crumple = 0) {
-  const d = Shop.gd(n), col = DZ_COL[d.c], dark = d.c === 6 ? '#b8b0c8' : d.c === 5 ? '#15122b' : 'rgba(21,18,43,.45)';
+  const d = Shop.gd(n), col = DZ_COL[d.c], dark = dzDark(col), lite = dzLite(col);
   g.save(); g.translate(x, y); g.scale(k, k); if (crumple) g.rotate(crumple);
-  g.fillStyle = col; g.strokeStyle = dark; g.lineWidth = 1.2; g.lineJoin = 'round';
+  const fill = () => { const gr = g.createLinearGradient(-12, -10, 10, 12); gr.addColorStop(0, lite); gr.addColorStop(.45, col); gr.addColorStop(1, dzMix(col, '#15122b', .15)); g.fillStyle = gr; g.fill(); g.strokeStyle = dark; g.lineWidth = 1.3; g.stroke(); };
+  g.lineJoin = 'round';
   if (d.p === 0) {
-    g.beginPath(); g.moveTo(-5, -9); g.lineTo(-11, -6); g.lineTo(-13, 0); g.lineTo(-8.5, 2); g.lineTo(-7.5, -1); g.lineTo(-7.5, 9); g.lineTo(7.5, 9); g.lineTo(7.5, -1); g.lineTo(8.5, 2); g.lineTo(13, 0); g.lineTo(11, -6); g.lineTo(5, -9); g.quadraticCurveTo(0, -5, -5, -9); g.closePath(); g.fill(); g.stroke();
+    g.beginPath(); g.moveTo(-5, -9); g.lineTo(-11, -6.5); g.lineTo(-13.5, 0); g.lineTo(-8.5, 2.2); g.lineTo(-7.5, -1); g.lineTo(-7.5, 9); g.quadraticCurveTo(0, 10.5, 7.5, 9); g.lineTo(7.5, -1); g.lineTo(8.5, 2.2); g.lineTo(13.5, 0); g.lineTo(11, -6.5); g.lineTo(5, -9); g.quadraticCurveTo(0, -4.5, -5, -9); g.closePath(); fill();
+    g.strokeStyle = 'rgba(21,18,43,.18)'; g.lineWidth = 1; g.beginPath(); g.moveTo(-7.5, -1); g.lineTo(-7.5, 6); g.moveTo(7.5, -1); g.lineTo(7.5, 6); g.stroke();
     dzTopDeco(g, d.s, 0, 2, 1, d.c);
   } else if (d.p === 1) {
     g.beginPath();
-    if (d.s === 0) { g.moveTo(-8, -7); g.lineTo(8, -7); g.lineTo(9.5, 4); g.lineTo(1.5, 4); g.lineTo(0, 0); g.lineTo(-1.5, 4); g.lineTo(-9.5, 4); }
-    else if (d.s === 1) { g.moveTo(-6, -9); g.lineTo(6, -9); g.quadraticCurveTo(9, 3, 13, 10); g.quadraticCurveTo(0, 13, -13, 10); g.quadraticCurveTo(-9, 3, -6, -9); }
-    else if (d.s === 3) { g.moveTo(-6, -7); g.lineTo(6, -7); g.lineTo(11, 3); g.quadraticCurveTo(0, 6, -11, 3); }
-    else if (d.s === 5) { g.moveTo(-6, -8); g.lineTo(6, -8); g.lineTo(10, 6); g.lineTo(-10, 6); }
+    if (d.s === 0) { g.moveTo(-8, -7); g.lineTo(8, -7); g.lineTo(9.5, 4.5); g.lineTo(1.5, 4.5); g.lineTo(0, .5); g.lineTo(-1.5, 4.5); g.lineTo(-9.5, 4.5); }
+    else if (d.s === 1) { g.moveTo(-6, -9); g.lineTo(6, -9); g.quadraticCurveTo(9, 3, 13, 10); g.quadraticCurveTo(0, 13.5, -13, 10); g.quadraticCurveTo(-9, 3, -6, -9); }
+    else if (d.s === 3) { g.moveTo(-6, -7); g.lineTo(6, -7); g.lineTo(11, 3.5); g.quadraticCurveTo(0, 6.5, -11, 3.5); }
+    else if (d.s === 5) { g.moveTo(-6, -8); g.lineTo(6, -8); g.lineTo(10.5, 6.5); g.quadraticCurveTo(0, 8, -10.5, 6.5); }
     else { g.moveTo(-7, -9); g.lineTo(7, -9); g.lineTo(7.5, 10); g.lineTo(1.5, 10); g.lineTo(0, -2); g.lineTo(-1.5, 10); g.lineTo(-7.5, 10); }
-    g.closePath(); g.fill(); g.stroke();
-    g.strokeStyle = 'rgba(21,18,43,.25)'; g.beginPath(); g.moveTo(-6, -6); g.lineTo(6, -6); g.stroke();
+    g.closePath(); fill();
+    g.fillStyle = 'rgba(21,18,43,.18)'; g.fillRect(-6.5, -8.5, 13, 2.2);
     if (d.s === 4) { g.strokeStyle = '#fff'; g.lineWidth = 1.4; g.beginPath(); g.moveTo(-6.5, -7); g.lineTo(-6.8, 9); g.moveTo(6.5, -7); g.lineTo(6.8, 9); g.stroke(); }
-    if (d.s === 5) { g.strokeStyle = 'rgba(21,18,43,.3)'; g.lineWidth = .8; for (let i = -2; i <= 2; i++) { g.beginPath(); g.moveTo(i * 2.4, -6); g.lineTo(i * 3.6, 5.5); g.stroke(); } }
-    if (d.s === 3) for (const [a, b] of [[-4, -1], [3, 0], [0, 2.5], [-6, 2], [6, 2.5]]) { g.fillStyle = 'rgba(255,255,255,.75)'; g.beginPath(); g.arc(a, b, .9, 0, Math.PI * 2); g.fill(); }
+    if (d.s === 5) { g.strokeStyle = 'rgba(21,18,43,.25)'; g.lineWidth = .8; for (let i = -2; i <= 2; i++) { g.beginPath(); g.moveTo(i * 2.4, -6); g.lineTo(i * 3.6, 6); g.stroke(); } }
+    if (d.s === 3) for (const [a, b] of [[-4, -1], [3, 0], [0, 2.5], [-6, 2], [6, 2.5]]) { g.fillStyle = 'rgba(255,255,255,.85)'; twinkle(g, a, b, 1.6); }
+    if (d.s === 1) { g.strokeStyle = 'rgba(255,255,255,.6)'; g.lineWidth = .8; g.beginPath(); g.moveTo(-11, 8); g.quadraticCurveTo(0, 11, 11, 8); g.stroke(); }
   } else if (d.p === 2) {
     for (const s of [-1, 1]) dzShoe(g, d.s, s * 6, 2, s, col, dark);
   } else {
     dzHat(g, d.s, 0, 0, 1, col, dark);
   }
-  if (d.z !== 1) { g.fillStyle = d.z === 0 ? '#8fd3ff' : '#ffb35a'; g.beginPath(); g.arc(10, -8, 5.2, 0, Math.PI * 2); g.fill(); g.fillStyle = C.ink; g.font = `700 8px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(Shop.SIZES[d.z], 10, -7.6); g.textBaseline = 'alphabetic'; }
+  if (d.z !== 1) { g.fillStyle = d.z === 0 ? '#5aa8ff' : '#ff9a3a'; g.beginPath(); g.arc(10.5, -8.5, 5.6, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 1.2; g.stroke(); g.fillStyle = '#fff'; g.font = `700 8px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(Shop.SIZES[d.z], 10.5, -8.1); g.textBaseline = 'alphabetic'; }
   g.restore();
 }
 function dzTopDeco(g, s, x, y, k, c) {
   const ink = c === 5 ? '#fff' : C.ink;
-  if (s === 0) { g.fillStyle = c === 6 ? '#ff8fb8' : 'rgba(255,255,255,.8)'; for (const [a, b] of [[-4, -2], [4, 1], [-2, 5], [3, -5]]) { g.beginPath(); g.arc(x + a * k, y + b * k, 1.6 * k, 0, Math.PI * 2); g.fill(); } }
-  else if (s === 1) { g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 1 * k; g.beginPath(); for (let i = -3; i <= 3; i++) g.arc(x + i * 2 * k, y - 8 * k, 1 * k, 0, Math.PI); g.stroke(); g.fillStyle = '#ffcf5a'; g.beginPath(); g.arc(x, y - 3 * k, 1.3 * k, 0, Math.PI * 2); g.fill(); }
-  else if (s === 2) { g.fillStyle = '#fff'; g.beginPath(); g.moveTo(x - 4 * k, y - 10 * k); g.lineTo(x, y - 6 * k); g.lineTo(x + 4 * k, y - 10 * k); g.fill(); g.fillStyle = c === 0 ? '#2a4a8a' : '#c0392b'; g.beginPath(); g.moveTo(x, y - 6 * k); g.lineTo(x - 1.6 * k, y + 2 * k); g.lineTo(x, y + 4 * k); g.lineTo(x + 1.6 * k, y + 2 * k); g.closePath(); g.fill(); }
-  else if (s === 3) { for (const [a, b] of [[-4, -3], [3, -1], [-1, 3], [4, 5], [-5, 5]]) { g.fillStyle = 'rgba(255,255,255,.85)'; twinkle(g, x + a * k, y + b * k, 1.8 * k); } }
-  else if (s === 4) { g.fillStyle = 'rgba(255,255,255,.85)'; g.fillRect(x - 7.5 * k, y - 2 * k, 15 * k, 2.4 * k); g.fillStyle = ink; g.font = `700 ${5 * k}px ${FONT}`; g.textAlign = 'center'; g.fillText('7', x, y + 5 * k); }
-  else if (s === 5) { g.fillStyle = c === 1 ? '#e85a5a' : '#ff8fb8'; heartPath(g, x, y + 1 * k, 3 * k); g.fill(); }
+  if (s === 0) { g.fillStyle = c === 6 ? '#ff8fb8' : 'rgba(255,255,255,.85)'; for (const [a, b] of [[-4, -2], [4, 1], [-2, 5], [3, -5]]) { for (let q = 0; q < 5; q++) { const an = q * 1.2566; g.beginPath(); g.arc(x + (a + Math.cos(an) * 1.3) * k, y + (b + Math.sin(an) * 1.3) * k, .9 * k, 0, Math.PI * 2); g.fill(); } } }
+  else if (s === 1) { g.strokeStyle = 'rgba(255,255,255,.95)'; g.lineWidth = 1 * k; g.beginPath(); for (let i = -3; i <= 3; i++) g.arc(x + i * 2 * k, y - 8 * k, 1 * k, 0, Math.PI); g.stroke(); g.fillStyle = '#ffcf5a'; g.beginPath(); g.arc(x, y - 3 * k, 1.4 * k, 0, Math.PI * 2); g.fill(); g.fillStyle = 'rgba(255,255,255,.7)'; g.beginPath(); g.arc(x - .4 * k, y - 3.4 * k, .5 * k, 0, Math.PI * 2); g.fill(); }
+  else if (s === 2) { g.fillStyle = '#fff'; g.beginPath(); g.moveTo(x - 4.5 * k, y - 10.5 * k); g.lineTo(x, y - 5.5 * k); g.lineTo(x + 4.5 * k, y - 10.5 * k); g.fill(); g.fillStyle = c === 0 ? '#2a4a8a' : '#c0392b'; g.beginPath(); g.moveTo(x, y - 6 * k); g.lineTo(x - 1.8 * k, y + 2 * k); g.lineTo(x, y + 4.5 * k); g.lineTo(x + 1.8 * k, y + 2 * k); g.closePath(); g.fill(); g.fillStyle = 'rgba(21,18,43,.25)'; g.fillRect(x - .4 * k, y - 4 * k, .8 * k, 7 * k); }
+  else if (s === 3) { for (const [a, b] of [[-4, -3], [3, -1], [-1, 3], [4, 5], [-5, 5]]) { g.fillStyle = 'rgba(255,255,255,.9)'; twinkle(g, x + a * k, y + b * k, 1.8 * k); } }
+  else if (s === 4) { g.fillStyle = 'rgba(255,255,255,.9)'; g.fillRect(x - 7.5 * k, y - 2 * k, 15 * k, 2.4 * k); g.fillStyle = ink; g.font = `700 ${5 * k}px ${FONT}`; g.textAlign = 'center'; g.fillText('7', x, y + 5.5 * k); }
+  else if (s === 5) { g.fillStyle = c === 1 ? '#e85a5a' : '#ff8fb8'; heartPath(g, x, y + 1 * k, 3.2 * k); g.fill(); g.strokeStyle = 'rgba(255,255,255,.8)'; g.lineWidth = .7 * k; g.stroke(); }
 }
 function dzShoe(g, s, x, y, side, col, dark) {
   g.save(); g.translate(x, y); g.scale(side, 1);
-  g.fillStyle = col; g.strokeStyle = dark; g.lineWidth = 1;
-  if (s === 0) { g.beginPath(); g.ellipse(0, 2, 3.5, 6, 0, 0, Math.PI * 2); g.fill(); g.stroke(); g.strokeStyle = '#fff'; g.lineWidth = 1.4; g.beginPath(); g.moveTo(-3, -1); g.lineTo(0, -3); g.lineTo(3, -1); g.stroke(); }
-  else if (s === 1) { g.beginPath(); g.moveTo(-3, -4); g.lineTo(3, -4); g.lineTo(4, 4); g.lineTo(1, 4); g.lineTo(0, 8); g.lineTo(-1, 4); g.lineTo(-4, 4); g.closePath(); g.fill(); g.stroke(); }
-  else if (s === 3) { rr(g, -3.5, -8, 7, 15, 2.5); g.fill(); g.stroke(); g.fillStyle = 'rgba(255,255,255,.4)'; g.fillRect(-2, -6, 1.2, 10); }
-  else if (s === 4) { rr(g, -3.5, -5, 7, 11, 3); g.fill(); g.stroke(); g.fillStyle = '#fff'; g.fillRect(-3.5, 3.5, 7, 2.5); g.strokeStyle = '#fff'; g.lineWidth = .8; for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(-2, -3 + i * 2); g.lineTo(2, -3 + i * 2); g.stroke(); } }
-  else { g.beginPath(); g.ellipse(0, 1, 3.5, 6, 0, 0, Math.PI * 2); g.fill(); g.stroke(); if (s === 5) { g.fillStyle = '#fff'; g.beginPath(); g.arc(0, -3, 1.4, 0, Math.PI * 2); g.fill(); } }
+  g.fillStyle = col; g.strokeStyle = dark; g.lineWidth = 1.1;
+  if (s === 0) { g.beginPath(); g.ellipse(0, 2, 3.6, 6.2, 0, 0, Math.PI * 2); g.fill(); g.stroke(); g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(-3, -1); g.lineTo(0, -3.4); g.lineTo(3, -1); g.stroke(); }
+  else if (s === 1) { g.beginPath(); g.moveTo(-3, -4); g.lineTo(3, -4); g.lineTo(4, 4); g.lineTo(1, 4); g.lineTo(0, 8); g.lineTo(-1, 4); g.lineTo(-4, 4); g.closePath(); g.fill(); g.stroke(); g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(-2, -3, 1.2, 5); }
+  else if (s === 3) { rr(g, -3.6, -8, 7.2, 15, 2.5); g.fill(); g.stroke(); g.fillStyle = 'rgba(255,255,255,.4)'; g.fillRect(-2, -6, 1.2, 10); }
+  else if (s === 4) { rr(g, -3.6, -5, 7.2, 11, 3); g.fill(); g.stroke(); g.fillStyle = '#fff'; g.fillRect(-3.6, 3.5, 7.2, 2.5); g.strokeStyle = '#fff'; g.lineWidth = .8; for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(-2, -3 + i * 2); g.lineTo(2, -3 + i * 2); g.stroke(); } }
+  else { g.beginPath(); g.ellipse(0, 1, 3.6, 6.2, 0, 0, Math.PI * 2); g.fill(); g.stroke(); if (s === 5) { g.fillStyle = '#fff'; g.beginPath(); g.arc(0, -3, 1.5, 0, Math.PI * 2); g.fill(); } else { g.fillStyle = 'rgba(21,18,43,.3)'; g.fillRect(-2.5, -2, 5, 1); } }
   g.restore();
 }
 function dzHat(g, s, x, y, k, col, dark) {
-  g.save(); g.translate(x, y); g.scale(k, k); g.fillStyle = col; g.strokeStyle = dark; g.lineWidth = 1;
-  if (s === 0) { g.beginPath(); g.ellipse(0, 3, 13, 4.5, 0, 0, Math.PI * 2); g.fill(); g.stroke(); g.beginPath(); g.ellipse(0, -1, 6.5, 5.5, 0, Math.PI, 0); g.fill(); g.stroke(); g.fillStyle = '#e85a5a'; g.fillRect(-6.5, 0, 13, 2); }
-  else if (s === 1) { for (let i = 0; i < 7; i++) { const a = Math.PI + i / 6 * Math.PI; g.fillStyle = ['#ff8fb8', '#fff', '#ffd25a'][i % 3]; g.beginPath(); g.arc(Math.cos(a) * 9, 2 + Math.sin(a) * 4, 2.6, 0, Math.PI * 2); g.fill(); } }
-  else if (s === 3) { g.beginPath(); g.moveTo(-6, 4); g.lineTo(0, -11); g.lineTo(6, 4); g.closePath(); g.fill(); g.stroke(); g.fillStyle = '#fff'; g.beginPath(); g.arc(0, -11, 2, 0, Math.PI * 2); g.fill(); g.strokeStyle = 'rgba(255,255,255,.7)'; g.beginPath(); g.moveTo(-3.5, -2); g.lineTo(3.5, -2); g.moveTo(-5, 2); g.lineTo(5, 2); g.stroke(); }
-  else if (s === 4) { g.beginPath(); g.arc(0, 2, 7, Math.PI, 0); g.closePath(); g.fill(); g.stroke(); g.beginPath(); g.ellipse(6, 2.5, 6, 2, 0, 0, Math.PI * 2); g.fill(); g.stroke(); }
-  else { g.beginPath(); g.ellipse(0, 0, 9, 4.5, -.2, 0, Math.PI * 2); g.fill(); g.stroke(); g.fillStyle = dark; g.beginPath(); g.arc(1, -4, 1.5, 0, Math.PI * 2); g.fill(); }
+  g.save(); g.translate(x, y); g.scale(k, k); g.fillStyle = col; g.strokeStyle = dark; g.lineWidth = 1.1;
+  if (s === 0) { g.beginPath(); g.ellipse(0, 3, 13.5, 4.8, 0, 0, Math.PI * 2); g.fill(); g.stroke(); g.beginPath(); g.ellipse(0, -1, 6.8, 5.8, 0, Math.PI, 0); g.fill(); g.stroke(); g.fillStyle = '#e85a5a'; g.fillRect(-6.8, 0, 13.6, 2.2); g.strokeStyle = 'rgba(160,110,40,.35)'; g.lineWidth = .7; for (let i = -2; i <= 2; i++) { g.beginPath(); g.moveTo(i * 4, 5); g.lineTo(i * 5.5, 7); g.stroke(); } }
+  else if (s === 1) { for (let i = 0; i < 7; i++) { const a = Math.PI + i / 6 * Math.PI; g.fillStyle = ['#ff8fb8', '#fff', '#ffd25a'][i % 3]; g.beginPath(); g.arc(Math.cos(a) * 9, 2 + Math.sin(a) * 4, 2.8, 0, Math.PI * 2); g.fill(); g.fillStyle = 'rgba(255,200,80,.9)'; g.beginPath(); g.arc(Math.cos(a) * 9, 2 + Math.sin(a) * 4, .9, 0, Math.PI * 2); g.fill(); } }
+  else if (s === 3) { g.beginPath(); g.moveTo(-6, 4); g.lineTo(0, -11); g.lineTo(6, 4); g.closePath(); g.fill(); g.stroke(); g.fillStyle = '#fff'; g.beginPath(); g.arc(0, -11, 2.2, 0, Math.PI * 2); g.fill(); g.strokeStyle = 'rgba(255,255,255,.75)'; g.beginPath(); g.moveTo(-3.5, -2); g.lineTo(3.5, -2); g.moveTo(-5, 2); g.lineTo(5, 2); g.stroke(); }
+  else if (s === 4) { g.beginPath(); g.arc(0, 2, 7, Math.PI, 0); g.closePath(); g.fill(); g.stroke(); g.beginPath(); g.ellipse(6, 2.5, 6, 2, 0, 0, Math.PI * 2); g.fill(); g.stroke(); g.fillStyle = '#fff'; g.beginPath(); g.arc(0, -4.5, 1.2, 0, Math.PI * 2); g.fill(); }
+  else { g.beginPath(); g.ellipse(0, 0, 9, 4.6, -.2, 0, Math.PI * 2); g.fill(); g.stroke(); g.fillStyle = dark; g.beginPath(); g.arc(1, -4, 1.6, 0, Math.PI * 2); g.fill(); }
   g.restore();
 }
 // what someone wears, drawn on a round body (r) centred at x, y; got: piece -> garment; body z for the fit
-function dzWear(g, x, y, r, got, bz, t, pose) {
+function dzWear(g, x, y, r, got, bz) {
   const fit = n => 1 + (Shop.gd(n).z - bz) * .3;
-  // the bottom half below the body, the top round the middle, shoes under, the hat on top
+  const shaded = (col, x0, y0, x1, y1) => { const gr = g.createLinearGradient(x0, y0, x1, y1); gr.addColorStop(0, dzLite(col)); gr.addColorStop(.5, col); gr.addColorStop(1, dzMix(col, '#15122b', .2)); return gr; };
   if (got[1] != null) {
-    const d = Shop.gd(got[1]), f = fit(got[1]), col = DZ_COL[d.c], dark = d.c === 6 ? '#b8b0c8' : 'rgba(21,18,43,.45)';
-    g.save(); g.translate(x, y + r * .55); g.scale(r / 13 * f, r / 13 * (f > 1 ? 1.15 : 1)); g.fillStyle = col; g.strokeStyle = dark; g.lineWidth = 1.2;
+    const d = Shop.gd(got[1]), f = fit(got[1]), col = DZ_COL[d.c];
+    g.save(); g.translate(x, y + r * .55); g.scale(r / 13 * f, r / 13 * (f > 1 ? 1.15 : 1)); g.fillStyle = shaded(col, -12, -4, 12, 14); g.strokeStyle = dzDark(col); g.lineWidth = 1.3; g.lineJoin = 'round';
     g.beginPath();
-    if (d.s === 1) { g.moveTo(-9, -4); g.lineTo(9, -4); g.quadraticCurveTo(12, 8, 15, 15); g.quadraticCurveTo(0, 18, -15, 15); g.quadraticCurveTo(-12, 8, -9, -4); }
+    if (d.s === 1) { g.moveTo(-9, -4); g.lineTo(9, -4); g.quadraticCurveTo(12, 8, 15, 15); g.quadraticCurveTo(0, 18.5, -15, 15); g.quadraticCurveTo(-12, 8, -9, -4); }
     else if (d.s === 3 || d.s === 5) { g.moveTo(-10, -4); g.lineTo(10, -4); g.lineTo(d.s === 3 ? 13 : 12, d.s === 3 ? 6 : 9); g.quadraticCurveTo(0, d.s === 3 ? 9 : 12, d.s === 3 ? -13 : -12, d.s === 3 ? 6 : 9); }
     else if (d.s === 0) { g.moveTo(-10, -4); g.lineTo(10, -4); g.lineTo(11, 6); g.lineTo(1.5, 6); g.lineTo(0, 2); g.lineTo(-1.5, 6); g.lineTo(-11, 6); }
     else { g.moveTo(-10, -4); g.lineTo(10, -4); g.lineTo(9, 13); g.lineTo(2, 13); g.lineTo(0, 3); g.lineTo(-2, 13); g.lineTo(-9, 13); }
     g.closePath(); g.fill(); g.stroke();
-    if (d.s === 4) { g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(-9, -3); g.lineTo(-8.5, 12); g.moveTo(9, -3); g.lineTo(8.5, 12); g.stroke(); }
+    if (d.s === 4) { g.strokeStyle = '#fff'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(-9, -3); g.lineTo(-8.5, 12); g.moveTo(9, -3); g.lineTo(8.5, 12); g.stroke(); }
+    if (d.s === 3) for (const [a, b] of [[-5, 0], [4, 1], [0, 4], [-8, 4], [8, 4]]) { g.fillStyle = 'rgba(255,255,255,.85)'; twinkle(g, a, b, 1.5); }
     g.restore();
   }
-  if (got[2] != null) { const d = Shop.gd(got[2]), col = DZ_COL[d.c], dark = d.c === 6 ? '#b8b0c8' : 'rgba(21,18,43,.5)'; for (const s of [-1, 1]) { g.save(); g.translate(x + s * r * .45, y + r * 1.25); g.scale(r / 14, r / 14); dzShoe(g, d.s, 0, 0, s, col, dark); g.restore(); } }
+  if (got[2] != null) { const d = Shop.gd(got[2]), col = DZ_COL[d.c]; for (const s of [-1, 1]) { g.save(); g.translate(x + s * r * .45, y + r * 1.25); g.scale(r / 14, r / 14); dzShoe(g, d.s, 0, 0, s, col, dzDark(col)); g.restore(); } }
   if (got[0] != null) {
-    const d = Shop.gd(got[0]), f = fit(got[0]), col = DZ_COL[d.c], dark = d.c === 6 ? '#b8b0c8' : 'rgba(21,18,43,.45)';
+    const d = Shop.gd(got[0]), f = fit(got[0]), col = DZ_COL[d.c];
     g.save();
     // a top too small sits tight round the middle with a gap; too big hangs off the shoulders past the body
     g.beginPath(); g.arc(x, y, r * Math.max(1, f) + .5, 0, Math.PI * 2); g.clip();
     const top = y - r * .05, h = r * (f < 1 ? .5 : .95) * f, w = r * 2.2 * f;
-    g.fillStyle = col; g.strokeStyle = dark; g.lineWidth = 1.2;
+    g.fillStyle = shaded(col, x - w / 2, top, x + w / 2, top + h); g.strokeStyle = dzDark(col); g.lineWidth = 1.3;
     rr(g, x - w / 2, top, w, h + (f > 1 ? r * .5 : 0), r * .25); g.fill(); g.stroke();
-    if (f < 1) { g.strokeStyle = 'rgba(21,18,43,.5)'; g.lineWidth = 1; for (let i = -1; i <= 1; i++) { g.beginPath(); g.moveTo(x + i * r * .35 - 2, top + 2); g.lineTo(x + i * r * .35 + 2, top + h - 2); g.stroke(); } }
+    // a neckline
+    g.fillStyle = 'rgba(21,18,43,.15)'; g.beginPath(); g.ellipse(x, top, r * .32, r * .14, 0, 0, Math.PI); g.fill();
+    if (f < 1) { g.strokeStyle = 'rgba(21,18,43,.55)'; g.lineWidth = 1; for (let i = -1; i <= 1; i++) { g.beginPath(); g.moveTo(x + i * r * .35 - 2, top + 2); g.lineTo(x + i * r * .35 + 2, top + h - 2); g.stroke(); } }
     g.restore();
-    // sleeves
-    for (const s of [-1, 1]) { g.fillStyle = col; g.strokeStyle = dark; g.lineWidth = 1; g.beginPath(); g.ellipse(x + s * r * .98 * Math.min(1.15, f), y + r * .2, r * .28 * f, r * .22 * f, s * .5, 0, Math.PI * 2); g.fill(); g.stroke(); }
+    for (const s of [-1, 1]) { g.fillStyle = col; g.strokeStyle = dzDark(col); g.lineWidth = 1.1; g.beginPath(); g.ellipse(x + s * r * .98 * Math.min(1.15, f), y + r * .2, r * .28 * f, r * .22 * f, s * .5, 0, Math.PI * 2); g.fill(); g.stroke(); }
     dzTopDeco(g, d.s, x, y + r * .3, r / 16 * f, d.c);
   }
 }
 // a customer (or a model): a round body of their colour, hair, a face, and whatever they have on
 function dzPerson(g, look, bz, x, y, got, t, opt = {}) {
   const r = [10.5, 13, 16][bz] * (opt.k || 1), skin = DZ_SKIN[look % DZ_SKIN.length], hair = DZ_HAIR[Math.floor(look / 10) % DZ_HAIR.length], style = Math.floor(look / 60) % 5;
-  const bob = opt.bob || 0, cy = y - r * .3 - bob;
-  g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.ellipse(x, y + r * .95, r * 1.05, r * .38, 0, 0, Math.PI * 2); g.fill();
-  // feet, body
-  g.fillStyle = 'rgba(21,18,43,.35)'; for (const s of [-1, 1]) { g.beginPath(); g.ellipse(x + s * r * .45, y + r * .85 + (opt.step || 0) * s, r * .3, r * .2, 0, 0, Math.PI * 2); g.fill(); }
-  const gr = g.createRadialGradient(x - r * .35, cy - r * .45, r * .15, x, cy, r * 1.05); gr.addColorStop(0, '#fff'); gr.addColorStop(.35, skin); gr.addColorStop(1, hexA(skin, .85));
-  g.fillStyle = gr; g.beginPath(); g.arc(x, cy, r, 0, Math.PI * 2); g.fill(); g.strokeStyle = 'rgba(21,18,43,.25)'; g.lineWidth = 1.2; g.stroke();
-  if (got) dzWear(g, x, cy, r, got, bz, t, opt.pose);
+  const breathe = opt.still ? Math.sin(t * 2.2 + look) * .6 : 0, bob = (opt.bob || 0) + breathe, cy = y - r * .3 - bob;
+  g.fillStyle = 'rgba(40,20,30,.22)'; g.beginPath(); g.ellipse(x, y + r * .95, r * 1.1, r * .4, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = dzMix(skin, '#15122b', .35); for (const s of [-1, 1]) { g.beginPath(); g.ellipse(x + s * r * .45, y + r * .85 + (opt.step || 0) * s, r * .3, r * .2, 0, 0, Math.PI * 2); g.fill(); }
+  const gr = g.createRadialGradient(x - r * .35, cy - r * .45, r * .1, x, cy, r * 1.05); gr.addColorStop(0, '#fff'); gr.addColorStop(.32, skin); gr.addColorStop(1, dzMix(skin, '#15122b', .18));
+  g.fillStyle = gr; g.beginPath(); g.arc(x, cy, r, 0, Math.PI * 2); g.fill(); g.strokeStyle = dzMix(skin, '#15122b', .45); g.lineWidth = 1.2; g.stroke();
+  if (got) dzWear(g, x, cy, r, got, bz);
   // hair
   g.fillStyle = hair;
-  if (style === 1) { g.beginPath(); g.arc(x, cy - r * 1.05, r * .38, 0, Math.PI * 2); g.fill(); }
+  if (style === 1) { g.beginPath(); g.arc(x, cy - r * 1.05, r * .38, 0, Math.PI * 2); g.fill(); g.fillStyle = 'rgba(255,255,255,.25)'; g.beginPath(); g.arc(x - r * .12, cy - r * 1.15, r * .12, 0, Math.PI * 2); g.fill(); }
   else if (style === 2) { g.beginPath(); g.arc(x, cy - r * .2, r * 1.02, Math.PI * 1.1, Math.PI * 1.9); g.quadraticCurveTo(x, cy - r * .55, x - r * .9, cy - r * .6); g.fill(); }
   else if (style === 3) { for (let i = 0; i < 6; i++) { const a = Math.PI * (1.05 + i * .18); g.beginPath(); g.arc(x + Math.cos(a) * r * .85, cy + Math.sin(a) * r * .85, r * .32, 0, Math.PI * 2); g.fill(); } }
   else if (style === 4) { g.beginPath(); for (let i = 0; i < 5; i++) { const a = Math.PI * (1.15 + i * .17); g.moveTo(x + Math.cos(a - .1) * r * .8, cy + Math.sin(a - .1) * r * .8); g.lineTo(x + Math.cos(a) * r * 1.35, cy + Math.sin(a) * r * 1.35); g.lineTo(x + Math.cos(a + .1) * r * .8, cy + Math.sin(a + .1) * r * .8); } g.fill(); }
-  if (got && got[3] != null) { const d = Shop.gd(got[3]); dzHat(g, d.s, x, cy - r * .92, r / 13 * (1 + (d.z - bz) * .3), DZ_COL[d.c], d.c === 6 ? '#b8b0c8' : 'rgba(21,18,43,.5)'); }
+  if (got && got[3] != null) { const d = Shop.gd(got[3]); dzHat(g, d.s, x, cy - r * .92, r / 13 * (1 + (d.z - bz) * .3), DZ_COL[d.c], dzDark(DZ_COL[d.c])); }
+  g.fillStyle = 'rgba(255,255,255,.5)'; g.beginPath(); g.ellipse(x - r * .48, cy - r * .5, r * .16, r * .24, -.6, 0, Math.PI * 2); g.fill();
   cuteFace(g, x + (opt.fx || 0) * r * .2, cy - r * .15, opt.fx || 0, t + look, look % 2 === 0, opt.mood || '', r / 15);
   if (opt.mood === 'angry') { const ax = x + r * .85, ay = cy - r * .8; g.strokeStyle = '#ff4f4f'; g.lineWidth = 1.8; g.beginPath(); for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { g.moveTo(ax + a * 1.5, ay + b * 4); g.quadraticCurveTo(ax + a * 1.5, ay + b * 1.5, ax + a * 4, ay + b * 1.5); } g.stroke(); }
   return { r, cy };
@@ -10236,84 +10259,201 @@ function dzPerson(g, look, bz, x, y, got, t, opt = {}) {
 
 /* ---------- the shop as it stands (drawn once) ---------- */
 function shopGround(g, G) {
-  const W = Shop.COLS, H = Shop.ROWS, tile = (x, y) => Shop.tileAt(G, x, y), TAU = Math.PI * 2;
-  // floor: warm planks
-  g.fillStyle = '#e8cfa6'; g.fillRect(0, 0, VW, VH);
-  for (let y = 0; y < VH; y += 16) { g.fillStyle = (y / 16) % 2 ? '#e2c79c' : '#ecd5ae'; g.fillRect(0, y, VW, 16); g.strokeStyle = 'rgba(150,110,70,.18)'; g.lineWidth = 1; g.beginPath(); g.moveTo(0, y + .5); g.lineTo(VW, y + .5); g.stroke(); for (let x = ((y / 16) % 3) * 53; x < VW; x += 160) { g.beginPath(); g.moveTo(x + .5, y); g.lineTo(x + .5, y + 16); g.stroke(); } }
-  // a rug in front of the fitting rooms and a runner to the door
-  g.fillStyle = 'rgba(200,120,170,.25)'; rr(g, 6.5 * OT, 2.9 * OT, 14 * OT, 1.4 * OT, 10); g.fill();
-  g.fillStyle = 'rgba(120,90,170,.18)'; rr(g, 12.4 * OT, 11.6 * OT, 5.2 * OT, 4.4 * OT, 8); g.fill();
-  // walls
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const c = tile(x, y), px = x * OT, py = y * OT;
-    if (c !== '#' && c !== 'F' && c !== 'D') continue;
-    if (c === '#') {
-      const back = y <= 2;
-      g.fillStyle = back ? '#f6e3ec' : '#6e5a8a'; g.fillRect(px, py, OT, OT);
-      if (back) { g.fillStyle = 'rgba(230,150,190,.35)'; for (let k = 0; k < 4; k++) g.fillRect(px + k * 8 + 2, py, 3, OT); if (y === 2) { g.fillStyle = '#c99ab8'; g.fillRect(px, py + OT - 5, OT, 5); } }
-      else { g.fillStyle = 'rgba(255,255,255,.07)'; g.fillRect(px, py, OT, 3); }
+  const W = Shop.COLS, H = Shop.ROWS, tile = (x, y) => Shop.tileAt(G, x, y), TAU = Math.PI * 2, R = rng(17);
+  const x0 = OT, x1 = (W - 1) * OT, y0 = 3 * OT, y1 = (H - 1) * OT;
+  // the floor: honey parquet laid in chevrons
+  g.fillStyle = '#c9965e'; g.fillRect(0, 0, VW, VH);
+  g.save(); g.beginPath(); g.rect(x0, y0, x1 - x0, y1 - y0); g.clip();
+  const woods = ['#ecc896', '#e8c290', '#efcd9c', '#e5be8a', '#eac693', '#e7c38e'];
+  g.lineWidth = .6; g.strokeStyle = 'rgba(140,90,50,.2)';
+  for (let cx = x0 - 16, ci = 0; cx < x1 + 16; cx += 16, ci++) for (let cy = y0 - 24; cy < y1 + 16; cy += 8) {
+    g.fillStyle = woods[Math.floor(R() * woods.length)]; g.beginPath();
+    if (ci % 2) { g.moveTo(cx, cy); g.lineTo(cx + 16, cy + 8); g.lineTo(cx + 16, cy + 16); g.lineTo(cx, cy + 8); }
+    else { g.moveTo(cx, cy + 8); g.lineTo(cx + 16, cy); g.lineTo(cx + 16, cy + 8); g.lineTo(cx, cy + 16); }
+    g.closePath(); g.fill(); g.stroke();
+  }
+  // a sheen across the floor
+  const sh = g.createLinearGradient(0, y0, 0, y1); sh.addColorStop(0, 'rgba(255,240,210,.18)'); sh.addColorStop(1, 'rgba(90,40,20,.12)'); g.fillStyle = sh; g.fillRect(x0, y0, x1 - x0, y1 - y0);
+  g.restore();
+  // a plum carpet before the fitting rooms, a runner from the door, a round rug by the till
+  const carpet = (x, y, w, h, base, edge, motif) => {
+    g.fillStyle = 'rgba(40,10,30,.25)'; rr(g, x + 2, y + 3, w, h, 6); g.fill();
+    g.fillStyle = base; rr(g, x, y, w, h, 6); g.fill(); g.strokeStyle = edge; g.lineWidth = 3; rr(g, x + 4, y + 4, w - 8, h - 8, 4); g.stroke();
+    g.lineWidth = 1; g.strokeStyle = hexA(edge, .5); rr(g, x + 8, y + 8, w - 16, h - 16, 3); g.stroke();
+    if (motif) { g.fillStyle = hexA(edge, .45); for (let yy = y + 18; yy < y + h - 12; yy += 22) for (let xx = x + 18; xx < x + w - 12; xx += 22) { g.beginPath(); g.moveTo(xx, yy - 5); g.lineTo(xx + 5, yy); g.lineTo(xx, yy + 5); g.lineTo(xx - 5, yy); g.closePath(); g.fill(); } }
+  };
+  // a soft runner along the fitting rooms, a patterned one from the door
+  g.globalAlpha = .55; carpet(6.6 * OT, 3.15 * OT, 14.8 * OT, .95 * OT, '#e8a8c8', '#fff3f8', false); g.globalAlpha = 1;
+  g.globalAlpha = .7; carpet(13.1 * OT, 11.4 * OT, 3.8 * OT, 4.6 * OT, '#c99ad8', '#fff3f8', true); g.globalAlpha = 1;
+  // walls round the sides: panelled wood
+  g.fillStyle = '#5a3f6a'; g.fillRect(0, y0, x0, y1 - y0); g.fillRect(x1, y0, VW - x1, y1 - y0);
+  g.fillStyle = 'rgba(255,255,255,.06)'; for (let y = y0; y < y1; y += 48) { g.fillRect(4, y + 4, x0 - 10, 40); g.fillRect(x1 + 6, y + 4, x0 - 10, 40); }
+  g.fillStyle = '#e6c26a'; g.fillRect(x0 - 3, y0, 3, y1 - y0); g.fillRect(x1, y0, 3, y1 - y0);
+  g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(x0, y0, 7, y1 - y0); g.fillRect(x1 - 7, y0, 7, y1 - y0);
+  // the back wall: damask paper, a gold rail, wainscoting
+  const wy = 3 * OT;
+  const wg = g.createLinearGradient(0, 0, 0, wy); wg.addColorStop(0, '#f7dbe7'); wg.addColorStop(1, '#f2cfdf'); g.fillStyle = wg; g.fillRect(0, 0, VW, wy);
+  g.fillStyle = 'rgba(214,120,170,.18)';
+  for (let y = 10; y < 66; y += 18) for (let x = (y / 18 % 2) * 12; x < VW; x += 24) { g.beginPath(); g.moveTo(x, y - 5); g.quadraticCurveTo(x + 4, y, x, y + 5); g.quadraticCurveTo(x - 4, y, x, y - 5); g.fill(); }
+  g.fillStyle = '#fbeff4'; g.fillRect(0, 68, VW, wy - 68); g.strokeStyle = 'rgba(200,140,170,.45)'; g.lineWidth = 1;
+  for (let x = 6; x < VW; x += 46) { rr(g, x, 73, 38, wy - 80, 3); g.stroke(); }
+  g.fillStyle = '#e6c26a'; g.fillRect(0, 66, VW, 3); g.fillStyle = '#c79a4a'; g.fillRect(0, wy - 3, VW, 3);
+  g.fillStyle = '#d9a8c4'; g.fillRect(0, 0, VW, 5);
+  // shelves of folded clothes and bags, posters, sconces, between the rooms
+  const shelf = (x, y, w) => {
+    g.fillStyle = 'rgba(80,40,60,.18)'; g.fillRect(x + 2, y + 3, w, 4); g.fillStyle = '#fff5f8'; g.fillRect(x, y, w, 4); g.fillStyle = '#d9b0c8'; g.fillRect(x, y + 4, w, 2);
+    for (let k = 0, xx = x + 3; xx < x + w - 10; k++) {
+      if (k % 3 === 2) { const c = DZ_COL[Math.floor(R() * 5)]; g.fillStyle = c; rr(g, xx, y - 10, 10, 10, 2); g.fill(); g.strokeStyle = dzDark(c); g.lineWidth = 1; g.beginPath(); g.arc(xx + 5, y - 10, 3.2, Math.PI, 0); g.stroke(); xx += 14; continue; }
+      const n = 2 + Math.floor(R() * 3); for (let i = 0; i < n; i++) { const c = DZ_COL[Math.floor(R() * 7)]; g.fillStyle = c; rr(g, xx, y - 3.5 - i * 3.5, 13, 3.6, 1.2); g.fill(); g.fillStyle = 'rgba(255,255,255,.3)'; g.fillRect(xx + 1, y - 3.5 - i * 3.5, 11, 1); }
+      xx += 17;
+    }
+  };
+  const poster = (x, y, c1, c2) => {
+    g.fillStyle = '#c79a4a'; rr(g, x - 2, y - 2, 30, 38, 3); g.fill(); g.fillStyle = c1; g.fillRect(x, y, 26, 34);
+    g.fillStyle = c2; g.beginPath(); g.arc(x + 13, y + 9, 4, 0, TAU); g.fill(); g.beginPath(); g.moveTo(x + 13, y + 12); g.lineTo(x + 20, y + 30); g.lineTo(x + 6, y + 30); g.closePath(); g.fill();
+  };
+  const sconce = (x, y) => { const gl = g.createRadialGradient(x, y, 1, x, y, 26); gl.addColorStop(0, 'rgba(255,230,170,.55)'); gl.addColorStop(1, 'rgba(255,230,170,0)'); g.fillStyle = gl; g.fillRect(x - 26, y - 26, 52, 52); g.fillStyle = '#c79a4a'; g.fillRect(x - 1, y + 2, 2, 7); g.fillStyle = '#fff3d0'; g.beginPath(); g.moveTo(x - 5, y + 3); g.lineTo(x + 5, y + 3); g.lineTo(x + 3, y - 4); g.lineTo(x - 3, y - 4); g.closePath(); g.fill(); };
+  const doors = G.rooms.map(rm => rm.tx);
+  const free = []; let at = 2.2; for (const dx of doors.concat([19.6])) { if (dx - 1.4 - at > 1.6) free.push([at, dx - 1.4]); at = dx + 1.4; }
+  free.forEach(([a, b], i) => { const x = a * OT, w = (b - a) * OT; if (w > 70) shelf(x + 8, 40, w - 16); else if (w > 40) poster(x + w / 2 - 13, 24, ['#ffe0ec', '#e0f0ff', '#fff2cc'][i % 3], ['#d45ab0', '#5468a8', '#f2862f'][i % 3]); });
+  for (const dx of doors) { sconce((dx - .9) * OT, 20); sconce((dx + 1.9) * OT, 20); }
+  // the shop's sign in neon over the till side
+  g.save(); const nx = 21.7 * OT; g.fillStyle = 'rgba(60,20,50,.3)'; rr(g, nx - 64, 13, 130, 52, 12); g.fill(); g.fillStyle = '#3a1e40'; rr(g, nx - 66, 10, 130, 52, 12); g.fill(); g.strokeStyle = '#c79a4a'; g.lineWidth = 2; g.stroke();
+  g.font = `400 25px ${FONT_D}`; g.textAlign = 'center'; g.shadowColor = '#ff4fa0'; g.shadowBlur = 12; g.fillStyle = '#ffe0f0'; g.fillText('ร้านของเรา', nx - 1, 40); g.fillText('ร้านของเรา', nx - 1, 40); g.shadowBlur = 0;
+  g.font = `600 10px ${FONT}`; g.fillStyle = '#e6c26a'; g.fillText(G.def.name, nx - 1, 55); g.restore();
+  // fitting rooms: an arched booth with a lamp and a brass number (the curtains come each frame)
+  G.rooms.forEach((rm, i) => {
+    const cx = (rm.tx + .5) * OT, top = rm.ty * OT - 34, bot = (rm.ty + 1) * OT, w = 46;
+    const gl = g.createRadialGradient(cx, top + 4, 2, cx, top + 4, 40); gl.addColorStop(0, 'rgba(255,230,170,.6)'); gl.addColorStop(1, 'rgba(255,230,170,0)'); g.fillStyle = gl; g.fillRect(cx - 40, top - 36, 80, 80);
+    g.fillStyle = 'rgba(60,20,50,.25)'; rr(g, cx - w / 2 + 3, top + 4, w, bot - top, 10); g.fill();
+    const fr = g.createLinearGradient(cx - w / 2, 0, cx + w / 2, 0); fr.addColorStop(0, '#b8893a'); fr.addColorStop(.5, '#f2d48a'); fr.addColorStop(1, '#b8893a');
+    g.fillStyle = fr; g.beginPath(); g.moveTo(cx - w / 2, bot); g.lineTo(cx - w / 2, top + 18); g.arc(cx, top + 18, w / 2, Math.PI, 0); g.lineTo(cx + w / 2, bot); g.closePath(); g.fill();
+    g.fillStyle = '#3a1e40'; g.beginPath(); g.moveTo(cx - w / 2 + 4, bot); g.lineTo(cx - w / 2 + 4, top + 18); g.arc(cx, top + 18, w / 2 - 4, Math.PI, 0); g.lineTo(cx + w / 2 - 4, bot); g.closePath(); g.fill();
+    g.fillStyle = '#c79a4a'; g.beginPath(); g.arc(cx, top - 3, 8, 0, TAU); g.fill(); g.fillStyle = '#f7e2a8'; g.beginPath(); g.arc(cx, top - 3, 6, 0, TAU); g.fill();
+    g.fillStyle = '#6a4a20'; g.font = `700 9px ${FONT}`; g.textAlign = 'center'; g.fillText(th(i + 1), cx, top);
+  });
+  // the till: a marble counter, a register, a card reader, flowers and bags
+  if (G.till.length) {
+    const xs = G.till.map(t => t[0]), y = G.till[0][1], tx0 = Math.min(...xs) * OT - 4, tx1 = (Math.max(...xs) + 1) * OT + 4, py = y * OT;
+    g.fillStyle = 'rgba(40,10,30,.28)'; rr(g, tx0 + 4, py + 8, tx1 - tx0, OT, 8); g.fill();
+    const fg = g.createLinearGradient(0, py + 8, 0, py + OT + 2); fg.addColorStop(0, '#8a5a8a'); fg.addColorStop(1, '#5a3a62'); g.fillStyle = fg; rr(g, tx0, py + 6, tx1 - tx0, OT - 2, 7); g.fill();
+    g.strokeStyle = '#e6c26a'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(tx0 + 6, py + OT - 1); g.lineTo(tx1 - 6, py + OT - 1); g.stroke();
+    const mg = g.createLinearGradient(tx0, py, tx1, py + 12); mg.addColorStop(0, '#ffffff'); mg.addColorStop(1, '#e6e2ee'); g.fillStyle = mg; rr(g, tx0 - 2, py, tx1 - tx0 + 4, 12, 6); g.fill();
+    g.strokeStyle = 'rgba(150,140,170,.4)'; g.lineWidth = .7; for (let k = 0; k < 5; k++) { g.beginPath(); const a = tx0 + R() * (tx1 - tx0); g.moveTo(a, py + 2); g.quadraticCurveTo(a + 8, py + 6, a + 16, py + 10); g.stroke(); }
+    const mx = (tx0 + tx1) / 2;
+    g.fillStyle = '#2e2a3e'; rr(g, mx - 12, py - 10, 24, 16, 4); g.fill(); g.fillStyle = '#7fe8c0'; rr(g, mx - 9, py - 8, 18, 6, 2); g.fill(); g.fillStyle = '#c0bcd0'; for (let i = 0; i < 4; i++) g.fillRect(mx - 9 + i * 5, py, 3.5, 3);
+    g.fillStyle = '#2e2a3e'; rr(g, mx + 16, py - 4, 8, 11, 2); g.fill(); g.fillStyle = '#5aa8ff'; g.fillRect(mx + 17.5, py - 2.5, 5, 3);
+    g.fillStyle = '#e0f0ff'; rr(g, tx0 + 6, py - 9, 8, 11, 3); g.fill(); for (const [a, b, c] of [[tx0 + 8, py - 12, '#ff8fb8'], [tx0 + 12, py - 13, '#ffd25a'], [tx0 + 10, py - 15, '#ff6f9c']]) { g.fillStyle = c; g.beginPath(); g.arc(a, b, 2.6, 0, TAU); g.fill(); }
+    for (const [k, c] of [[0, '#ff8fb8'], [1, '#c9a0ff']]) { const bx = tx1 - 20 + k * 8; g.fillStyle = c; rr(g, bx, py - 6 + k, 9, 12, 2); g.fill(); g.strokeStyle = dzDark(c); g.lineWidth = 1.2; g.beginPath(); g.arc(bx + 4.5, py - 6 + k, 3, Math.PI, 0); g.stroke(); }
+    g.fillStyle = '#c79a4a'; rr(g, mx - 24, py + OT + 4, 48, 13, 6); g.fill(); g.fillStyle = '#fff6dc'; g.font = `700 9px ${FONT}`; g.textAlign = 'center'; g.fillText('คิดเงิน', mx, py + OT + 13.5);
+  }
+  // sewing machines on worktables, a plate saying which way they go
+  for (const m of G.mach) {
+    const px = m.tx * OT, py = m.ty * OT, cx = px + OT / 2 + 3, tone = m.dir < 0 ? '#8fd3e8' : '#ffc28a', dk = m.dir < 0 ? '#3a8aa8' : '#c0702a';
+    g.fillStyle = 'rgba(40,10,30,.28)'; rr(g, px + 2, py + 6, OT + 10, OT, 5); g.fill();
+    const tg = g.createLinearGradient(0, py, 0, py + OT); tg.addColorStop(0, '#c89060'); tg.addColorStop(1, '#9a6a40'); g.fillStyle = tg; rr(g, px - 2, py + 1, OT + 10, OT - 2, 5); g.fill();
+    g.strokeStyle = 'rgba(255,240,210,.35)'; g.lineWidth = 1; g.beginPath(); g.moveTo(px + 1, py + 4); g.lineTo(px + OT + 5, py + 4); g.stroke();
+    // a measuring tape and a pin cushion
+    g.strokeStyle = '#ffe066'; g.lineWidth = 2; g.beginPath(); g.moveTo(px + 1, py + OT - 6); g.quadraticCurveTo(px + 12, py + OT - 1, px + 22, py + OT - 7); g.stroke();
+    g.fillStyle = '#e85a5a'; g.beginPath(); g.arc(px + OT + 2, py + OT - 8, 3.5, 0, TAU); g.fill(); g.fillStyle = '#fff'; g.fillRect(px + OT + 1, py + OT - 13, 1, 4); g.fillRect(px + OT + 3, py + OT - 12, 1, 3);
+    // the machine: a base, an arm, a head with a wheel, two spools
+    g.fillStyle = dk; rr(g, cx - 12, py + 15, 24, 6, 2); g.fill();
+    g.fillStyle = tone; rr(g, cx - 11, py + 4, 22, 9, 4); g.fill(); g.fillRect(cx + 5, py + 6, 6, 12); rr(g, cx - 12, py + 13, 24, 4, 1.5); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(cx - 9, py + 5, 12, 2);
+    g.fillStyle = '#f4f1ea'; g.beginPath(); g.arc(cx + 12, py + 9, 3.5, 0, TAU); g.fill(); g.strokeStyle = dk; g.lineWidth = 1; g.stroke();
+    for (const [sx, sc] of [[cx - 4, '#ff8fb8'], [cx + 2, '#5cc87a']]) { g.fillStyle = sc; rr(g, sx - 1.5, py + 0, 3, 4.5, 1); g.fill(); }
+    g.fillStyle = '#c0c0d0'; g.fillRect(cx - 8, py + 13, 1.5, 4);
+    // the plate
+    const lx = px + OT + 26, ly = py + OT / 2 + 3;
+    g.fillStyle = 'rgba(40,10,30,.25)'; rr(g, lx - 20, ly - 8, 42, 17, 8); g.fill();
+    g.fillStyle = m.dir < 0 ? '#2f7fae' : '#c0702a'; rr(g, lx - 22, ly - 10, 42, 17, 8); g.fill(); g.strokeStyle = 'rgba(255,255,255,.45)'; g.lineWidth = 1; g.stroke();
+    g.fillStyle = '#fff'; g.font = `700 9px ${FONT}`; g.textAlign = 'left'; g.fillText(m.dir < 0 ? 'ย่อ → S' : 'ขยาย → L', lx - 17, ly + 2);
+  }
+  // racks: chrome rails on wheels where they hang clothes; little display shelves for shoes and hats
+  const rackAt = (x, y) => G.racks.find(r => r.tx === x && r.ty === y);
+  for (const rk of G.racks) {
+    const px = rk.tx * OT, py = rk.ty * OT, hang = rk.p < 2, L = rackAt(rk.tx - 1, rk.ty), Rt = rackAt(rk.tx + 1, rk.ty);
+    g.fillStyle = 'rgba(40,10,30,.22)'; g.beginPath(); g.ellipse(px + OT / 2, py + OT - 1, OT * .62, 5, 0, 0, TAU); g.fill();
+    if (hang) {
+      const lh = !(L && L.p < 2), rh = !(Rt && Rt.p < 2), chrome = g.createLinearGradient(0, py - 6, 0, py - 2); chrome.addColorStop(0, '#ffffff'); chrome.addColorStop(1, '#9a9ab0');
+      g.fillStyle = chrome; g.fillRect(px - (lh ? -2 : 0), py - 6, OT - (lh ? 2 : 0) - (rh ? 2 : 0), 3);
+      g.strokeStyle = '#a0a0b8'; g.lineWidth = 2;
+      if (lh) { g.beginPath(); g.moveTo(px + 3, py - 6); g.lineTo(px + 3, py + OT - 3); g.stroke(); g.fillStyle = '#5a5a70'; g.beginPath(); g.arc(px + 3, py + OT - 2, 2.2, 0, TAU); g.fill(); }
+      if (rh) { g.beginPath(); g.moveTo(px + OT - 3, py - 6); g.lineTo(px + OT - 3, py + OT - 3); g.stroke(); g.fillStyle = '#5a5a70'; g.beginPath(); g.arc(px + OT - 3, py + OT - 2, 2.2, 0, TAU); g.fill(); }
+      g.strokeStyle = 'rgba(160,160,184,.6)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(px + (lh ? 3 : 0), py + OT - 4); g.lineTo(px + OT - (rh ? 3 : 0), py + OT - 4); g.stroke();
+    } else {
+      const wg2 = g.createLinearGradient(0, py, 0, py + OT); wg2.addColorStop(0, '#fff8f2'); wg2.addColorStop(1, '#e8d8cc'); g.fillStyle = wg2; rr(g, px + 2, py - 4, OT - 4, OT + 2, 4); g.fill();
+      g.strokeStyle = '#c8a888'; g.lineWidth = 1; g.stroke();
+      g.fillStyle = '#c8a888'; g.fillRect(px + 3, py + 9, OT - 6, 2); g.fillRect(px + 3, py + 21, OT - 6, 2);
     }
   }
-  // fitting rooms: a booth behind each door, a curtain rail, the number
-  G.rooms.forEach((rm, i) => {
-    const px = rm.tx * OT, py = rm.ty * OT;
-    g.fillStyle = '#7a5aa0'; rr(g, px - 6, py - OT + 2, OT + 12, OT * 2 - 2, 6); g.fill();
-    g.fillStyle = '#5a3f80'; g.fillRect(px - 2, py - 2, OT + 4, OT + 2);
-    g.fillStyle = '#ffcf5a'; g.beginPath(); g.arc(px + OT / 2, py - OT + 10, 7, 0, TAU); g.fill();
-    g.fillStyle = C.ink; g.font = `700 10px ${FONT}`; g.textAlign = 'center'; g.fillText(th(i + 1), px + OT / 2, py - OT + 14);
-    g.fillStyle = '#c0c0d0'; g.fillRect(px - 3, py + 1, OT + 6, 2.5);
-  });
-  // the till: a counter with a register and bags
-  if (G.till.length) {
-    const xs = G.till.map(t => t[0]), y = G.till[0][1], x0 = Math.min(...xs) * OT, x1 = (Math.max(...xs) + 1) * OT, py = y * OT;
-    g.fillStyle = 'rgba(0,0,0,.2)'; rr(g, x0 + 3, py + 8, x1 - x0, OT, 6); g.fill();
-    g.fillStyle = '#8a5a3a'; rr(g, x0, py + 2, x1 - x0, OT - 2, 6); g.fill(); g.fillStyle = '#b07a50'; rr(g, x0, py + 2, x1 - x0, 9, 5); g.fill();
-    const mx = (x0 + x1) / 2;
-    g.fillStyle = '#4a4a5a'; rr(g, mx - 11, py - 6, 22, 16, 3); g.fill(); g.fillStyle = '#8fe0b0'; g.fillRect(mx - 8, py - 4, 16, 5); g.fillStyle = '#ddd'; for (let i = 0; i < 3; i++) g.fillRect(mx - 8 + i * 6, py + 3, 4, 3);
-    g.fillStyle = '#ff8fb8'; rr(g, x1 - 16, py - 2, 11, 12, 2); g.fill(); g.strokeStyle = '#d06090'; g.lineWidth = 1.5; g.beginPath(); g.arc(x1 - 10.5, py - 2, 3.5, Math.PI, 0); g.stroke();
-    g.fillStyle = C.ink; g.font = `600 10px ${FONT}`; g.textAlign = 'center'; g.fillText('คิดเงิน', mx, py + OT + 9);
-  }
-  // sewing machines on their tables
-  for (const m of G.mach) {
-    const px = m.tx * OT, py = m.ty * OT, cx = px + OT / 2;
-    g.fillStyle = 'rgba(0,0,0,.2)'; rr(g, px + 2, py + 6, OT + 6, OT - 2, 4); g.fill();
-    g.fillStyle = '#a07850'; rr(g, px - 2, py + 2, OT + 8, OT - 4, 4); g.fill();
-    g.fillStyle = m.dir < 0 ? '#5aa8ff' : '#ffb35a'; rr(g, cx - 9, py + 5, 20, 12, 4); g.fill(); g.fillRect(cx + 5, py + 5, 5, 18);
-    g.fillStyle = '#ddd'; g.fillRect(cx - 7, py + 15, 2, 7);
-    g.fillStyle = C.ink; g.font = `700 10px ${FONT}`; g.textAlign = 'center';
-    const lab = m.dir < 0 ? 'ย่อ S' : 'ขยาย L', lx = px + OT + 22, ly = py + OT / 2 + 4;
-    g.fillStyle = m.dir < 0 ? '#2a6ab0' : '#b06a20'; rr(g, lx - 20, ly - 10, 40, 15, 7); g.fill(); g.fillStyle = '#fff'; g.fillText(lab, lx, ly + 1);
-  }
-  // racks: a rail on two feet; the badge of what it holds
-  G.racks.forEach(rk => {
-    const px = rk.tx * OT, py = rk.ty * OT;
-    g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.ellipse(px + OT / 2, py + OT - 2, OT * .55, 5, 0, 0, TAU); g.fill();
-    g.strokeStyle = '#8a8aa0'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(px + 3, py + OT - 3); g.lineTo(px + 3, py + 2); g.lineTo(px + OT - 3, py + 2); g.lineTo(px + OT - 3, py + OT - 3); g.stroke();
-  });
-  // the gate by the door: two posts
+  // the gate by the door: two posts with light strips
   if (G.gateY >= 0) {
     const xs = []; for (let x = 0; x < W; x++) if (tile(x, G.gateY) === 'G') xs.push(x);
-    for (const x of [xs[0], xs[xs.length - 1]]) { const px = (x + .5) * OT, py = G.gateY * OT; g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.ellipse(px + 2, py + OT - 2, 7, 3, 0, 0, TAU); g.fill(); g.fillStyle = '#c8ccd8'; rr(g, px - 4, py - 10, 8, OT + 6, 3); g.fill(); g.fillStyle = '#8a90a0'; g.fillRect(px - 4, py - 10, 8, 3); }
-    g.strokeStyle = 'rgba(120,120,150,.25)'; g.setLineDash([4, 4]); g.lineWidth = 2; g.beginPath(); g.moveTo((xs[0] + .5) * OT, (G.gateY + .5) * OT); g.lineTo((xs[xs.length - 1] + .5) * OT, (G.gateY + .5) * OT); g.stroke(); g.setLineDash([]);
+    for (const x of [xs[0], xs[xs.length - 1]]) { const px = (x + .5) * OT, py = G.gateY * OT; g.fillStyle = 'rgba(40,10,30,.25)'; g.beginPath(); g.ellipse(px + 2, py + OT, 9, 3.5, 0, 0, TAU); g.fill(); const pg = g.createLinearGradient(px - 5, 0, px + 5, 0); pg.addColorStop(0, '#d8dce8'); pg.addColorStop(.5, '#ffffff'); pg.addColorStop(1, '#b8bccc'); g.fillStyle = pg; rr(g, px - 5, py - 14, 10, OT + 12, 5); g.fill(); }
   }
-  // the front door: glass, a mat, the sign
+  // the front door: gold-framed glass, a welcome mat
   if (G.doors.length) {
-    const xs = G.doors.map(d => d[0]), y = G.doors[0][1], x0 = Math.min(...xs) * OT, x1 = (Math.max(...xs) + 1) * OT, py = y * OT;
-    g.fillStyle = '#9fd0e8'; g.fillRect(x0, py, x1 - x0, OT); g.fillStyle = 'rgba(255,255,255,.4)'; g.fillRect(x0 + 6, py + 3, 6, OT - 6); g.fillRect(x0 + (x1 - x0) / 2 + 6, py + 3, 6, OT - 6);
-    g.strokeStyle = '#6e5a8a'; g.lineWidth = 3; g.strokeRect(x0, py, x1 - x0, OT); g.beginPath(); g.moveTo((x0 + x1) / 2, py); g.lineTo((x0 + x1) / 2, py + OT); g.stroke();
-    g.fillStyle = '#b07ac0'; rr(g, x0 + 8, py - 22, x1 - x0 - 16, 16, 4); g.fill(); g.fillStyle = '#fff'; g.font = `700 11px ${FONT}`; g.textAlign = 'center'; g.fillText('เปิดแล้ว', (x0 + x1) / 2, py - 10);
+    const xs = G.doors.map(d => d[0]), y = G.doors[0][1], dx0 = Math.min(...xs) * OT, dx1 = (Math.max(...xs) + 1) * OT, py = y * OT;
+    const gg = g.createLinearGradient(0, py, 0, py + OT); gg.addColorStop(0, '#bfe6f6'); gg.addColorStop(1, '#8fc8e0'); g.fillStyle = gg; g.fillRect(dx0, py, dx1 - dx0, OT);
+    g.fillStyle = 'rgba(255,255,255,.5)'; for (const a of [dx0 + 8, (dx0 + dx1) / 2 + 8]) { g.beginPath(); g.moveTo(a, py + 3); g.lineTo(a + 8, py + 3); g.lineTo(a + 2, py + OT - 3); g.lineTo(a - 6, py + OT - 3); g.closePath(); g.fill(); }
+    g.strokeStyle = '#e6c26a'; g.lineWidth = 3; g.strokeRect(dx0 + 1.5, py + 1.5, dx1 - dx0 - 3, OT); g.beginPath(); g.moveTo((dx0 + dx1) / 2, py); g.lineTo((dx0 + dx1) / 2, py + OT); g.stroke();
+    g.fillStyle = '#c79a4a'; for (const a of [(dx0 + dx1) / 2 - 6, (dx0 + dx1) / 2 + 4]) g.fillRect(a, py + 10, 2, 10);
+    g.fillStyle = '#7a3a6a'; rr(g, dx0 + 10, py - 20, dx1 - dx0 - 20, 16, 5); g.fill(); g.strokeStyle = '#e6c26a'; g.lineWidth = 1; g.stroke();
+    g.fillStyle = '#ffe6f0'; g.font = `700 10px ${FONT}`; g.textAlign = 'center'; g.fillText('ยินดีต้อนรับ', (dx0 + dx1) / 2, py - 8.5);
   }
-  // little things: plants, a mannequin, stools where customers wait
+  // little things: potted plants, a dressed form, velvet poufs where customers wait
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const c = tile(x, y), cx = (x + .5) * OT, cy = (y + .5) * OT;
-    if (c === 'o') { g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.ellipse(cx + 2, cy + 12, 10, 4, 0, 0, TAU); g.fill(); g.fillStyle = '#c87a5a'; rr(g, cx - 8, cy, 16, 13, 3); g.fill(); g.fillStyle = '#4f9a4a'; for (let k = 0; k < 6; k++) { const a = -Math.PI / 2 + (k - 2.5) * .45; g.beginPath(); g.ellipse(cx + Math.cos(a) * 8, cy - 2 + Math.sin(a) * 9, 4, 8, a + Math.PI / 2, 0, TAU); g.fill(); } }
-    if (c === 'm') { g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.ellipse(cx, cy + 13, 9, 3, 0, 0, TAU); g.fill(); g.strokeStyle = '#8a7a6a'; g.lineWidth = 2; g.beginPath(); g.moveTo(cx, cy + 13); g.lineTo(cx, cy + 4); g.stroke(); g.fillStyle = '#f0e0d0'; g.beginPath(); g.arc(cx, cy - 4, 9, 0, TAU); g.fill(); dzWear(g, cx, cy - 4, 9, { 0: 311, 1: 1351 }, 1, 0); g.fillStyle = '#f0e0d0'; g.beginPath(); g.arc(cx, cy - 15, 4, 0, TAU); g.fill(); }
+    if (c === 'o') {
+      g.fillStyle = 'rgba(40,10,30,.25)'; g.beginPath(); g.ellipse(cx + 2, cy + 13, 12, 4, 0, 0, TAU); g.fill();
+      const pg = g.createLinearGradient(cx - 9, 0, cx + 9, 0); pg.addColorStop(0, '#f4f1ea'); pg.addColorStop(1, '#cfc6d8'); g.fillStyle = pg; g.beginPath(); g.moveTo(cx - 9, cy + 1); g.lineTo(cx + 9, cy + 1); g.lineTo(cx + 7, cy + 14); g.lineTo(cx - 7, cy + 14); g.closePath(); g.fill(); g.fillStyle = '#e6c26a'; g.fillRect(cx - 9, cy + 1, 18, 2);
+      for (let k = 0; k < 9; k++) { const a = -Math.PI / 2 + (k - 4) * .38, l = 9 + (k % 3) * 2; g.fillStyle = k % 2 ? '#3f8f4a' : '#5cb05a'; g.beginPath(); g.ellipse(cx + Math.cos(a) * l * .8, cy - 2 + Math.sin(a) * l, 3.5, l * .7, a + Math.PI / 2, 0, TAU); g.fill(); }
+    }
+    if (c === 'm') {
+      g.fillStyle = 'rgba(40,10,30,.25)'; g.beginPath(); g.ellipse(cx, cy + 13, 10, 3, 0, 0, TAU); g.fill(); g.strokeStyle = '#8a6a4a'; g.lineWidth = 2; g.beginPath(); g.moveTo(cx, cy + 13); g.lineTo(cx, cy + 3); g.moveTo(cx - 7, cy + 13); g.lineTo(cx + 7, cy + 13); g.stroke();
+      g.fillStyle = '#f4e6d8'; g.beginPath(); g.ellipse(cx, cy - 4, 9, 10, 0, 0, TAU); g.fill(); dzWear(g, cx, cy - 4, 9, { 0: 311, 1: 1351 }, 1); g.fillStyle = '#c79a4a'; g.beginPath(); g.arc(cx, cy - 15, 2.5, 0, TAU); g.fill();
+    }
   }
-  for (const [x, y] of G.waits) { const cx = (x + .5) * OT, cy = (y + .5) * OT; g.fillStyle = 'rgba(0,0,0,.12)'; g.beginPath(); g.ellipse(cx, cy + 8, 9, 3.5, 0, 0, TAU); g.fill(); g.fillStyle = '#c9a0d0'; g.beginPath(); g.ellipse(cx, cy + 5, 8, 4.5, 0, 0, TAU); g.fill(); }
-  // the shop's name on the back wall, and a mirror
-  g.fillStyle = C.ink; g.font = `400 18px ${FONT_D}`; g.textAlign = 'center'; g.fillText(G.def.name, 25 * OT, 2.35 * OT);
-  g.fillStyle = '#d0e8f0'; rr(g, 4 * OT, 1.1 * OT, 22, 28, 10); g.fill(); g.strokeStyle = '#c99ab8'; g.lineWidth = 2; g.stroke();
+  for (const [x, y] of G.waits) {
+    const cx = (x + .5) * OT, cy = (y + .5) * OT;
+    g.fillStyle = 'rgba(40,10,30,.22)'; g.beginPath(); g.ellipse(cx + 1, cy + 9, 11, 4, 0, 0, TAU); g.fill();
+    const pg = g.createRadialGradient(cx - 3, cy + 2, 1, cx, cy + 5, 11); pg.addColorStop(0, '#e8b8e8'); pg.addColorStop(1, '#9a5aa8'); g.fillStyle = pg; g.beginPath(); g.ellipse(cx, cy + 5, 10, 6.5, 0, 0, TAU); g.fill();
+    g.fillStyle = '#e6c26a'; for (const a of [-4, 0, 4]) { g.beginPath(); g.arc(cx + a, cy + 4 + Math.abs(a) * .2, .9, 0, TAU); g.fill(); }
+  }
+  // warm light pooling under the ceiling lamps
+  g.save(); g.globalCompositeOperation = 'lighter';
+  for (const [lx, ly] of [[6, 7.5], [12.5, 7.5], [18.5, 7.5], [24.5, 6], [15, 13]]) { const gl = g.createRadialGradient(lx * OT, ly * OT, 4, lx * OT, ly * OT, 120); gl.addColorStop(0, 'rgba(255,220,160,.16)'); gl.addColorStop(1, 'rgba(255,220,160,0)'); g.fillStyle = gl; g.fillRect(lx * OT - 120, ly * OT - 120, 240, 240); }
+  g.restore();
 }
+// the edges of the room a touch darker (laid over everything, cached)
+function shopVignette(g) {
+  const v = g.createRadialGradient(VW / 2, VH / 2 + 20, VH * .35, VW / 2, VH / 2, VH * .95); v.addColorStop(0, 'rgba(40,10,40,0)'); v.addColorStop(1, 'rgba(40,10,40,.28)'); g.fillStyle = v; g.fillRect(0, 0, VW, VH);
+}
+// a fitting room's curtains: open (gathered at the sides, the mirror inside showing) or shut (and wobbling)
+function dzCurtains(g, rm, i, busy, t) {
+  const cx = (rm.tx + .5) * OT, top = rm.ty * OT - 16, bot = (rm.ty + 1) * OT, w = 38, col = ['#c2307a', '#7a3ac2', '#2f7fae'][i % 3];
+  g.fillStyle = '#c79a4a'; g.fillRect(cx - w / 2 - 2, top - 2, w + 4, 2.5);
+  if (!busy) {
+    // the inside: a long mirror and a hook
+    g.fillStyle = '#5a3a62'; g.fillRect(cx - w / 2, top, w, bot - top);
+    const mg = g.createLinearGradient(cx - 8, 0, cx + 8, 0); mg.addColorStop(0, '#bfe0f0'); mg.addColorStop(1, '#e8f6ff'); g.fillStyle = mg; rr(g, cx - 7, top + 3, 14, bot - top - 7, 6); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.6)'; g.fillRect(cx - 4, top + 6, 2, bot - top - 14);
+  }
+  const shut = busy ? 1 : .32;
+  for (const side of [-1, 1]) {
+    const cw = w / 2 * shut, x0 = side < 0 ? cx - w / 2 : cx + w / 2 - cw;
+    for (let k = 0; k < 4; k++) {
+      const fx = x0 + k * cw / 4, wob = busy ? Math.sin(t * 9 + k + side) * 1.2 : 0, fg = g.createLinearGradient(fx, 0, fx + cw / 4, 0);
+      fg.addColorStop(0, dzMix(col, '#15122b', .35)); fg.addColorStop(.5, dzMix(col, '#ffffff', .2)); fg.addColorStop(1, col);
+      g.fillStyle = fg; g.beginPath(); g.moveTo(fx, top); g.lineTo(fx + cw / 4 + .5, top); g.lineTo(fx + cw / 4 + .5 + wob, bot); g.lineTo(fx + wob, bot); g.closePath(); g.fill();
+    }
+    if (!busy) { g.fillStyle = '#e6c26a'; g.fillRect(side < 0 ? x0 + cw - 2 : x0, top + 14, 2.5, 3); }
+  }
+  g.fillStyle = '#e6c26a'; for (let k = 0; k < 6; k++) { g.beginPath(); g.arc(cx - w / 2 + 3 + k * (w - 6) / 5, top, 1.4, 0, Math.PI * 2); g.fill(); }
+  if (busy) { g.fillStyle = '#fff'; g.font = `700 12px ${FONT}`; g.textAlign = 'center'; g.fillText('.'.repeat(1 + Math.floor(t * 3) % 3), cx, (top + bot) / 2 + 4); }
+}
+function dzHanger(g, x, y) { g.strokeStyle = '#c0c0d0'; g.lineWidth = 1.2; g.beginPath(); g.arc(x, y + 1.6, 1.8, Math.PI, Math.PI * 2.2); g.moveTo(x, y + 3.4); g.lineTo(x - 7, y + 7.5); g.lineTo(x + 7, y + 7.5); g.closePath(); g.stroke(); }
 
 /* ---------- each frame ---------- */
 function shopRender() {
@@ -10322,50 +10462,55 @@ function shopRender() {
   let ox = 0; if (S.shake > 0) ox = (Math.random() - .5) * 6 * S.shake;
   g.save(); g.translate(ox, 0);
   stamp(g, 'shopGround', def.name, 0, 0, VW, VH, q => shopGround(q, G), true);
-  // the gate lights up red while the alarm goes
-  if (G.thief && G.thief.alarm) { const a = .35 + .3 * Math.sin(t * 18); g.fillStyle = `rgba(255,60,60,${a * .3})`; g.fillRect(0, (G.gateY - 1) * OT, VW, OT * 3); }
-  // clothes on the racks (the one with the kid in it shakes)
+  // the gate's light strips: green, red and flashing while the alarm goes
+  if (G.gateY >= 0) {
+    const alarm = G.thief && G.thief.alarm, on = alarm ? Math.sin(t * 18) > 0 : true, col = alarm ? (on ? '#ff4f4f' : '#802020') : '#5cf0a0';
+    let xs = st.gateXs; if (!xs) { xs = []; for (let x = 0; x < Shop.COLS; x++) if (Shop.tileAt(G, x, G.gateY) === 'G') xs.push(x); st.gateXs = xs; }
+    for (const x of [xs[0], xs[xs.length - 1]]) { const px = (x + .5) * OT, py = G.gateY * OT; g.fillStyle = col; rr(g, px - 1.5, py - 10, 3, OT + 4, 1.5); g.fill(); if (alarm && on) glow(g, '255,80,80', px, py + 6, 30, .5); }
+    if (alarm && on) { g.fillStyle = 'rgba(255,60,60,.12)'; g.fillRect((xs[0] + .5) * OT, G.gateY * OT - 6, (xs[xs.length - 1] - xs[0]) * OT, OT + 12); }
+  }
+  // clothes on the racks (the one with the kid in it shakes, with eyes peeping out)
   G.racks.forEach((rk, i) => {
     const px = rk.tx * OT, py = rk.ty * OT, kid = G.kid && G.kid.st === 'hide' && G.kid.rack === i, w = (kid ? Math.sin(t * 20) * 2.2 : 0) + (st.wob[i] ? Math.sin(t * 40) * 3 : 0);
-    const n = Math.min(rk.n, 5), code = Shop.gc({ p: rk.p, s: rk.s, c: rk.c, z: 1 });
-    for (let k = n - 1; k >= 0; k--) dzGarment(g, code, px + OT / 2 + (k - (n - 1) / 2) * 3.2 + w, py + 15 + k * .6, .72);
-    if (!rk.n) { g.fillStyle = 'rgba(21,18,43,.5)'; g.font = `600 9px ${FONT}`; g.textAlign = 'center'; g.fillText('หมด', px + OT / 2, py + 19); }
-    // what it is: a little tag of its style
-    g.fillStyle = 'rgba(255,255,255,.85)'; rr(g, px + 2, py + OT - 9, OT - 4, 10, 4); g.fill();
-    g.fillStyle = C.ink; g.font = `600 8px ${FONT}`; g.textAlign = 'center'; g.fillText(DZ_STY[rk.s], px + OT / 2, py + OT - 1.5);
-    if (kid) { g.fillStyle = '#fff'; for (const s of [-1, 1]) { g.beginPath(); g.arc(px + OT / 2 + s * 3.5 + w, py + 8, 2.2, 0, Math.PI * 2); g.fill(); } g.fillStyle = C.ink; for (const s of [-1, 1]) { g.beginPath(); g.arc(px + OT / 2 + s * 3.5 + w + Math.sin(t * 3), py + 8.4, 1.1, 0, Math.PI * 2); g.fill(); } }
-  });
-  // clothes on the floor
-  G.items.forEach((it, i) => dzGarment(g, it.g, it.x, it.y, .8, ((i * 37) % 7 - 3) * .2));
-  // the machines: what is on them, how far along
-  for (const m of G.mach) {
-    if (m.g < 0) continue;
-    const cx = (m.tx + .5) * OT, cy = (m.ty + .5) * OT;
-    dzGarment(g, m.g, cx + 2, cy - 4 + (m.done ? 0 : Math.sin(t * 30) * .6), .7);
-    g.lineWidth = 4; g.strokeStyle = 'rgba(21,18,43,.5)'; g.beginPath(); g.arc(cx + 2, cy - 4, 15, 0, Math.PI * 2); g.stroke();
-    g.strokeStyle = m.done ? '#9be07a' : C.gold; g.beginPath(); g.arc(cx + 2, cy - 4, 15, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, m.prog / 100)); g.stroke();
-    if (m.done) { g.fillStyle = '#9be07a'; g.font = `700 11px ${FONT}`; g.textAlign = 'center'; g.fillText('✓ หยิบได้', cx + 2, cy - 22); }
-  }
-  // fitting room curtains: drawn shut (and wobbling) while someone tries things on
-  G.rooms.forEach((rm, i) => {
-    const px = rm.tx * OT, py = rm.ty * OT, busy = G.cust.some(c => c.room === i && c.st === 'try');
-    const cols = ['#ff8fb8', '#c9a0ff', '#8fd3ff'], col = cols[i % 3];
-    for (let k = 0; k < 4; k++) {
-      const shut = busy ? 1 : .45, w = OT / 4 * shut, x = k < 2 ? px + k * w : px + OT - (4 - k) * w, wob = busy ? Math.sin(t * 9 + k) * 1.5 : 0;
-      g.fillStyle = k % 2 ? col : hexA(col, .75); g.fillRect(x + wob, py + 3, w + .5, OT - 3);
+    const n = Math.min(rk.n, 4), code = Shop.gc({ p: rk.p, s: rk.s, c: rk.c, z: 1 });
+    if (rk.p < 2) {
+      for (let k = 0; k < n; k++) { const hx = px + OT / 2 + (k - (n - 1) / 2) * 3.4 + w * (k + 1) / n, hy = py - 6; dzHanger(g, hx, hy); g.save(); g.translate(hx, hy + 17); g.rotate(Math.sin(t * 1.3 + i + k) * .03); dzGarment(g, code, 0, 0, .8); g.restore(); }
+    } else {
+      for (let k = 0; k < n; k++) { const row = k < 2 ? 0 : 1, col = k % 2; dzGarment(g, code, px + 10 + col * 12 + w, py + 3 + row * 12, .42); }
     }
-    if (busy) { g.fillStyle = C.ink; g.font = `700 12px ${FONT}`; g.textAlign = 'center'; g.fillText('.'.repeat(1 + Math.floor(t * 3) % 3), px + OT / 2, py + OT / 2 + 4); }
+    if (!rk.n) { g.fillStyle = 'rgba(21,18,43,.55)'; g.font = `700 9px ${FONT}`; g.textAlign = 'center'; g.fillText('หมด', px + OT / 2, py + 12); }
+    // its tag: the occasion's colour and picture
+    const tc = DZ_OCC[rk.s]; g.fillStyle = 'rgba(40,10,30,.25)'; rr(g, px + 2, py + OT - 7, OT - 3, 12, 6); g.fill();
+    g.fillStyle = tc; rr(g, px + 1, py + OT - 8, OT - 3, 12, 6); g.fill(); dzIcon(g, rk.s, px + 7.5, py + OT - 2.2, .55);
+    g.fillStyle = '#fff'; g.font = `700 7.5px ${FONT}`; g.textAlign = 'center'; g.fillText(DZ_STY[rk.s], px + OT / 2 + 4, py + OT + .5);
+    if (kid) { const ex = px + OT / 2 + w, ey = py + 6; g.fillStyle = '#ffe08a'; g.beginPath(); g.arc(ex, ey + 2, 6, Math.PI, 0); g.fill(); g.fillStyle = '#fff'; for (const s of [-1, 1]) { g.beginPath(); g.arc(ex + s * 2.8, ey + 1, 2, 0, Math.PI * 2); g.fill(); } g.fillStyle = C.ink; for (const s of [-1, 1]) { g.beginPath(); g.arc(ex + s * 2.8 + Math.sin(t * 3), ey + 1.4, 1, 0, Math.PI * 2); g.fill(); } }
   });
+  // clothes on the floor, crumpled
+  G.items.forEach((it, i) => { g.fillStyle = 'rgba(40,10,30,.18)'; g.beginPath(); g.ellipse(it.x + 1, it.y + 7, 10, 3.5, 0, 0, Math.PI * 2); g.fill(); dzGarment(g, it.g, it.x, it.y, .8, ((i * 37) % 7 - 3) * .2); });
+  // the machines: what is on them, the needle going, how far along
+  for (const m of G.mach) {
+    const cx = (m.tx + .5) * OT + 3, cy = (m.ty + .5) * OT, busy = m.g >= 0 && !m.done && G.t - m.lastT < .5;
+    g.fillStyle = '#c0c0d0'; g.fillRect(cx - 8.5, m.ty * OT + 12 + (busy ? Math.abs(Math.sin(t * 40)) * 3 : 0), 1.5, 4);
+    if (m.g < 0) continue;
+    dzGarment(g, m.g, cx - 2, cy + 2 + (m.done ? 0 : Math.sin(t * 30) * .5), .62);
+    g.lineCap = 'round'; g.lineWidth = 4; g.strokeStyle = 'rgba(21,18,43,.45)'; g.beginPath(); g.arc(cx, cy - 2, 17, 0, Math.PI * 2); g.stroke();
+    g.strokeStyle = m.done ? '#9be07a' : C.gold; g.beginPath(); g.arc(cx, cy - 2, 17, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, m.prog / 100)); g.stroke(); g.lineCap = 'butt';
+    if (m.done) { g.fillStyle = '#9be07a'; g.font = `700 11px ${FONT}`; g.textAlign = 'center'; g.fillText('✓ หยิบได้', cx, cy - 24); }
+  }
+  // fitting room curtains
+  G.rooms.forEach((rm, i) => dzCurtains(g, rm, i, G.cust.some(c => c.room === i && c.st === 'try'), t));
   // who the buttons would work on just now (each player's own colour; red when it would not do)
   if (G.st === 'run') for (const id of ['pink', 'mint']) {
     if (O.role && id !== O.local) continue;
     const tg = Shop.target(G, id); if (!tg) continue;
     const col = !tg.ok ? '#ff6b6b' : id === 'pink' ? C.pink : C.mint, pulse = .6 + .4 * Math.sin(t * 6);
     g.strokeStyle = hexA(col, pulse); g.lineWidth = 2.5;
-    if (tg.tx != null) { rr(g, tg.tx * OT - 2, tg.ty * OT - 2, OT + 4, OT + 4, 7); g.stroke(); }
+    if (tg.tx != null) { rr(g, tg.tx * OT - 3, tg.ty * OT - 8, OT + 6, OT + 14, 8); g.stroke(); }
     else if (tg.k === 'cust') { g.beginPath(); g.ellipse(tg.x, tg.y + 14, 20, 8, 0, 0, Math.PI * 2); g.stroke(); }
     else if (tg.k === 'item') { g.beginPath(); g.arc(tg.x, tg.y, 13, 0, Math.PI * 2); g.stroke(); }
   }
+  // a spotlight on whoever comes out of a fitting room to show their outfit
+  for (const c of G.cust) if (c.st === 'pose') { const a = Math.min(1, c.t * 2) * (c.t > Shop.POSE_T - .4 ? (Shop.POSE_T - c.t) / .4 : 1); g.save(); g.globalCompositeOperation = 'lighter'; glow(g, c.out && c.out.kind === 'perfect' ? '255,220,140' : '200,200,255', c.x, c.y - 6, 42, .55 * a); g.restore(); }
   // everyone, the nearer in front: players, customers (not in a room), the kid, the thief
   const ppl = [];
   for (const id of ['pink', 'mint']) ppl.push({ y: st.disp[id].y, f: () => dzHero(g, G, id, st.disp[id].x, st.disp[id].y, t) });
@@ -10375,10 +10520,12 @@ function shopRender() {
   ppl.sort((a, b) => a.y - b.y).forEach(o => o.f());
   // bubbles over the waiting customers (on top of everyone)
   for (const c of G.cust) if (['in', 'wait', 'queue', 'pay'].includes(c.st)) dzBubble(g, G, c, t);
-  // flying buttons and clothes
+  // flying buttons and clothes, sparkles where something was handed over, dust in the light
   for (const f of st.fly) { if (f.k === 'btn') { g.fillStyle = '#fff'; g.beginPath(); g.arc(f.x, f.y, 2.6, 0, Math.PI * 2); g.fill(); g.strokeStyle = C.ink; g.lineWidth = .8; g.stroke(); } else dzGarment(g, 1000 * (f.c % 4) + 10 * (f.c * 3 % 7) + 1, f.x, f.y, .6, f.t * 8); }
   for (const s of st.spark) { g.fillStyle = `rgba(255,236,150,${s.t * 2})`; twinkle(g, s.x + Math.sin(s.t * 20) * 8, s.y - (1 - s.t) * 20, 4); }
+  for (let i = 0; i < 14; i++) { const x = (i * 131 + t * (6 + i % 3)) % 860 + 50, y = (i * 77 + Math.sin(t * .4 + i) * 30) % 360 + 120, a = .25 + .2 * Math.sin(t * 1.3 + i * 2); g.fillStyle = `rgba(255,245,220,${a})`; g.beginPath(); g.arc(x, y, 1.1, 0, Math.PI * 2); g.fill(); }
   g.restore();
+  stamp(g, 'shopVignette', '', 0, 0, VW, VH, shopVignette);
   drawParts(g);
   if (G.st === 'show' || (G.st === 'close' && G.ct > 1.2)) dzShow(g, G, t);
   xDrawFloats(g, OM);
@@ -10402,25 +10549,6 @@ function dzHero(g, G, id, x, y, t) {
   if (p.item >= 0) dzGarment(g, p.item, x, y - 30 - bob, .9);
   if (G.t < Shop.START + 3) { g.globalAlpha = Math.min(1, (Shop.START + 3 - G.t) * 1.5); nameTag(g, S.names[id], x, y - 34, pink ? C.pink : C.mint); g.globalAlpha = 1; }
 }
-function dzCust(g, G, c, t) {
-  const st = OM.st, w = st.cwalk[c.id] || 0, step = c.mv ? Math.sin(w) * 2.4 : 0, bob = c.mv ? Math.abs(Math.sin(w)) * 1.8 : 0;
-  let mood = '', got = c.got, extra = {};
-  if (c.st === 'pose' && c.out) {
-    const k = c.out.kind; mood = k === 'perfect' ? 'happy' : k === 'tight' || k === 'style' || k === 'nostyle' ? 'o' : 'sad';
-    if (k === 'perfect') extra.spin = Math.sin(c.t * 7) * .25;
-  } else if (c.angry) mood = 'angry';
-  else if ((c.st === 'wait' || c.st === 'queue') && c.pat < c.patMax * .3) mood = 'sad';
-  else if (c.st === 'pay' || (c.st === 'out' && !c.angry)) mood = 'happy';
-  if (c.st === 'out' || c.st === 'pay') got = c.st === 'pay' ? c.got : {};
-  g.save();
-  if (extra.spin) { g.translate(c.x, c.y); g.scale(Math.cos(extra.spin * 6) > 0 ? 1 : -1, 1); g.translate(-c.x, -c.y); }
-  const b = dzPerson(g, c.look, c.z, c.x, c.y, got, t, { bob, step, fx: c.fx || 0, mood });
-  g.restore();
-  // walking out happy: a shopping bag; a perfect outfit: a selfie
-  if (c.st === 'out' && !c.angry) { g.fillStyle = '#ff8fb8'; rr(g, c.x + b.r * .8, c.y - 2, 10, 12, 2); g.fill(); g.strokeStyle = '#d06090'; g.lineWidth = 1.4; g.beginPath(); g.arc(c.x + b.r * .8 + 5, c.y - 2, 3, Math.PI, 0); g.stroke(); }
-  if (c.st === 'pose' && c.out && c.out.kind === 'perfect' && c.t > 1) { g.fillStyle = '#2a2440'; rr(g, c.x + b.r + 2, b.cy - b.r - 6, 8, 13, 2); g.fill(); if (Math.floor(c.t * 4) % 3 === 0) { g.fillStyle = 'rgba(255,255,255,.9)'; g.beginPath(); g.arc(c.x + b.r + 6, b.cy - b.r - 4, 6, 0, Math.PI * 2); g.fill(); } }
-  if (c.st === 'pose' && c.out && c.out.kind === 'loose') { g.fillStyle = 'rgba(140,200,255,.8)'; g.beginPath(); g.arc(c.x - b.r, b.cy - b.r * .3, 2.2, 0, Math.PI * 2); g.fill(); }
-}
 function dzKid(g, k, t) {
   const bob = Math.abs(Math.sin(t * 16)) * 2;
   g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.ellipse(k.x, k.y + 7, 7, 3, 0, 0, Math.PI * 2); g.fill();
@@ -10441,61 +10569,119 @@ function dzThief(g, th, t) {
 }
 // what a customer wants: where they are going, the pieces (a tick on each one they have), the colour, their size,
 // and how long they will wait
+function dzCust(g, G, c, t) {
+  const st = OM.st, w = st.cwalk[c.id] || 0, step = c.mv ? Math.sin(w) * 2.4 : 0, bob = c.mv ? Math.abs(Math.sin(w)) * 1.8 : 0;
+  let mood = '', got = c.got, spin = 0;
+  if (c.st === 'pose' && c.out) {
+    const k = c.out.kind; mood = k === 'perfect' ? 'happy' : k === 'tight' || k === 'style' || k === 'nostyle' ? 'o' : 'sad';
+    if (k === 'perfect') spin = Math.sin(c.t * 7) * .25;
+  } else if (c.angry) mood = 'angry';
+  else if ((c.st === 'wait' || c.st === 'queue') && c.pat < c.patMax * .3) mood = 'sad';
+  else if (c.st === 'pay' || (c.st === 'out' && !c.angry)) mood = 'happy';
+  if (c.st === 'out' || c.st === 'pay') got = c.st === 'pay' ? c.got : {};
+  g.save();
+  if (spin) { g.translate(c.x, c.y); g.scale(Math.cos(spin * 6) > 0 ? 1 : -1, 1); g.translate(-c.x, -c.y); }
+  const b = dzPerson(g, c.look, c.z, c.x, c.y, got, t, { bob, step, fx: c.fx || 0, mood, still: !c.mv });
+  g.restore();
+  // walking out happy: a shopping bag; a perfect outfit: a selfie; a size too big: a sweat drop
+  if (c.st === 'out' && !c.angry) { const bx = c.x + b.r * .8; g.fillStyle = '#ff8fb8'; rr(g, bx, c.y - 2, 11, 13, 2); g.fill(); g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(bx + 1, c.y - 1, 3, 11); g.strokeStyle = '#c0457a'; g.lineWidth = 1.4; g.beginPath(); g.arc(bx + 5.5, c.y - 2, 3, Math.PI, 0); g.stroke(); }
+  if (c.st === 'pose' && c.out && c.out.kind === 'perfect' && c.t > 1) { g.fillStyle = '#2a2440'; rr(g, c.x + b.r + 2, b.cy - b.r - 6, 8, 13, 2); g.fill(); g.fillStyle = '#7fe8c0'; g.fillRect(c.x + b.r + 3.5, b.cy - b.r - 4.5, 5, 8); if (Math.floor(c.t * 4) % 3 === 0) { g.fillStyle = 'rgba(255,255,255,.9)'; g.beginPath(); g.arc(c.x + b.r + 6, b.cy - b.r - 4, 7, 0, Math.PI * 2); g.fill(); } }
+  if (c.st === 'pose' && c.out && c.out.kind === 'loose') { g.fillStyle = 'rgba(140,200,255,.85)'; g.beginPath(); g.moveTo(c.x - b.r, b.cy - b.r * .55); g.quadraticCurveTo(c.x - b.r + 3, b.cy - b.r * .2, c.x - b.r, b.cy - b.r * .1); g.quadraticCurveTo(c.x - b.r - 3, b.cy - b.r * .2, c.x - b.r, b.cy - b.r * .55); g.fill(); }
+}
+// what a customer wants: a card in the colour of where they are going (its picture and name), the pieces (a tick on
+// each one they have), the colour, their size, and how long they will wait
 function dzBubble(g, G, c, t) {
-  const pay = c.st === 'pay', n = c.want.pieces.length, w = pay ? 70 : Math.max(76, 22 * n + 34), h = pay ? 26 : 44, x = c.x - w / 2, y = c.y - [10.5, 13, 16][c.z] * 1.3 - h - 16;
-  g.globalAlpha = c.st === 'in' ? .75 : 1;
-  rr(g, x, y, w, h, 9); g.fillStyle = 'rgba(255,255,255,.95)'; g.fill(); g.strokeStyle = 'rgba(21,18,43,.25)'; g.lineWidth = 1; g.stroke();
-  g.beginPath(); g.moveTo(c.x - 5, y + h); g.lineTo(c.x, y + h + 6); g.lineTo(c.x + 5, y + h); g.fill();
-  g.textAlign = 'left'; g.fillStyle = C.ink;
+  const pay = c.st === 'pay', n = c.want.pieces.length, occ = DZ_OCC[c.want.s];
+  const w = pay ? 78 : Math.max(86, 24 * n + 40), h = pay ? 28 : 50, x = Math.max(36, Math.min(VW - 36 - w, c.x - w / 2)), y = c.y - [10.5, 13, 16][c.z] * 1.3 - h - 18;
+  const a = c.st === 'in' ? .75 : 1, low = !pay && c.pat < c.patMax * .3;
+  g.globalAlpha = a;
+  const pop = c.st === 'wait' && c.t < .3 ? 1 + (1 - c.t / .3) * .15 : 1;
+  g.save(); g.translate(c.x, y + h); g.scale(pop, pop); g.translate(-c.x, -(y + h));
+  g.fillStyle = 'rgba(40,10,30,.25)'; rr(g, x + 1, y + 3, w, h, 10); g.fill();
+  g.fillStyle = '#fffaf6'; rr(g, x, y, w, h, 10); g.fill();
+  g.beginPath(); g.moveTo(c.x - 6, y + h - .5); g.lineTo(c.x, y + h + 7); g.lineTo(c.x + 6, y + h - .5); g.fill();
   if (pay) {
-    g.font = `600 11px ${FONT}`; g.fillText('คิดเงินด้วย', x + 7, y + 17);
-    const q = c.st === 'pay' ? Math.max(0, c.tillPat / Shop.TILL_PAT) : 1; g.fillStyle = q < .35 ? '#ff6b6b' : '#ffb35a'; g.fillRect(x + 6, y + h - 4, (w - 12) * q, 2.5);
-    g.globalAlpha = 1; return;
+    g.fillStyle = '#e6c26a'; rr(g, x, y, 22, h, 10); g.fill(); g.fillStyle = '#fffaf6'; g.fillRect(x + 14, y, 8, h);
+    g.fillStyle = '#c79a4a'; g.beginPath(); g.arc(x + 11, y + 13, 6, 0, Math.PI * 2); g.fill(); g.fillStyle = '#fff6dc'; g.font = `700 8px ${FONT}`; g.textAlign = 'center'; g.fillText('฿', x + 11, y + 16);
+    g.fillStyle = C.ink; g.font = `700 11px ${FONT}`; g.textAlign = 'left'; g.fillText('คิดเงินด้วย', x + 26, y + 17);
+    const q = Math.max(0, c.tillPat / Shop.TILL_PAT); g.fillStyle = 'rgba(21,18,43,.1)'; rr(g, x + 26, y + h - 7, w - 32, 3, 1.5); g.fill(); g.fillStyle = q < .35 ? '#ff6b6b' : '#ffb35a'; rr(g, x + 26, y + h - 7, Math.max(3, (w - 32) * q), 3, 1.5); g.fill();
+    g.restore(); g.globalAlpha = 1; return;
   }
-  g.font = `600 11px ${FONT}`; g.fillText(DZ_GO[c.want.s], x + 7, y + 14);
-  if (G.def.sizeShow !== false) { g.fillStyle = c.z === 0 ? '#5aa8ff' : c.z === 2 ? '#ff9a3a' : '#9a8ab8'; rr(g, x + w - 22, y + 4, 16, 13, 5); g.fill(); g.fillStyle = '#fff'; g.font = `700 10px ${FONT}`; g.textAlign = 'center'; g.fillText(Shop.SIZES[c.z], x + w - 14, y + 14.5); }
+  // the header in the occasion's colour
+  g.save(); rr(g, x, y, w, h, 10); g.clip(); g.fillStyle = occ; g.fillRect(x, y, w, 18); g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(x, y, w, 6); g.restore();
+  dzIcon(g, c.want.s, x + 11, y + 9.5, .7);
+  g.fillStyle = '#fff'; g.font = `700 11px ${FONT}`; g.textAlign = 'left'; g.fillText(DZ_GO[c.want.s], x + 20, y + 13.5);
+  if (G.def.sizeShow !== false) { const sc = c.z === 0 ? '#5aa8ff' : c.z === 2 ? '#ff9a3a' : '#9a8ab8'; g.fillStyle = '#fff'; g.beginPath(); g.arc(x + w - 10, y + 9, 7, 0, Math.PI * 2); g.fill(); g.fillStyle = sc; g.beginPath(); g.arc(x + w - 10, y + 9, 5.6, 0, Math.PI * 2); g.fill(); g.fillStyle = '#fff'; g.font = `700 8.5px ${FONT}`; g.textAlign = 'center'; g.fillText(Shop.SIZES[c.z], x + w - 10, y + 12); }
   c.want.pieces.forEach((p, i) => {
-    const ix = x + 16 + i * 22, iy = y + 29, have = c.got[p] != null;
+    const ix = x + 16 + i * 24, iy = y + 32, have = c.got[p] != null;
+    g.fillStyle = have ? '#e8f8ee' : '#f2ecf4'; g.beginPath(); g.arc(ix, iy, 10, 0, Math.PI * 2); g.fill();
     const code = have ? c.got[p] : Shop.gc({ p, s: c.want.s, c: c.want.c >= 0 ? c.want.c : 6, z: 1 });
-    g.globalAlpha = (c.st === 'in' ? .75 : 1) * (have ? 1 : c.want.c >= 0 ? .85 : .45);
-    dzGarment(g, code, ix, iy, .55);
-    g.globalAlpha = c.st === 'in' ? .75 : 1;
-    if (have) { g.fillStyle = '#5cc87a'; g.beginPath(); g.arc(ix + 7, iy - 7, 4.5, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(ix + 5, iy - 7); g.lineTo(ix + 6.6, iy - 5.4); g.lineTo(ix + 9, iy - 8.8); g.stroke(); }
+    g.globalAlpha = a * (have ? 1 : c.want.c >= 0 ? .9 : .5);
+    dzGarment(g, code, ix, iy, .52);
+    g.globalAlpha = a;
+    if (have) { g.fillStyle = '#3fbf6a'; g.beginPath(); g.arc(ix + 7.5, iy - 7, 4.6, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(ix + 5.4, iy - 7); g.lineTo(ix + 7, iy - 5.3); g.lineTo(ix + 9.6, iy - 8.8); g.stroke(); }
   });
-  if (c.want.c >= 0) { g.fillStyle = DZ_COL[c.want.c]; g.beginPath(); g.arc(x + w - 10, y + 29, 5, 0, Math.PI * 2); g.fill(); g.strokeStyle = 'rgba(21,18,43,.35)'; g.lineWidth = 1; g.stroke(); }
-  const q = Math.max(0, c.pat / c.patMax); g.fillStyle = 'rgba(21,18,43,.12)'; g.fillRect(x + 6, y + h - 4, w - 12, 2.5); g.fillStyle = q < .3 ? '#ff6b6b' : q < .6 ? '#ffb35a' : '#5cc87a'; g.fillRect(x + 6, y + h - 4, (w - 12) * q, 2.5);
-  if (c.st === 'queue') { g.fillStyle = '#9a8ab8'; g.font = `600 9px ${FONT}`; g.textAlign = 'center'; g.fillText('รอห้องลอง', c.x, y - 3); }
+  if (c.want.c >= 0) { const cx = x + w - 11, cy = y + 32; g.fillStyle = DZ_COL[c.want.c]; g.beginPath(); g.arc(cx, cy, 6, 0, Math.PI * 2); g.fill(); g.strokeStyle = 'rgba(21,18,43,.3)'; g.lineWidth = 1; g.stroke(); g.fillStyle = 'rgba(255,255,255,.55)'; g.beginPath(); g.arc(cx - 2, cy - 2, 1.8, 0, Math.PI * 2); g.fill(); }
+  // patience: a bar along the bottom that empties (and blinks when it is nearly gone)
+  const q = Math.max(0, c.pat / c.patMax), qc = q < .3 ? '#ff5a5a' : q < .6 ? '#ffb35a' : '#3fbf6a';
+  g.fillStyle = 'rgba(21,18,43,.1)'; rr(g, x + 8, y + h - 6, w - 16, 3, 1.5); g.fill();
+  if (!low || Math.sin(t * 12) > -.3) { g.fillStyle = qc; rr(g, x + 8, y + h - 6, Math.max(3, (w - 16) * q), 3, 1.5); g.fill(); }
+  if (c.st === 'queue') { g.fillStyle = '#7a5aa0'; g.font = `700 9px ${FONT}`; g.textAlign = 'center'; g.fillText('รอห้องลอง', x + w / 2, y - 4); }
+  g.restore();
   g.globalAlpha = 1;
 }
-// closing time: the lights down, a runway, the best outfits walking it, a photo as each one poses
+// closing time: the lights down, a glittering curtain, a runway, the best outfits walking it, a photo as each poses
 function dzShow(g, G, t) {
   const s = Shop.showAt(G), fade = G.st === 'close' ? Math.min(1, (G.ct - 1.2) / .8) : 1;
-  g.fillStyle = `rgba(14,10,36,${.82 * fade})`; g.fillRect(0, 0, VW, VH);
+  g.fillStyle = `rgba(14,8,30,${.86 * fade})`; g.fillRect(0, 0, VW, VH);
   if (!s) return;
-  const rx = VW / 2, top = 70, bot = 455;
+  const rx = VW / 2, top = 90, bot = 460;
   g.globalAlpha = fade;
-  // spotlights, the runway, the crowd along it
-  for (const sx of [rx - 260, rx + 260]) { const gr = g.createLinearGradient(sx, 0, rx, bot); gr.addColorStop(0, 'rgba(255,240,200,.18)'); gr.addColorStop(1, 'rgba(255,240,200,0)'); g.fillStyle = gr; g.beginPath(); g.moveTo(sx - 10, 0); g.lineTo(sx + 10, 0); g.lineTo(rx + 90, bot); g.lineTo(rx - 90, bot); g.closePath(); g.fill(); }
-  g.fillStyle = '#3a2a5a'; g.beginPath(); g.moveTo(rx - 40, top); g.lineTo(rx + 40, top); g.lineTo(rx + 70, bot); g.lineTo(rx - 70, bot); g.closePath(); g.fill();
-  g.strokeStyle = 'rgba(255,207,90,.6)'; g.lineWidth = 2; g.stroke();
-  for (let i = 0; i < 12; i++) { const yy = top + 30 + i * 32, k = (yy - top) / (bot - top); g.fillStyle = 'rgba(255,207,90,.5)'; g.beginPath(); g.arc(rx - 42 - 30 * k, yy, 2, 0, Math.PI * 2); g.arc(rx + 42 + 30 * k, yy, 2, 0, Math.PI * 2); g.fill(); }
-  for (let i = 0; i < 14; i++) for (const side of [-1, 1]) { const yy = top + 20 + i * 30, xx = rx + side * (110 + (i % 2) * 22 + (yy - top) * .12); g.fillStyle = '#1a1438'; g.beginPath(); g.arc(xx, yy + Math.sin(t * 3 + i) * 1.2, 10, 0, Math.PI * 2); g.fill(); g.fillRect(xx - 11, yy + 6, 22, 14); if ((i + (side > 0 ? 3 : 0)) % 5 === 0 && Math.sin(t * 5 + i * 1.7) > .85) { g.fillStyle = 'rgba(255,255,255,.9)'; g.beginPath(); g.arc(xx + side * -6, yy - 2, 4, 0, Math.PI * 2); g.fill(); } }
-  g.fillStyle = C.gold; g.font = `400 22px ${FONT_D}`; g.textAlign = 'center'; g.fillText('แฟชั่นโชว์ปิดร้าน', rx, 44);
+  // the backdrop: a curtain of sequins, soft coloured lights out of focus
+  const cg = g.createLinearGradient(0, 0, 0, top + 20); cg.addColorStop(0, '#5a1e6a'); cg.addColorStop(1, '#2a0e3a'); g.fillStyle = cg; g.fillRect(rx - 220, 0, 440, top + 20);
+  for (let i = 0; i < 22; i++) { const xx = rx - 210 + i * 20; g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(xx, 0, 8, top + 20); }
+  for (let i = 0; i < 40; i++) { const xx = rx - 210 + (i * 53) % 420, yy = (i * 37) % (top + 10), a = .3 + .7 * Math.max(0, Math.sin(t * 3 + i * 1.7)); g.fillStyle = `rgba(255,230,180,${a * .8})`; twinkle(g, xx, yy, 1.6 + a); }
+  for (let i = 0; i < 9; i++) { const xx = (i * 151 + 40) % VW, yy = 120 + (i * 97) % 300, col = ['255,120,200', '120,180,255', '255,220,120'][i % 3]; glow(g, col, xx, yy, 30 + (i % 3) * 10, .12 + .05 * Math.sin(t + i)); }
+  // spotlights from both sides onto the end of the runway
+  for (const sx of [rx - 300, rx + 300]) { const gr = g.createLinearGradient(sx, 0, rx, bot); gr.addColorStop(0, 'rgba(255,240,210,.22)'); gr.addColorStop(1, 'rgba(255,240,210,0)'); g.fillStyle = gr; g.beginPath(); g.moveTo(sx - 12, 0); g.lineTo(sx + 12, 0); g.lineTo(rx + 100, bot); g.lineTo(rx - 100, bot); g.closePath(); g.fill(); }
+  // the runway: glossy, lit along both edges
+  const rw = g.createLinearGradient(0, top, 0, bot); rw.addColorStop(0, '#3a2060'); rw.addColorStop(1, '#5a3a8a'); g.fillStyle = rw;
+  g.beginPath(); g.moveTo(rx - 42, top); g.lineTo(rx + 42, top); g.lineTo(rx + 74, bot); g.lineTo(rx - 74, bot); g.closePath(); g.fill();
+  g.fillStyle = 'rgba(255,255,255,.07)'; g.beginPath(); g.moveTo(rx - 10, top); g.lineTo(rx + 10, top); g.lineTo(rx + 18, bot); g.lineTo(rx - 18, bot); g.closePath(); g.fill();
+  for (let i = 0; i < 13; i++) { const k = i / 12, yy = top + k * (bot - top), on = Math.sin(t * 6 - i * .6) > 0; for (const side of [-1, 1]) { g.fillStyle = on ? '#ffe9a0' : 'rgba(255,233,160,.35)'; g.beginPath(); g.arc(rx + side * (44 + 30 * k), yy, 2.2, 0, Math.PI * 2); g.fill(); } }
+  // the crowd along it, phones up, now and then a flash
+  for (let i = 0; i < 13; i++) for (const side of [-1, 1]) {
+    const yy = top + 24 + i * 29, xx = rx + side * (118 + (i % 2) * 24 + (yy - top) * .14), bob = Math.sin(t * 3 + i + side) * 1.2;
+    g.fillStyle = '#251a48'; g.beginPath(); g.arc(xx, yy + bob, 10, 0, Math.PI * 2); g.fill(); rr(g, xx - 12, yy + 7 + bob, 24, 16, 6); g.fill();
+    const col = ['#ff8fb8', '#5aa8ff', '#ffd25a', '#5cc87a'][(i + (side > 0 ? 2 : 0)) % 4]; g.fillStyle = hexA(col, .55); g.beginPath(); g.arc(xx, yy - 3 + bob, 10, Math.PI * 1.1, Math.PI * 1.9); g.fill();
+    if ((i + (side > 0 ? 3 : 0)) % 4 === 0) { g.fillStyle = '#121022'; rr(g, xx - side * 9 - 3, yy - 6 + bob, 6, 9, 1.5); g.fill(); if (Math.sin(t * 5 + i * 1.7) > .88) glow(g, '255,255,255', xx - side * 9, yy - 2 + bob, 14, .8); }
+  }
+  g.fillStyle = C.gold; g.font = `400 24px ${FONT_D}`; g.textAlign = 'center'; g.fillText('แฟชั่นโชว์ปิดร้าน', rx, 48);
   if (s.i >= 0 && s.i < s.n) {
-    const m = G.best[s.i], k = s.k, y = top + 30 + k * (bot - top - 90), sc = 1.9 + k * .7, got = {};
+    const m = G.best[s.i], k = s.k, y = top + 40 + k * (bot - top - 100), sc = 1.9 + k * .8, got = {};
     (m.got || []).forEach(n => { got[Shop.gd(n).p] = n; });
     const walk = k < 1 ? Math.sin(s.lt * 9) : 0;
+    // a spot on the model, and their reflection on the runway
+    g.save(); g.globalCompositeOperation = 'lighter'; glow(g, '255,230,190', rx, y - 10, 70 * sc / 2, .35); g.restore();
+    g.save(); g.globalAlpha = .18 * fade; g.translate(rx, y + 30 * sc / 2.5); g.scale(sc, -sc * .5); g.translate(-rx, -y); dzPerson(g, m.look, m.z, rx + walk * 2, y, got, t, { mood: '' }); g.restore();
     g.save(); g.translate(rx, y); g.scale(sc, sc); g.translate(-rx, -y);
     dzPerson(g, m.look, m.z, rx + walk * 2, y, got, t, { bob: Math.abs(walk) * 2, step: walk * 2, mood: s.pose ? 'happy' : '' });
     g.restore();
-    g.font = `600 13px ${FONT}`; g.fillStyle = '#fff'; g.fillText(`ชุด${DZ_GO[m.s] || ''}  ·  ${th(s.i + 1)}/${th(s.n)}`, rx, bot + 28);
+    g.font = `700 14px ${FONT}`; g.fillStyle = '#fff'; g.fillText(`ชุด${DZ_GO[m.s] || ''}  ·  ${th(s.i + 1)}/${th(s.n)}`, rx, bot + 30);
     // the pose: the moment for a photo
     if (s.pose) {
       const u = (s.lt - Shop.FLASH[0]) / (Shop.FLASH[1] - Shop.FLASH[0]);
-      g.strokeStyle = `rgba(255,207,90,${1 - u})`; g.lineWidth = 4; g.beginPath(); g.arc(rx, y - 20, 60 + u * 30, 0, Math.PI * 2); g.stroke();
-      g.fillStyle = C.gold; g.font = `400 26px ${FONT_D}`; g.fillText('ถ่ายเลย!', rx, y - 95);
-    } else if (s.lt < Shop.FLASH[0]) { g.fillStyle = 'rgba(255,255,255,.6)'; g.font = `600 13px ${FONT}`; g.fillText('รอนายแบบหยุดโพสท่าแล้วกดถ่ายรูป (กดพร้อมกันได้ภาพคู่)', rx, VH - 18); }
+      g.strokeStyle = `rgba(255,207,90,${1 - u})`; g.lineWidth = 4; g.beginPath(); g.arc(rx, y - 20, 64 + u * 30, 0, Math.PI * 2); g.stroke();
+      // a camera frame round them
+      g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 3; const fw = 70, fh = 80, fy = y - 40;
+      for (const [ax, ay, dx, dy] of [[-1, -1, 1, 1], [1, -1, -1, 1], [-1, 1, 1, -1], [1, 1, -1, -1]]) { const px = rx + ax * fw, py = fy + ay * fh; g.beginPath(); g.moveTo(px, py + dy * 16); g.lineTo(px, py); g.lineTo(px + dx * 16, py); g.stroke(); }
+      g.fillStyle = C.gold; g.font = `400 26px ${FONT_D}`; g.fillText('ถ่ายเลย!', rx, fy - fh - 10);
+    } else if (s.lt < Shop.FLASH[0]) { g.fillStyle = 'rgba(255,255,255,.65)'; g.font = `600 13px ${FONT}`; g.fillText('รอนายแบบหยุดโพสท่าแล้วกดถ่ายรูป (กดพร้อมกันได้ภาพคู่)', rx, VH - 18); }
   }
+  // confetti after a good photo
+  const st = OM.st; st.conf = st.conf || [];
+  for (const p of st.conf) { p.y += p.vy * .016; p.x += Math.sin(t * 3 + p.ph) * .6; p.r += .1; g.save(); g.translate(p.x, p.y); g.rotate(p.r); g.fillStyle = p.c; g.fillRect(-3, -1.5, 6, 3); g.restore(); }
+  st.conf = st.conf.filter(p => p.y < VH + 10);
   g.globalAlpha = 1;
 }
 function dzHud(g, G) {
