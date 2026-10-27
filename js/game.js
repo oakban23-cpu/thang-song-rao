@@ -49,7 +49,7 @@ app.classList.toggle('touch', isTouch);
 
 /* ---------- State ---------- */
 // every kind of screen; the one showing is a class on #app
-const KINDS = ['kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov', 'kite', 'cin', 'fart', 'bed', 'win', 'trap', 'isle'];
+const KINDS = ['kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov', 'kite', 'cin', 'fart', 'bed', 'win', 'trap', 'isle', 'shop'];
 function setKind(k) { S.kind = k; for (const x of KINDS) app.classList.toggle(x, x === k); }
 const MODES = {};
 const S = { mode: 'menu', li: 0, W: null, deathT: 0, winT: 0, flash: 0, banner: 0, deaths: 0, elapsed: 0, parts: [], time: 0, deadId: null, shake: 0, gates: [], names: { pink: 'เค้า', mint: 'ตัวเอง' }, sound: true, music: true };
@@ -243,7 +243,12 @@ const TRACKS = {
   isle: { bpm: 96, beats: 4, div: 2, vol: 0.8, chords: ['F', 'Bb', 'C7', 'F', 'Dm', 'Gm', 'C7', 'F'],
     mel: [{ i: 'marimba', v: .06, n: 'A4 . C5 . F5 . D5 C5 | D5 . F5 . Bb4 - - - | G4 . Bb4 . E5 . D5 C5 | A4 - C5 - F4 - - - | F5 . E5 . D5 . A4 . | Bb4 . D5 . G5 - F5 - | E5 . C5 . Bb4 . G4 . | F4 - A4 - F5 - - -' }],
     arp: { i: 'pluck', v: .022, p: '0 1 2 1 0 1 2 1' }, bass: { i: 'bass', v: .06, p: '0 . 2 . 0 . 2 .' },
-    drums: { shaker: ['x x . x x x . x', .3], block: ['. . x . . . x .', .14], tom: ['x . . . . . . .', .15] } }
+    drums: { shaker: ['x x . x x x . x', .3], block: ['. . x . . . x .', .14], tom: ['x . . . . . . .', .15] } },
+  // the dress shop: a breezy boutique bossa on electric piano over a walking bass, a rim click and a shaker
+  shop: { bpm: 108, beats: 4, div: 2, vol: 0.8, chords: ['Fmaj7', 'Em7', 'Dm7', 'G7', 'Cmaj7', 'Am7', 'Dm7', 'G7'],
+    mel: [{ i: 'ep', v: .05, n: 'A5 . G5 A5 - . E5 . | G5 . F5 G5 - . D5 . | F5 . E5 F5 - . A4 . | B4 - D5 - G5 - - . | E5 . D5 E5 - . G5 . | C6 - B5 A5 - . E5 . | F5 . A5 - D5 . F5 . | E5 - D5 - B4 - - .' }],
+    arp: { i: 'pluck', v: .018, p: '0 . 2 1 . 2 1 .' }, bass: { i: 'bass', v: .06, p: '0 . . 2 . 1 2 .' },
+    drums: { block: ['. . x . . x . .', .14], shaker: ['x x x x x x x x', .22], kick: ['x . . . x . . .', .25] } }
 };
 
 // turn the written parts into steps once
@@ -339,7 +344,7 @@ function drum(a, out, k, at, v) {
 
 /* the conductor: which track (or none) fits what is on screen, faded in and out, muffled while paused */
 const BGM = { name: undefined, tr: null, step: 0, next: 0, fadeIn: false, hold: 0, prevMode: '', banner: 0, amb: {}, ambKind: null };
-const MODE_TRACK = { adv: 'adv', kit: 'kit', def: 'def', drv: 'drv', tak: 'tak', twr: 'twr', leg: 'leg', boat: 'boat', mov: 'mov', kite: 'kite', cin: 'cin', fart: 'fart', bed: 'bed', win: 'win', trap: 'trap', isle: 'isle' };
+const MODE_TRACK = { adv: 'adv', kit: 'kit', def: 'def', drv: 'drv', tak: 'tak', twr: 'twr', leg: 'leg', boat: 'boat', mov: 'mov', kite: 'kite', cin: 'cin', fart: 'fart', bed: 'bed', win: 'win', trap: 'trap', isle: 'isle', shop: 'shop' };
 function bgmWanted() {
   if (!S.music || document.hidden) return null;
   if (S.mode === 'menu' || S.mode === 'clear' || !scr.title.hidden || !scr.online.hidden) return 'title';
@@ -381,7 +386,7 @@ function resultsJingle() {
 }
 
 /* the sound of each place: crickets at night, birds by day, the jungle, wind, water, a crowd, the air conditioner, the projector */
-const AMB_OF = { adv: ['night'], def: ['night', 'wind'], drv: ['birds'], tak: ['birds'], twr: ['wind', 'birds'], leg: ['crowd', 'birds'], boat: ['water', 'crowd'], mov: ['birds'], kite: ['wind', 'birds'], cin: ['projector'], fart: ['crowd'], bed: ['hum', 'night'], win: ['night'], trap: ['birds', 'jungle'], isle: ['sea'] };
+const AMB_OF = { adv: ['night'], def: ['night', 'wind'], drv: ['birds'], tak: ['birds'], twr: ['wind', 'birds'], leg: ['crowd', 'birds'], boat: ['water', 'crowd'], mov: ['birds'], kite: ['wind', 'birds'], cin: ['projector'], fart: ['crowd'], bed: ['hum', 'night'], win: ['night'], trap: ['birds', 'jungle'], isle: ['sea'], shop: ['crowd'] };
 function ambLayer(a, M, kind) {
   const s = a.createBufferSource(); s.buffer = noiseBuf(a); s.loop = true;
   const f = a.createBiquadFilter(), g = a.createGain(), lfo = a.createOscillator(), lg = a.createGain();
@@ -9934,6 +9939,604 @@ function isleHud(g, G) {
   }
 }
 
+/* ---------- The dress shop (ร้านแต่งตัว) ---------- */
+Object.assign(sfx, {
+  dzbell() { chime(1319, .5, .04); chime(1047, .7, .035, .18); },
+  dzwant() { tone(880, .06, 'triangle', .03, 1100); },
+  dzhang() { tone(1500 + Math.random() * 300, .03, 'square', .015, 1200); noise(.06, 3000, .02, 'highpass', 1); },
+  dzswish() { noise(.18, 1800, .045, 'bandpass', .7, 900); },
+  dzpop() { tone(500, .07, 'sine', .05, 900); },
+  dznope() { tone(220, .12, 'square', .03, 200); tone(196, .16, 'square', .03, 180, .12); },
+  dzclunk() { tone(140, .08, 'triangle', .06, 90); noise(.06, 900, .03, 'lowpass', 1); },
+  dzsew() { for (let i = 0; i < 4; i++) noise(.025, 2600, .03, 'bandpass', 3, 0, i * .035); },
+  dztangle() { tone(700, .3, 'sawtooth', .02, 200); noise(.25, 1200, .03, 'bandpass', 2, 400, .05); },
+  dzsewn() { chime(1568, .3, .04); chime(2093, .35, .03, .08); },
+  dzcurtain() { noise(.35, 2200, .04, 'bandpass', .6, 1200); },
+  dzdrum() { for (let i = 0; i < 10; i++) noise(.04, 900, .02 + i * .004, 'bandpass', 2, 0, i * .06); },
+  dzwow() { [784, 988, 1175, 1568].forEach((f, i) => chime(f, .4, .04, i * .07)); },
+  dzrip() { noise(.35, 3500, .06, 'highpass', .8, 1200); tone(900, .05, 'square', .02, 0, .1); tone(1100, .05, 'square', .02, 0, .18); },
+  dzdroop() { tone(700, .7, 'sine', .04, 200); },
+  dzhuh() { tone(400, .12, 'triangle', .04, 600); tone(600, .2, 'triangle', .04, 300, .12); },
+  dzmeh() { tone(330, .3, 'triangle', .04, 300); },
+  dzhuff() { noise(.3, 500, .06, 'lowpass', 1, 200); tone(200, .3, 'sawtooth', .02, 120); },
+  dzching() { noise(.05, 4000, .03, 'highpass', 1); chime(2349, .5, .04, .05); chime(3136, .6, .03, .1); },
+  dzgiggle() { for (let i = 0; i < 5; i++) tone(1200 + (i % 2) * 300, .06, 'sine', .025, 1500, i * .08); },
+  dzboo() { tone(160, .4, 'sawtooth', .06, 90); noise(.3, 800, .07, 'lowpass', 1); tone(1200, .15, 'square', .03, 1800, .05); },
+  dzsneak() { [0, 3, 6, 3].forEach((k, i) => tone(220 * Math.pow(2, k / 12), .1, 'triangle', .03, 0, i * .18)); },
+  dzalarm() { tone(880, .22, 'square', .03, 1320); tone(1320, .22, 'square', .03, 880, .25); },
+  dzgotcha() { [523, 659, 784].forEach((f, i) => tone(f, .12, 'square', .03, 0, i * .07)); chime(1047, .4, .04, .2); },
+  dzsad() { [392, 330, 262].forEach((f, i) => tone(f, .25, 'triangle', .04, 0, i * .2)); },
+  dztruck() { tone(330, .25, 'square', .025, 320); tone(392, .35, 'square', .025, 380, .3); },
+  dztick() { tone(1800, .03, 'square', .02); tone(1800, .03, 'square', .02, 0, .5); },
+  dzclose() { [784, 659, 523].forEach((f, i) => chime(f, .5, .04, i * .15)); },
+  dzshow() { [523, 659, 784, 1047].forEach((f, i) => tone(f, .25, 'sawtooth', .025, 0, i * .12)); chime(1568, .8, .04, .5); },
+  dzsnap() { noise(.08, 3000, .07, 'highpass', 1.2); tone(4000, .02, 'square', .015); },
+  dzduo() { noise(.08, 3000, .07, 'highpass', 1.2); noise(.08, 3000, .07, 'highpass', 1.2, 0, .1); [1047, 1319, 1568].forEach((f, i) => chime(f, .4, .04, .15 + i * .06)); }
+});
+const OT = Shop.T;
+const DZ_COL = ['#e85a5a', '#ff8fb8', '#5aa8ff', '#5cc87a', '#ffd25a', '#3a3446', '#f4f1ea'];
+const DZ_COLN = ['แดง', 'ชมพู', 'ฟ้า', 'เขียว', 'เหลือง', 'ดำ', 'ขาว'];
+const DZ_STY = ['ทะเล', 'งานแต่ง', 'ทำงาน', 'ปาร์ตี้', 'กีฬา', 'เดท'];
+const DZ_GO = ['ไปทะเล', 'ไปงานแต่ง', 'ไปทำงาน', 'ไปปาร์ตี้', 'ไปเล่นกีฬา', 'ไปเดท'];
+const DZ_PIECE = ['เสื้อ', 'ท่อนล่าง', 'รองเท้า', 'หมวก'];
+const DZ_BOTTOM = ['กางเกงขาสั้น', 'กระโปรงยาว', 'กางเกงสแล็ก', 'กระโปรงสั้น', 'กางเกงวอร์ม', 'กระโปรงจีบ'];
+const DZ_SKIN = ['#ffd6a5', '#cdb4db', '#a0c4ff', '#ffadad', '#bde0fe', '#fdffb6', '#caffbf', '#f1c0e8', '#e9c46a', '#b8c0ff'];
+const DZ_HAIR = ['#3a2a22', '#7a4a28', '#e0b050', '#2a2440', '#c0503a', '#efe8e0'];
+const dzName = n => { const g = Shop.gd(n); return (g.p === 1 ? DZ_BOTTOM[g.s] : DZ_PIECE[g.p] + DZ_STY[g.s]) + ' ' + DZ_COLN[g.c] + ' ไซซ์ ' + Shop.SIZES[g.z]; };
+function dzFloat(text, x, y, col, size, life) { if (OM.st.floats.some(f => f.text === text && f.max - f.life < .8)) return; xFloat(OM, text, x, y, col, size, life); }
+const OM = xMode({
+  kind: 'shop', md: 'o', pres: 'ow', dk: 'o', L: OLEVELS, pk: 'o', Eng: Shop, pad: 'k', list: 'olevels', olist: 'oLevelsO', starsAll: 'oStarsAll',
+  label: i => 'ร้านที่ ' + th(i + 1), word: 'เปิด', goWord: 'เปิดร้าน', fresh: 'ยังไม่เคยเปิด', nextWord: 'ร้านถัดไป', againWord: 'เปิดร้านนี้อีกวัน',
+  score: G => (G.over ? G.score : Math.max(0, Math.round(G.money))),
+  kWords: () => ({ act: 'หยิบ<br>ทำ', use: '' }),
+  onLoad() {
+    const st = OM.st, G = st.G;
+    Object.assign(st, { walk: { pink: 0, mint: 0 }, stepT: { pink: 0, mint: 0 }, disp: { pink: { x: G.p.pink.x, y: G.p.pink.y }, mint: { x: G.p.mint.x, y: G.p.mint.y } },
+      cwalk: {}, flash: 0, alarmT: 0, sirenT: 0, wob: {}, spark: [], fly: [], shown: -1 });
+  },
+  snap: G => ({ st: G.st, over: G.over, s: Object.assign({}, G.stats), mo: Math.round(G.money), it: [G.p.pink.item, G.p.mint.item], kid: !!G.kid, th: G.thief ? (G.thief.alarm ? 2 : G.thief.item >= 0 ? 1 : 0) : -1,
+    cu: G.cust.map(c => c.id + ':' + c.st + ':' + (c.out ? c.out.kind : '') + ':' + (c.angry ? 1 : 0)).join(','), stun: [G.p.pink.stun > 0, G.p.mint.stun > 0], sh: G.show ? Math.floor((G.show.t - Shop.SHOW_IN) / Shop.MODEL_T) : -9 }),
+  changes(p, n) {
+    const ev = [];
+    if (p.st === 'count' && n.st === 'run') ev.push('go');
+    if (n.st === 'close' && p.st !== 'close') ev.push('close');
+    if (n.st === 'show' && p.st !== 'show') ev.push('show');
+    if (n.sh !== p.sh && n.sh >= 0) ev.push('walk:' + n.sh);
+    const pc = {}; p.cu.split(',').filter(Boolean).forEach(s => { const [id, st, k, a] = s.split(':'); pc[id] = { st, k, a }; });
+    n.cu.split(',').filter(Boolean).forEach(s => {
+      const [id, st, k, a] = s.split(':'), o = pc[id];
+      if (!o) { ev.push('arrive:' + id); return; }
+      if (st !== o.st) {
+        if (st === 'wait' || st === 'queue') ev.push('want:' + id);
+        else if (st === 'try') ev.push('try:' + id);
+        else if (st === 'pose') ev.push('reveal:' + id + ':' + k);
+        else if (st === 'out' && a === '1' && o.st !== 'pose') ev.push('angry:' + id);
+      }
+    });
+    const d = k => n.s[k] > p.s[k];
+    if (d('served')) ev.push('pay:x:' + (n.mo - p.mo)); if (d('refused')) ev.push('refuse:x'); if (d('messes')) ev.push('messy:x'); if (d('kids')) ev.push('kidcaught:x');
+    if (d('boos')) ev.push('boo:' + (n.stun[0] && !p.stun[0] ? 'pink' : 'mint')); if (d('thefts')) ev.push('escaped'); if (d('caught')) ev.push('caught:x'); if (d('tangles')) ev.push('tangle:x');
+    if (d('sewn')) ev.push('sewn:x'); if (d('photos')) ev.push('flash:x:0'); if (d('duos')) ev.push('duo:x'); if (d('tidied')) ev.push('restock:x');
+    if (n.kid && !p.kid) ev.push('kid'); if (n.th >= 0 && p.th < 0) ev.push('thief'); if (n.th >= 1 && p.th < 1) ev.push('steal:x'); if (n.th === 2 && p.th !== 2) ev.push('alarm');
+    ['pink', 'mint'].forEach((id, i) => { if (n.it[i] !== p.it[i]) ev.push(n.it[i] >= 0 ? 'pick:' + id : 'give:' + id); });
+    if (n.over && !p.over) ev.push('over');
+    return ev;
+  },
+  events(ev) {
+    const st = OM.st, G = st.G, cu = id => G.cust.find(c => c.id === +id);
+    for (const e of ev) {
+      const [k, a, b] = e.split(':'), p = G.p[a];
+      if (k === 'go') sfx.ilaunch();
+      else if (k === 'arrive') sfx.dzbell();
+      else if (k === 'want') sfx.dzwant();
+      else if (k === 'take' || k === 'restock' || k === 'mtake') sfx.dzhang();
+      else if (k === 'pick') sfx.dzpop();
+      else if (k === 'give') { sfx.dzpop(); const c = cu(b); if (c) { st.spark.push({ x: c.x, y: c.y - 10, t: .5 }); } }
+      else if (k === 'drop') sfx.dzswish();
+      else if (k === 'empty') { sfx.dznope(); if (p) dzFloat('หมดราว!', p.x, p.y - 34, '#ffb38a', 14); }
+      else if (k === 'nope') { sfx.dznope(); const c = cu(b); if (c) dzFloat(c.st === 'queue' || c.st === 'wait' ? 'ไม่ได้ขอชิ้นนี้นะ' : 'ยังไม่ใช่ตอนนี้', c.x, c.y - 52, '#ffb38a', 14); }
+      else if (k === 'wrongrack') { sfx.dznope(); if (p) dzFloat('ไม่ใช่ราวนี้', p.x, p.y - 34, '#ffb38a', 14); }
+      else if (k === 'busy') { sfx.dznope(); if (p) dzFloat('จักรไม่ว่าง', p.x, p.y - 34, '#ffb38a', 14); }
+      else if (k === 'nosize') { sfx.dznope(); if (p) dzFloat(b === '0' ? 'เล็กสุดแล้ว' : 'ใหญ่สุดแล้ว', p.x, p.y - 34, '#ffb38a', 14); }
+      else if (k === 'put') sfx.dzclunk();
+      else if (k === 'sew') sfx.dzsew();
+      else if (k === 'tangle') { sfx.dztangle(); const m = G.mach[+b] || G.mach[0]; dzFloat('ด้ายพันกัน! กดสลับกันสิ', (m.tx + 1) * OT, m.ty * OT, '#ffb38a', 14, 1.4); }
+      else if (k === 'sewn') { sfx.dzsewn(); const m = G.mach[+a]; if (m) { burst((m.tx + .5) * OT, (m.ty + .5) * OT, 8, C.gold, { type: 'star', size: 3, speed: 60, life: .6 }); dzFloat('เสร็จ! ไซซ์ ' + (Shop.SIZES[+b] || ''), (m.tx + 1.2) * OT, m.ty * OT, C.gold, 15); } }
+      else if (k === 'try') { sfx.dzcurtain(); setTimeout(() => sfx.dzdrum(), 500); }
+      else if (k === 'reveal') {
+        const c = cu(a); if (!c) continue; const x = c.x, y = c.y - 46;
+        if (b === 'perfect') { sfx.dzwow(); burst(x, y + 20, 18, C.gold, { type: 'star', size: 4, speed: 120, up: 80, life: 1.1, g: 40 }); dzFloat(['ปังมาก!', 'สวยเริ่ด!', 'ใช่เลย!', 'ถูกใจสุดๆ'][c.look % 4], x, y, C.gold, 20, 1.6); }
+        else if (b === 'tight') { sfx.dzrip(); for (let i = 0; i < 6; i++) st.fly.push({ x, y: y + 36, vx: (Math.random() - .5) * 220, vy: -120 - Math.random() * 120, t: 1, k: 'btn' }); dzFloat('แคว่ก! คับไป!', x, y, '#ff8a8a', 19, 1.6); S.shake = Math.max(S.shake, .25); }
+        else if (b === 'loose') { sfx.dzdroop(); dzFloat('ย้วยยย... ใหญ่ไป', x, y, '#bfe6ff', 18, 1.6); }
+        else if (b === 'style' || b === 'nostyle') { sfx.dzhuh(); const ws = c.want.pieces.map(p => c.got[p] != null ? Shop.gd(c.got[p]).s : c.want.s).find(s => s !== c.want.s); dzFloat(ws != null ? `ชุด${DZ_STY[ws]}${DZ_GO[c.want.s]}?!` : 'ไม่ใช่สไตล์เลย', x, y, '#ffd27a', 18, 1.8); }
+        else if (b === 'color') { sfx.dzmeh(); dzFloat('ขอสี' + (DZ_COLN[c.want.c] || '') + 'นะ...', x, y, '#c9bfef', 17, 1.6); }
+      }
+      else if (k === 'refuse') { sfx.dzhuff(); const c = cu(a); if (c) { for (let i = 0; i < 4; i++) st.fly.push({ x: c.x, y: c.y - 10, vx: (Math.random() - .5) * 260, vy: -160 - Math.random() * 80, t: 1, k: 'cloth', c: i }); dzFloat('ไม่เอาแล้ว!', c.x, c.y - 52, '#ff8a8a', 20, 1.6); } }
+      else if (k === 'pay') { sfx.dzching(); const amt = +b; const [x, y] = G.tillQ[0]; if (amt) dzFloat('+฿' + th(amt), x, y - 40, C.gold, 20); burst(x, y - 20, 6, C.gold, { size: 3, speed: 60, up: 60, life: .6 }); }
+      else if (k === 'angry') { sfx.dzhuff(); const c = cu(a); if (c) dzFloat('รอนานไปแล้ว! ไปละ', c.x, c.y - 50, '#ff8a8a', 16, 1.6); }
+      else if (k === 'tillgone') { sfx.dzhuff(); const c = cu(a); if (c) dzFloat('ไม่มีใครคิดเงินเลย!', c.x, c.y - 50, '#ff8a8a', 16, 1.6); }
+      else if (k === 'messy') { sfx.dzswish(); const c = cu(a); if (c && Math.random() < .5) dzFloat(['อันนี้ก็ไม่ใช่...', 'ตัวนี้ล่ะ? ไม่ดีกว่า', 'รื้อหน่อยนะ'][c.look % 3], c.x, c.y - 50, '#c9bfef', 13); }
+      else if (k === 'kid') { sfx.dzgiggle(); dzFloat('เด็กซนวิ่งเข้าราวผ้า!', VW / 2, 120, '#ffd27a', 17, 1.6); }
+      else if (k === 'hide') sfx.dzgiggle();
+      else if (k === 'kidthrow') { sfx.dzswish(); const r = G.racks[+a]; if (r) { st.wob[a] = .6; dzFloat('คิกๆ', (r.tx + .5) * OT, r.ty * OT - 4, '#ffd27a', 13); } }
+      else if (k === 'boo') { sfx.dzboo(); if (p) { dzFloat('แฮ่!!', p.x, p.y - 40, '#ff8a8a', 22, 1.2); S.shake = Math.max(S.shake, .3); } }
+      else if (k === 'kidcaught') { sfx.dzgiggle(); const pp = G.p[a]; dzFloat('จับได้แล้ว! กลับไปหาแม่นะ', pp ? pp.x : VW / 2, pp ? pp.y - 40 : 140, C.gold, 15, 1.6); }
+      else if (k === 'thief') sfx.dzsneak();
+      else if (k === 'steal') { sfx.dzswish(); }
+      else if (k === 'alarm') { sfx.dzalarm(); st.alarmT = 3; dzFloat('ขโมย! จับไว้!', VW / 2, 420, '#ff6b6b', 22, 1.8); }
+      else if (k === 'caught') { sfx.dzgotcha(); const pp = G.p[a]; dzFloat('จับได้! ของคืนมา', pp ? pp.x : VW / 2, pp ? pp.y - 40 : 420, C.gold, 18, 1.6); }
+      else if (k === 'shoo') { const pp = G.p[a]; if (pp) dzFloat('จ้องอยู่นะ...', pp.x, pp.y - 36, '#c9bfef', 14); }
+      else if (k === 'escaped') { sfx.dzsad(); dzFloat('ขโมยหนีไปได้...', VW / 2, 440, '#ff8a8a', 18, 1.6); }
+      else if (k === 'delivery') { sfx.dztruck(); dzFloat('ของมาส่งแล้ว ราวเติมเต็ม', VW / 2, 470, '#bfe6ff', 15, 1.4); }
+      else if (k === 'last30') { sfx.dztick(); dzFloat('อีก ๓๐ วินาทีปิดร้าน', VW / 2, 120, '#ffd27a', 18, 1.8); }
+      else if (k === 'close') { sfx.dzclose(); dzFloat('ปิดร้านแล้ว!', VW / 2, 200, C.gold, 26, 2); }
+      else if (k === 'show') { sfx.dzshow(); }
+      else if (k === 'walk') { tone(98, .15, 'sine', .06, 60); tone(98, .15, 'sine', .06, 60, .4); }
+      else if (k === 'flash') { if (b === '-1') tone(300, .05, 'square', .02); else { sfx.dzsnap(); st.flash = Math.max(st.flash, .5); dzFloat('+' + th(Shop.PHOTO_PTS), VW / 2 + (a === 'pink' ? -90 : 90), 300, a === 'mint' ? C.mint : C.pink, 18); } }
+      else if (k === 'duo') { sfx.dzduo(); st.flash = 1; dzFloat('ภาพคู่! +' + th(Shop.DUO_PTS), VW / 2, 250, C.gold, 24, 1.6); }
+    }
+  },
+  tick() {
+    const st = OM.st, G = st.G, q = id => { const k = kInput(id); return { mx: k.mx, my: k.my, act: k.act }; };
+    if (!O.role) { OM.events(Shop.step(G, { pink: q('pink'), mint: q('mint') })); st.prev = OM.snap(G); return; }
+    const li = q(O.local), rid = O.local === 'pink' ? 'mint' : 'pink';
+    st.lastInp = li;
+    if (O.role === 'host') {
+      const rq = st.remote;
+      OM.events(Shop.step(G, { [O.local]: li, [rid]: rq }));
+      rq.act = false; st.prev = OM.snap(G);
+    } else {
+      if (li.act) st.n.a++;
+      Shop.step(G, { [O.local]: li, [rid]: { still: true } }, true);
+    }
+  },
+  frameExtra(dt) {
+    const st = OM.st, G = st.G;
+    for (const id of ['pink', 'mint']) {
+      const p = G.p[id], d = st.disp[id], far = Math.hypot(p.x - d.x, p.y - d.y);
+      if (!O.role || id === O.local || far > 90) { d.x = p.x; d.y = p.y; } else { const k = Math.min(1, dt * 14); d.x += (p.x - d.x) * k; d.y += (p.y - d.y) * k; }
+      if (p.mv) st.walk[id] += dt * 13;
+    }
+    for (const c of G.cust) if (c.mv) st.cwalk[c.id] = (st.cwalk[c.id] || 0) + dt * 11;
+    for (const k in st.wob) if ((st.wob[k] -= dt) <= 0) delete st.wob[k];
+    st.flash = Math.max(0, st.flash - dt * 2.5);
+    for (const f of st.fly) { f.t -= dt; f.x += f.vx * dt; f.y += f.vy * dt; f.vy += 420 * dt; }
+    st.fly = st.fly.filter(f => f.t > 0);
+    for (const s of st.spark) s.t -= dt; st.spark = st.spark.filter(s => s.t > 0);
+    if (S.mode !== 'play') return;
+    for (const id of ['pink', 'mint']) { const p = G.p[id]; if (p.mv) { st.stepT[id] -= dt; if (st.stepT[id] <= 0) { st.stepT[id] = .3; if (!O.role || id === O.local) noise(.035, 1400 + Math.random() * 400, .018, 'bandpass', 2); } } }
+    // the alarm keeps wailing while he runs
+    if (G.thief && G.thief.alarm && G.thief.st === 'run') { st.sirenT -= dt; if (st.sirenT <= 0) { st.sirenT = .5; sfx.dzalarm(); } }
+  },
+  result(G, s) {
+    const x = G.stats, msg = s === 3 ? (x.perfect >= x.served && x.served ? 'ทุกคนแต่งตัวออกมาปังหมด ร้านนี้ดังแน่' : 'ขายดีสุดๆ ลูกค้าเดินออกไปพร้อมรอยยิ้ม')
+      : s === 2 ? (x.lost ? 'ขายดีแล้ว แต่มีลูกค้ารอนานจนเดินออกไป ลองแบ่งกันทำ คนหนึ่งหยิบของ อีกคนเย็บกับคิดเงิน' : 'ขายดีแล้ว ลองแต่งให้ตรงทุกชิ้นจะได้ทิปเพิ่ม')
+      : s === 1 ? 'ผ่านไปได้ ร้านถัดไปเปิดแล้ว ดูหุ่นลูกค้าให้ดี ตัวผอมไซซ์ S ตัวกลมไซซ์ L ต้องไปแก้ที่จักรก่อน'
+      : 'ยังขายได้ไม่พอ ต้องได้อย่างน้อย ' + th(G.def.stars[0]) + ' บาท ลองช่วยกันเย็บ (กดสลับกันคนละที) จะเร็วกว่าเยอะ';
+    return { head: 'ปิดร้านแล้ว', msg,
+      stats: `<span>รายได้ <b>฿${th(G.score)}</b> ลูกค้าซื้อ <b>${th(x.served)}</b> คน ปังทั้งชุด <b>${th(x.perfect)}</b></span><span>ลูกค้าเดินออก <b>${th(x.lost + x.refused)}</b> ขโมยหนีได้ <b>${th(x.thefts)}</b> จับขโมย <b>${th(x.caught)}</b> จับเด็กซน <b>${th(x.kids)}</b></span><span>เย็บแก้ไซซ์ <b>${th(x.sewn)}</b> ด้ายพัน <b>${th(x.tangles)}</b> รูปแฟชั่นโชว์ <b>${th(x.photos)}</b> ภาพคู่ <b>${th(x.duos)}</b></span>` };
+  },
+  encode() { const st = OM.st; return O.role === 'host' ? Shop.encode(st.G) : Shop.guestMsg(st.G, O.local, st.lastInp, st.n.a); },
+  hostHears(m) { Shop.hostHears(OM.st.G, O.local === 'pink' ? 'mint' : 'pink', m, OM.st.remote); },
+  guestHears(m) { Shop.apply(OM.st.G, m, O.local); },
+  fresher: () => ({ seen: -1, mx: 0, my: 0, act: false }),
+  render: shopRender
+});
+
+/* ---------- clothes ---------- */
+// a garment by itself (on a hanger, on the floor, held up): centred, about 24 px across at k = 1
+function dzGarment(g, n, x, y, k = 1, crumple = 0) {
+  const d = Shop.gd(n), col = DZ_COL[d.c], dark = d.c === 6 ? '#b8b0c8' : d.c === 5 ? '#15122b' : 'rgba(21,18,43,.45)';
+  g.save(); g.translate(x, y); g.scale(k, k); if (crumple) g.rotate(crumple);
+  g.fillStyle = col; g.strokeStyle = dark; g.lineWidth = 1.2; g.lineJoin = 'round';
+  if (d.p === 0) {
+    g.beginPath(); g.moveTo(-5, -9); g.lineTo(-11, -6); g.lineTo(-13, 0); g.lineTo(-8.5, 2); g.lineTo(-7.5, -1); g.lineTo(-7.5, 9); g.lineTo(7.5, 9); g.lineTo(7.5, -1); g.lineTo(8.5, 2); g.lineTo(13, 0); g.lineTo(11, -6); g.lineTo(5, -9); g.quadraticCurveTo(0, -5, -5, -9); g.closePath(); g.fill(); g.stroke();
+    dzTopDeco(g, d.s, 0, 2, 1, d.c);
+  } else if (d.p === 1) {
+    g.beginPath();
+    if (d.s === 0) { g.moveTo(-8, -7); g.lineTo(8, -7); g.lineTo(9.5, 4); g.lineTo(1.5, 4); g.lineTo(0, 0); g.lineTo(-1.5, 4); g.lineTo(-9.5, 4); }
+    else if (d.s === 1) { g.moveTo(-6, -9); g.lineTo(6, -9); g.quadraticCurveTo(9, 3, 13, 10); g.quadraticCurveTo(0, 13, -13, 10); g.quadraticCurveTo(-9, 3, -6, -9); }
+    else if (d.s === 3) { g.moveTo(-6, -7); g.lineTo(6, -7); g.lineTo(11, 3); g.quadraticCurveTo(0, 6, -11, 3); }
+    else if (d.s === 5) { g.moveTo(-6, -8); g.lineTo(6, -8); g.lineTo(10, 6); g.lineTo(-10, 6); }
+    else { g.moveTo(-7, -9); g.lineTo(7, -9); g.lineTo(7.5, 10); g.lineTo(1.5, 10); g.lineTo(0, -2); g.lineTo(-1.5, 10); g.lineTo(-7.5, 10); }
+    g.closePath(); g.fill(); g.stroke();
+    g.strokeStyle = 'rgba(21,18,43,.25)'; g.beginPath(); g.moveTo(-6, -6); g.lineTo(6, -6); g.stroke();
+    if (d.s === 4) { g.strokeStyle = '#fff'; g.lineWidth = 1.4; g.beginPath(); g.moveTo(-6.5, -7); g.lineTo(-6.8, 9); g.moveTo(6.5, -7); g.lineTo(6.8, 9); g.stroke(); }
+    if (d.s === 5) { g.strokeStyle = 'rgba(21,18,43,.3)'; g.lineWidth = .8; for (let i = -2; i <= 2; i++) { g.beginPath(); g.moveTo(i * 2.4, -6); g.lineTo(i * 3.6, 5.5); g.stroke(); } }
+    if (d.s === 3) for (const [a, b] of [[-4, -1], [3, 0], [0, 2.5], [-6, 2], [6, 2.5]]) { g.fillStyle = 'rgba(255,255,255,.75)'; g.beginPath(); g.arc(a, b, .9, 0, Math.PI * 2); g.fill(); }
+  } else if (d.p === 2) {
+    for (const s of [-1, 1]) dzShoe(g, d.s, s * 6, 2, s, col, dark);
+  } else {
+    dzHat(g, d.s, 0, 0, 1, col, dark);
+  }
+  if (d.z !== 1) { g.fillStyle = d.z === 0 ? '#8fd3ff' : '#ffb35a'; g.beginPath(); g.arc(10, -8, 5.2, 0, Math.PI * 2); g.fill(); g.fillStyle = C.ink; g.font = `700 8px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(Shop.SIZES[d.z], 10, -7.6); g.textBaseline = 'alphabetic'; }
+  g.restore();
+}
+function dzTopDeco(g, s, x, y, k, c) {
+  const ink = c === 5 ? '#fff' : C.ink;
+  if (s === 0) { g.fillStyle = c === 6 ? '#ff8fb8' : 'rgba(255,255,255,.8)'; for (const [a, b] of [[-4, -2], [4, 1], [-2, 5], [3, -5]]) { g.beginPath(); g.arc(x + a * k, y + b * k, 1.6 * k, 0, Math.PI * 2); g.fill(); } }
+  else if (s === 1) { g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 1 * k; g.beginPath(); for (let i = -3; i <= 3; i++) g.arc(x + i * 2 * k, y - 8 * k, 1 * k, 0, Math.PI); g.stroke(); g.fillStyle = '#ffcf5a'; g.beginPath(); g.arc(x, y - 3 * k, 1.3 * k, 0, Math.PI * 2); g.fill(); }
+  else if (s === 2) { g.fillStyle = '#fff'; g.beginPath(); g.moveTo(x - 4 * k, y - 10 * k); g.lineTo(x, y - 6 * k); g.lineTo(x + 4 * k, y - 10 * k); g.fill(); g.fillStyle = c === 0 ? '#2a4a8a' : '#c0392b'; g.beginPath(); g.moveTo(x, y - 6 * k); g.lineTo(x - 1.6 * k, y + 2 * k); g.lineTo(x, y + 4 * k); g.lineTo(x + 1.6 * k, y + 2 * k); g.closePath(); g.fill(); }
+  else if (s === 3) { for (const [a, b] of [[-4, -3], [3, -1], [-1, 3], [4, 5], [-5, 5]]) { g.fillStyle = 'rgba(255,255,255,.85)'; twinkle(g, x + a * k, y + b * k, 1.8 * k); } }
+  else if (s === 4) { g.fillStyle = 'rgba(255,255,255,.85)'; g.fillRect(x - 7.5 * k, y - 2 * k, 15 * k, 2.4 * k); g.fillStyle = ink; g.font = `700 ${5 * k}px ${FONT}`; g.textAlign = 'center'; g.fillText('7', x, y + 5 * k); }
+  else if (s === 5) { g.fillStyle = c === 1 ? '#e85a5a' : '#ff8fb8'; heartPath(g, x, y + 1 * k, 3 * k); g.fill(); }
+}
+function dzShoe(g, s, x, y, side, col, dark) {
+  g.save(); g.translate(x, y); g.scale(side, 1);
+  g.fillStyle = col; g.strokeStyle = dark; g.lineWidth = 1;
+  if (s === 0) { g.beginPath(); g.ellipse(0, 2, 3.5, 6, 0, 0, Math.PI * 2); g.fill(); g.stroke(); g.strokeStyle = '#fff'; g.lineWidth = 1.4; g.beginPath(); g.moveTo(-3, -1); g.lineTo(0, -3); g.lineTo(3, -1); g.stroke(); }
+  else if (s === 1) { g.beginPath(); g.moveTo(-3, -4); g.lineTo(3, -4); g.lineTo(4, 4); g.lineTo(1, 4); g.lineTo(0, 8); g.lineTo(-1, 4); g.lineTo(-4, 4); g.closePath(); g.fill(); g.stroke(); }
+  else if (s === 3) { rr(g, -3.5, -8, 7, 15, 2.5); g.fill(); g.stroke(); g.fillStyle = 'rgba(255,255,255,.4)'; g.fillRect(-2, -6, 1.2, 10); }
+  else if (s === 4) { rr(g, -3.5, -5, 7, 11, 3); g.fill(); g.stroke(); g.fillStyle = '#fff'; g.fillRect(-3.5, 3.5, 7, 2.5); g.strokeStyle = '#fff'; g.lineWidth = .8; for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(-2, -3 + i * 2); g.lineTo(2, -3 + i * 2); g.stroke(); } }
+  else { g.beginPath(); g.ellipse(0, 1, 3.5, 6, 0, 0, Math.PI * 2); g.fill(); g.stroke(); if (s === 5) { g.fillStyle = '#fff'; g.beginPath(); g.arc(0, -3, 1.4, 0, Math.PI * 2); g.fill(); } }
+  g.restore();
+}
+function dzHat(g, s, x, y, k, col, dark) {
+  g.save(); g.translate(x, y); g.scale(k, k); g.fillStyle = col; g.strokeStyle = dark; g.lineWidth = 1;
+  if (s === 0) { g.beginPath(); g.ellipse(0, 3, 13, 4.5, 0, 0, Math.PI * 2); g.fill(); g.stroke(); g.beginPath(); g.ellipse(0, -1, 6.5, 5.5, 0, Math.PI, 0); g.fill(); g.stroke(); g.fillStyle = '#e85a5a'; g.fillRect(-6.5, 0, 13, 2); }
+  else if (s === 1) { for (let i = 0; i < 7; i++) { const a = Math.PI + i / 6 * Math.PI; g.fillStyle = ['#ff8fb8', '#fff', '#ffd25a'][i % 3]; g.beginPath(); g.arc(Math.cos(a) * 9, 2 + Math.sin(a) * 4, 2.6, 0, Math.PI * 2); g.fill(); } }
+  else if (s === 3) { g.beginPath(); g.moveTo(-6, 4); g.lineTo(0, -11); g.lineTo(6, 4); g.closePath(); g.fill(); g.stroke(); g.fillStyle = '#fff'; g.beginPath(); g.arc(0, -11, 2, 0, Math.PI * 2); g.fill(); g.strokeStyle = 'rgba(255,255,255,.7)'; g.beginPath(); g.moveTo(-3.5, -2); g.lineTo(3.5, -2); g.moveTo(-5, 2); g.lineTo(5, 2); g.stroke(); }
+  else if (s === 4) { g.beginPath(); g.arc(0, 2, 7, Math.PI, 0); g.closePath(); g.fill(); g.stroke(); g.beginPath(); g.ellipse(6, 2.5, 6, 2, 0, 0, Math.PI * 2); g.fill(); g.stroke(); }
+  else { g.beginPath(); g.ellipse(0, 0, 9, 4.5, -.2, 0, Math.PI * 2); g.fill(); g.stroke(); g.fillStyle = dark; g.beginPath(); g.arc(1, -4, 1.5, 0, Math.PI * 2); g.fill(); }
+  g.restore();
+}
+// what someone wears, drawn on a round body (r) centred at x, y; got: piece -> garment; body z for the fit
+function dzWear(g, x, y, r, got, bz, t, pose) {
+  const fit = n => 1 + (Shop.gd(n).z - bz) * .3;
+  // the bottom half below the body, the top round the middle, shoes under, the hat on top
+  if (got[1] != null) {
+    const d = Shop.gd(got[1]), f = fit(got[1]), col = DZ_COL[d.c], dark = d.c === 6 ? '#b8b0c8' : 'rgba(21,18,43,.45)';
+    g.save(); g.translate(x, y + r * .55); g.scale(r / 13 * f, r / 13 * (f > 1 ? 1.15 : 1)); g.fillStyle = col; g.strokeStyle = dark; g.lineWidth = 1.2;
+    g.beginPath();
+    if (d.s === 1) { g.moveTo(-9, -4); g.lineTo(9, -4); g.quadraticCurveTo(12, 8, 15, 15); g.quadraticCurveTo(0, 18, -15, 15); g.quadraticCurveTo(-12, 8, -9, -4); }
+    else if (d.s === 3 || d.s === 5) { g.moveTo(-10, -4); g.lineTo(10, -4); g.lineTo(d.s === 3 ? 13 : 12, d.s === 3 ? 6 : 9); g.quadraticCurveTo(0, d.s === 3 ? 9 : 12, d.s === 3 ? -13 : -12, d.s === 3 ? 6 : 9); }
+    else if (d.s === 0) { g.moveTo(-10, -4); g.lineTo(10, -4); g.lineTo(11, 6); g.lineTo(1.5, 6); g.lineTo(0, 2); g.lineTo(-1.5, 6); g.lineTo(-11, 6); }
+    else { g.moveTo(-10, -4); g.lineTo(10, -4); g.lineTo(9, 13); g.lineTo(2, 13); g.lineTo(0, 3); g.lineTo(-2, 13); g.lineTo(-9, 13); }
+    g.closePath(); g.fill(); g.stroke();
+    if (d.s === 4) { g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(-9, -3); g.lineTo(-8.5, 12); g.moveTo(9, -3); g.lineTo(8.5, 12); g.stroke(); }
+    g.restore();
+  }
+  if (got[2] != null) { const d = Shop.gd(got[2]), col = DZ_COL[d.c], dark = d.c === 6 ? '#b8b0c8' : 'rgba(21,18,43,.5)'; for (const s of [-1, 1]) { g.save(); g.translate(x + s * r * .45, y + r * 1.25); g.scale(r / 14, r / 14); dzShoe(g, d.s, 0, 0, s, col, dark); g.restore(); } }
+  if (got[0] != null) {
+    const d = Shop.gd(got[0]), f = fit(got[0]), col = DZ_COL[d.c], dark = d.c === 6 ? '#b8b0c8' : 'rgba(21,18,43,.45)';
+    g.save();
+    // a top too small sits tight round the middle with a gap; too big hangs off the shoulders past the body
+    g.beginPath(); g.arc(x, y, r * Math.max(1, f) + .5, 0, Math.PI * 2); g.clip();
+    const top = y - r * .05, h = r * (f < 1 ? .5 : .95) * f, w = r * 2.2 * f;
+    g.fillStyle = col; g.strokeStyle = dark; g.lineWidth = 1.2;
+    rr(g, x - w / 2, top, w, h + (f > 1 ? r * .5 : 0), r * .25); g.fill(); g.stroke();
+    if (f < 1) { g.strokeStyle = 'rgba(21,18,43,.5)'; g.lineWidth = 1; for (let i = -1; i <= 1; i++) { g.beginPath(); g.moveTo(x + i * r * .35 - 2, top + 2); g.lineTo(x + i * r * .35 + 2, top + h - 2); g.stroke(); } }
+    g.restore();
+    // sleeves
+    for (const s of [-1, 1]) { g.fillStyle = col; g.strokeStyle = dark; g.lineWidth = 1; g.beginPath(); g.ellipse(x + s * r * .98 * Math.min(1.15, f), y + r * .2, r * .28 * f, r * .22 * f, s * .5, 0, Math.PI * 2); g.fill(); g.stroke(); }
+    dzTopDeco(g, d.s, x, y + r * .3, r / 16 * f, d.c);
+  }
+}
+// a customer (or a model): a round body of their colour, hair, a face, and whatever they have on
+function dzPerson(g, look, bz, x, y, got, t, opt = {}) {
+  const r = [10.5, 13, 16][bz] * (opt.k || 1), skin = DZ_SKIN[look % DZ_SKIN.length], hair = DZ_HAIR[Math.floor(look / 10) % DZ_HAIR.length], style = Math.floor(look / 60) % 5;
+  const bob = opt.bob || 0, cy = y - r * .3 - bob;
+  g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.ellipse(x, y + r * .95, r * 1.05, r * .38, 0, 0, Math.PI * 2); g.fill();
+  // feet, body
+  g.fillStyle = 'rgba(21,18,43,.35)'; for (const s of [-1, 1]) { g.beginPath(); g.ellipse(x + s * r * .45, y + r * .85 + (opt.step || 0) * s, r * .3, r * .2, 0, 0, Math.PI * 2); g.fill(); }
+  const gr = g.createRadialGradient(x - r * .35, cy - r * .45, r * .15, x, cy, r * 1.05); gr.addColorStop(0, '#fff'); gr.addColorStop(.35, skin); gr.addColorStop(1, hexA(skin, .85));
+  g.fillStyle = gr; g.beginPath(); g.arc(x, cy, r, 0, Math.PI * 2); g.fill(); g.strokeStyle = 'rgba(21,18,43,.25)'; g.lineWidth = 1.2; g.stroke();
+  if (got) dzWear(g, x, cy, r, got, bz, t, opt.pose);
+  // hair
+  g.fillStyle = hair;
+  if (style === 1) { g.beginPath(); g.arc(x, cy - r * 1.05, r * .38, 0, Math.PI * 2); g.fill(); }
+  else if (style === 2) { g.beginPath(); g.arc(x, cy - r * .2, r * 1.02, Math.PI * 1.1, Math.PI * 1.9); g.quadraticCurveTo(x, cy - r * .55, x - r * .9, cy - r * .6); g.fill(); }
+  else if (style === 3) { for (let i = 0; i < 6; i++) { const a = Math.PI * (1.05 + i * .18); g.beginPath(); g.arc(x + Math.cos(a) * r * .85, cy + Math.sin(a) * r * .85, r * .32, 0, Math.PI * 2); g.fill(); } }
+  else if (style === 4) { g.beginPath(); for (let i = 0; i < 5; i++) { const a = Math.PI * (1.15 + i * .17); g.moveTo(x + Math.cos(a - .1) * r * .8, cy + Math.sin(a - .1) * r * .8); g.lineTo(x + Math.cos(a) * r * 1.35, cy + Math.sin(a) * r * 1.35); g.lineTo(x + Math.cos(a + .1) * r * .8, cy + Math.sin(a + .1) * r * .8); } g.fill(); }
+  if (got && got[3] != null) { const d = Shop.gd(got[3]); dzHat(g, d.s, x, cy - r * .92, r / 13 * (1 + (d.z - bz) * .3), DZ_COL[d.c], d.c === 6 ? '#b8b0c8' : 'rgba(21,18,43,.5)'); }
+  cuteFace(g, x + (opt.fx || 0) * r * .2, cy - r * .15, opt.fx || 0, t + look, look % 2 === 0, opt.mood || '', r / 15);
+  if (opt.mood === 'angry') { const ax = x + r * .85, ay = cy - r * .8; g.strokeStyle = '#ff4f4f'; g.lineWidth = 1.8; g.beginPath(); for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { g.moveTo(ax + a * 1.5, ay + b * 4); g.quadraticCurveTo(ax + a * 1.5, ay + b * 1.5, ax + a * 4, ay + b * 1.5); } g.stroke(); }
+  return { r, cy };
+}
+
+/* ---------- the shop as it stands (drawn once) ---------- */
+function shopGround(g, G) {
+  const W = Shop.COLS, H = Shop.ROWS, tile = (x, y) => Shop.tileAt(G, x, y), TAU = Math.PI * 2;
+  // floor: warm planks
+  g.fillStyle = '#e8cfa6'; g.fillRect(0, 0, VW, VH);
+  for (let y = 0; y < VH; y += 16) { g.fillStyle = (y / 16) % 2 ? '#e2c79c' : '#ecd5ae'; g.fillRect(0, y, VW, 16); g.strokeStyle = 'rgba(150,110,70,.18)'; g.lineWidth = 1; g.beginPath(); g.moveTo(0, y + .5); g.lineTo(VW, y + .5); g.stroke(); for (let x = ((y / 16) % 3) * 53; x < VW; x += 160) { g.beginPath(); g.moveTo(x + .5, y); g.lineTo(x + .5, y + 16); g.stroke(); } }
+  // a rug in front of the fitting rooms and a runner to the door
+  g.fillStyle = 'rgba(200,120,170,.25)'; rr(g, 6.5 * OT, 2.9 * OT, 14 * OT, 1.4 * OT, 10); g.fill();
+  g.fillStyle = 'rgba(120,90,170,.18)'; rr(g, 12.4 * OT, 11.6 * OT, 5.2 * OT, 4.4 * OT, 8); g.fill();
+  // walls
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const c = tile(x, y), px = x * OT, py = y * OT;
+    if (c !== '#' && c !== 'F' && c !== 'D') continue;
+    if (c === '#') {
+      const back = y <= 2;
+      g.fillStyle = back ? '#f6e3ec' : '#6e5a8a'; g.fillRect(px, py, OT, OT);
+      if (back) { g.fillStyle = 'rgba(230,150,190,.35)'; for (let k = 0; k < 4; k++) g.fillRect(px + k * 8 + 2, py, 3, OT); if (y === 2) { g.fillStyle = '#c99ab8'; g.fillRect(px, py + OT - 5, OT, 5); } }
+      else { g.fillStyle = 'rgba(255,255,255,.07)'; g.fillRect(px, py, OT, 3); }
+    }
+  }
+  // fitting rooms: a booth behind each door, a curtain rail, the number
+  G.rooms.forEach((rm, i) => {
+    const px = rm.tx * OT, py = rm.ty * OT;
+    g.fillStyle = '#7a5aa0'; rr(g, px - 6, py - OT + 2, OT + 12, OT * 2 - 2, 6); g.fill();
+    g.fillStyle = '#5a3f80'; g.fillRect(px - 2, py - 2, OT + 4, OT + 2);
+    g.fillStyle = '#ffcf5a'; g.beginPath(); g.arc(px + OT / 2, py - OT + 10, 7, 0, TAU); g.fill();
+    g.fillStyle = C.ink; g.font = `700 10px ${FONT}`; g.textAlign = 'center'; g.fillText(th(i + 1), px + OT / 2, py - OT + 14);
+    g.fillStyle = '#c0c0d0'; g.fillRect(px - 3, py + 1, OT + 6, 2.5);
+  });
+  // the till: a counter with a register and bags
+  if (G.till.length) {
+    const xs = G.till.map(t => t[0]), y = G.till[0][1], x0 = Math.min(...xs) * OT, x1 = (Math.max(...xs) + 1) * OT, py = y * OT;
+    g.fillStyle = 'rgba(0,0,0,.2)'; rr(g, x0 + 3, py + 8, x1 - x0, OT, 6); g.fill();
+    g.fillStyle = '#8a5a3a'; rr(g, x0, py + 2, x1 - x0, OT - 2, 6); g.fill(); g.fillStyle = '#b07a50'; rr(g, x0, py + 2, x1 - x0, 9, 5); g.fill();
+    const mx = (x0 + x1) / 2;
+    g.fillStyle = '#4a4a5a'; rr(g, mx - 11, py - 6, 22, 16, 3); g.fill(); g.fillStyle = '#8fe0b0'; g.fillRect(mx - 8, py - 4, 16, 5); g.fillStyle = '#ddd'; for (let i = 0; i < 3; i++) g.fillRect(mx - 8 + i * 6, py + 3, 4, 3);
+    g.fillStyle = '#ff8fb8'; rr(g, x1 - 16, py - 2, 11, 12, 2); g.fill(); g.strokeStyle = '#d06090'; g.lineWidth = 1.5; g.beginPath(); g.arc(x1 - 10.5, py - 2, 3.5, Math.PI, 0); g.stroke();
+    g.fillStyle = C.ink; g.font = `600 10px ${FONT}`; g.textAlign = 'center'; g.fillText('คิดเงิน', mx, py + OT + 9);
+  }
+  // sewing machines on their tables
+  for (const m of G.mach) {
+    const px = m.tx * OT, py = m.ty * OT, cx = px + OT / 2;
+    g.fillStyle = 'rgba(0,0,0,.2)'; rr(g, px + 2, py + 6, OT + 6, OT - 2, 4); g.fill();
+    g.fillStyle = '#a07850'; rr(g, px - 2, py + 2, OT + 8, OT - 4, 4); g.fill();
+    g.fillStyle = m.dir < 0 ? '#5aa8ff' : '#ffb35a'; rr(g, cx - 9, py + 5, 20, 12, 4); g.fill(); g.fillRect(cx + 5, py + 5, 5, 18);
+    g.fillStyle = '#ddd'; g.fillRect(cx - 7, py + 15, 2, 7);
+    g.fillStyle = C.ink; g.font = `700 10px ${FONT}`; g.textAlign = 'center';
+    const lab = m.dir < 0 ? 'ย่อ S' : 'ขยาย L', lx = px + OT + 22, ly = py + OT / 2 + 4;
+    g.fillStyle = m.dir < 0 ? '#2a6ab0' : '#b06a20'; rr(g, lx - 20, ly - 10, 40, 15, 7); g.fill(); g.fillStyle = '#fff'; g.fillText(lab, lx, ly + 1);
+  }
+  // racks: a rail on two feet; the badge of what it holds
+  G.racks.forEach(rk => {
+    const px = rk.tx * OT, py = rk.ty * OT;
+    g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.ellipse(px + OT / 2, py + OT - 2, OT * .55, 5, 0, 0, TAU); g.fill();
+    g.strokeStyle = '#8a8aa0'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(px + 3, py + OT - 3); g.lineTo(px + 3, py + 2); g.lineTo(px + OT - 3, py + 2); g.lineTo(px + OT - 3, py + OT - 3); g.stroke();
+  });
+  // the gate by the door: two posts
+  if (G.gateY >= 0) {
+    const xs = []; for (let x = 0; x < W; x++) if (tile(x, G.gateY) === 'G') xs.push(x);
+    for (const x of [xs[0], xs[xs.length - 1]]) { const px = (x + .5) * OT, py = G.gateY * OT; g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.ellipse(px + 2, py + OT - 2, 7, 3, 0, 0, TAU); g.fill(); g.fillStyle = '#c8ccd8'; rr(g, px - 4, py - 10, 8, OT + 6, 3); g.fill(); g.fillStyle = '#8a90a0'; g.fillRect(px - 4, py - 10, 8, 3); }
+    g.strokeStyle = 'rgba(120,120,150,.25)'; g.setLineDash([4, 4]); g.lineWidth = 2; g.beginPath(); g.moveTo((xs[0] + .5) * OT, (G.gateY + .5) * OT); g.lineTo((xs[xs.length - 1] + .5) * OT, (G.gateY + .5) * OT); g.stroke(); g.setLineDash([]);
+  }
+  // the front door: glass, a mat, the sign
+  if (G.doors.length) {
+    const xs = G.doors.map(d => d[0]), y = G.doors[0][1], x0 = Math.min(...xs) * OT, x1 = (Math.max(...xs) + 1) * OT, py = y * OT;
+    g.fillStyle = '#9fd0e8'; g.fillRect(x0, py, x1 - x0, OT); g.fillStyle = 'rgba(255,255,255,.4)'; g.fillRect(x0 + 6, py + 3, 6, OT - 6); g.fillRect(x0 + (x1 - x0) / 2 + 6, py + 3, 6, OT - 6);
+    g.strokeStyle = '#6e5a8a'; g.lineWidth = 3; g.strokeRect(x0, py, x1 - x0, OT); g.beginPath(); g.moveTo((x0 + x1) / 2, py); g.lineTo((x0 + x1) / 2, py + OT); g.stroke();
+    g.fillStyle = '#b07ac0'; rr(g, x0 + 8, py - 22, x1 - x0 - 16, 16, 4); g.fill(); g.fillStyle = '#fff'; g.font = `700 11px ${FONT}`; g.textAlign = 'center'; g.fillText('เปิดแล้ว', (x0 + x1) / 2, py - 10);
+  }
+  // little things: plants, a mannequin, stools where customers wait
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const c = tile(x, y), cx = (x + .5) * OT, cy = (y + .5) * OT;
+    if (c === 'o') { g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.ellipse(cx + 2, cy + 12, 10, 4, 0, 0, TAU); g.fill(); g.fillStyle = '#c87a5a'; rr(g, cx - 8, cy, 16, 13, 3); g.fill(); g.fillStyle = '#4f9a4a'; for (let k = 0; k < 6; k++) { const a = -Math.PI / 2 + (k - 2.5) * .45; g.beginPath(); g.ellipse(cx + Math.cos(a) * 8, cy - 2 + Math.sin(a) * 9, 4, 8, a + Math.PI / 2, 0, TAU); g.fill(); } }
+    if (c === 'm') { g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.ellipse(cx, cy + 13, 9, 3, 0, 0, TAU); g.fill(); g.strokeStyle = '#8a7a6a'; g.lineWidth = 2; g.beginPath(); g.moveTo(cx, cy + 13); g.lineTo(cx, cy + 4); g.stroke(); g.fillStyle = '#f0e0d0'; g.beginPath(); g.arc(cx, cy - 4, 9, 0, TAU); g.fill(); dzWear(g, cx, cy - 4, 9, { 0: 311, 1: 1351 }, 1, 0); g.fillStyle = '#f0e0d0'; g.beginPath(); g.arc(cx, cy - 15, 4, 0, TAU); g.fill(); }
+  }
+  for (const [x, y] of G.waits) { const cx = (x + .5) * OT, cy = (y + .5) * OT; g.fillStyle = 'rgba(0,0,0,.12)'; g.beginPath(); g.ellipse(cx, cy + 8, 9, 3.5, 0, 0, TAU); g.fill(); g.fillStyle = '#c9a0d0'; g.beginPath(); g.ellipse(cx, cy + 5, 8, 4.5, 0, 0, TAU); g.fill(); }
+  // the shop's name on the back wall, and a mirror
+  g.fillStyle = C.ink; g.font = `400 18px ${FONT_D}`; g.textAlign = 'center'; g.fillText(G.def.name, 25 * OT, 2.35 * OT);
+  g.fillStyle = '#d0e8f0'; rr(g, 4 * OT, 1.1 * OT, 22, 28, 10); g.fill(); g.strokeStyle = '#c99ab8'; g.lineWidth = 2; g.stroke();
+}
+
+/* ---------- each frame ---------- */
+function shopRender() {
+  const g = ctx, st = OM.st, G = st.G, def = G.def, t = S.time;
+  g.setTransform(scale, 0, 0, scale, 0, 0); g.textBaseline = 'alphabetic';
+  let ox = 0; if (S.shake > 0) ox = (Math.random() - .5) * 6 * S.shake;
+  g.save(); g.translate(ox, 0);
+  stamp(g, 'shopGround', def.name, 0, 0, VW, VH, q => shopGround(q, G), true);
+  // the gate lights up red while the alarm goes
+  if (G.thief && G.thief.alarm) { const a = .35 + .3 * Math.sin(t * 18); g.fillStyle = `rgba(255,60,60,${a * .3})`; g.fillRect(0, (G.gateY - 1) * OT, VW, OT * 3); }
+  // clothes on the racks (the one with the kid in it shakes)
+  G.racks.forEach((rk, i) => {
+    const px = rk.tx * OT, py = rk.ty * OT, kid = G.kid && G.kid.st === 'hide' && G.kid.rack === i, w = (kid ? Math.sin(t * 20) * 2.2 : 0) + (st.wob[i] ? Math.sin(t * 40) * 3 : 0);
+    const n = Math.min(rk.n, 5), code = Shop.gc({ p: rk.p, s: rk.s, c: rk.c, z: 1 });
+    for (let k = n - 1; k >= 0; k--) dzGarment(g, code, px + OT / 2 + (k - (n - 1) / 2) * 3.2 + w, py + 15 + k * .6, .72);
+    if (!rk.n) { g.fillStyle = 'rgba(21,18,43,.5)'; g.font = `600 9px ${FONT}`; g.textAlign = 'center'; g.fillText('หมด', px + OT / 2, py + 19); }
+    // what it is: a little tag of its style
+    g.fillStyle = 'rgba(255,255,255,.85)'; rr(g, px + 2, py + OT - 9, OT - 4, 10, 4); g.fill();
+    g.fillStyle = C.ink; g.font = `600 8px ${FONT}`; g.textAlign = 'center'; g.fillText(DZ_STY[rk.s], px + OT / 2, py + OT - 1.5);
+    if (kid) { g.fillStyle = '#fff'; for (const s of [-1, 1]) { g.beginPath(); g.arc(px + OT / 2 + s * 3.5 + w, py + 8, 2.2, 0, Math.PI * 2); g.fill(); } g.fillStyle = C.ink; for (const s of [-1, 1]) { g.beginPath(); g.arc(px + OT / 2 + s * 3.5 + w + Math.sin(t * 3), py + 8.4, 1.1, 0, Math.PI * 2); g.fill(); } }
+  });
+  // clothes on the floor
+  G.items.forEach((it, i) => dzGarment(g, it.g, it.x, it.y, .8, ((i * 37) % 7 - 3) * .2));
+  // the machines: what is on them, how far along
+  for (const m of G.mach) {
+    if (m.g < 0) continue;
+    const cx = (m.tx + .5) * OT, cy = (m.ty + .5) * OT;
+    dzGarment(g, m.g, cx + 2, cy - 4 + (m.done ? 0 : Math.sin(t * 30) * .6), .7);
+    g.lineWidth = 4; g.strokeStyle = 'rgba(21,18,43,.5)'; g.beginPath(); g.arc(cx + 2, cy - 4, 15, 0, Math.PI * 2); g.stroke();
+    g.strokeStyle = m.done ? '#9be07a' : C.gold; g.beginPath(); g.arc(cx + 2, cy - 4, 15, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, m.prog / 100)); g.stroke();
+    if (m.done) { g.fillStyle = '#9be07a'; g.font = `700 11px ${FONT}`; g.textAlign = 'center'; g.fillText('✓ หยิบได้', cx + 2, cy - 22); }
+  }
+  // fitting room curtains: drawn shut (and wobbling) while someone tries things on
+  G.rooms.forEach((rm, i) => {
+    const px = rm.tx * OT, py = rm.ty * OT, busy = G.cust.some(c => c.room === i && c.st === 'try');
+    const cols = ['#ff8fb8', '#c9a0ff', '#8fd3ff'], col = cols[i % 3];
+    for (let k = 0; k < 4; k++) {
+      const shut = busy ? 1 : .45, w = OT / 4 * shut, x = k < 2 ? px + k * w : px + OT - (4 - k) * w, wob = busy ? Math.sin(t * 9 + k) * 1.5 : 0;
+      g.fillStyle = k % 2 ? col : hexA(col, .75); g.fillRect(x + wob, py + 3, w + .5, OT - 3);
+    }
+    if (busy) { g.fillStyle = C.ink; g.font = `700 12px ${FONT}`; g.textAlign = 'center'; g.fillText('.'.repeat(1 + Math.floor(t * 3) % 3), px + OT / 2, py + OT / 2 + 4); }
+  });
+  // who the buttons would work on just now (each player's own colour; red when it would not do)
+  if (G.st === 'run') for (const id of ['pink', 'mint']) {
+    if (O.role && id !== O.local) continue;
+    const tg = Shop.target(G, id); if (!tg) continue;
+    const col = !tg.ok ? '#ff6b6b' : id === 'pink' ? C.pink : C.mint, pulse = .6 + .4 * Math.sin(t * 6);
+    g.strokeStyle = hexA(col, pulse); g.lineWidth = 2.5;
+    if (tg.tx != null) { rr(g, tg.tx * OT - 2, tg.ty * OT - 2, OT + 4, OT + 4, 7); g.stroke(); }
+    else if (tg.k === 'cust') { g.beginPath(); g.ellipse(tg.x, tg.y + 14, 20, 8, 0, 0, Math.PI * 2); g.stroke(); }
+    else if (tg.k === 'item') { g.beginPath(); g.arc(tg.x, tg.y, 13, 0, Math.PI * 2); g.stroke(); }
+  }
+  // everyone, the nearer in front: players, customers (not in a room), the kid, the thief
+  const ppl = [];
+  for (const id of ['pink', 'mint']) ppl.push({ y: st.disp[id].y, f: () => dzHero(g, G, id, st.disp[id].x, st.disp[id].y, t) });
+  for (const c of G.cust) if (c.st !== 'try') ppl.push({ y: c.y, f: () => dzCust(g, G, c, t) });
+  if (G.kid && G.kid.st !== 'hide') ppl.push({ y: G.kid.y, f: () => dzKid(g, G.kid, t) });
+  if (G.thief) ppl.push({ y: G.thief.y, f: () => dzThief(g, G.thief, t) });
+  ppl.sort((a, b) => a.y - b.y).forEach(o => o.f());
+  // bubbles over the waiting customers (on top of everyone)
+  for (const c of G.cust) if (['in', 'wait', 'queue', 'pay'].includes(c.st)) dzBubble(g, G, c, t);
+  // flying buttons and clothes
+  for (const f of st.fly) { if (f.k === 'btn') { g.fillStyle = '#fff'; g.beginPath(); g.arc(f.x, f.y, 2.6, 0, Math.PI * 2); g.fill(); g.strokeStyle = C.ink; g.lineWidth = .8; g.stroke(); } else dzGarment(g, 1000 * (f.c % 4) + 10 * (f.c * 3 % 7) + 1, f.x, f.y, .6, f.t * 8); }
+  for (const s of st.spark) { g.fillStyle = `rgba(255,236,150,${s.t * 2})`; twinkle(g, s.x + Math.sin(s.t * 20) * 8, s.y - (1 - s.t) * 20, 4); }
+  g.restore();
+  drawParts(g);
+  if (G.st === 'show' || (G.st === 'close' && G.ct > 1.2)) dzShow(g, G, t);
+  xDrawFloats(g, OM);
+  dzHud(g, G);
+  xCountdown(g, G, Shop.START);
+  xBannerDraw(g, G, Shop.START, def.name, 'ดูว่าลูกค้าจะไปไหน หยิบชุดสไตล์นั้นไปยื่น ไซซ์ S หรือ L ไปแก้ที่จักร (กดสลับกัน) แล้วคิดเงินที่เคาน์เตอร์');
+  if (st.flash > 0) { g.fillStyle = `rgba(255,255,255,${st.flash * .6})`; g.fillRect(0, 0, VW, VH); }
+  if (O.role && S.mode !== 'menu') drawNetNote(g);
+}
+function dzHero(g, G, id, x, y, t) {
+  const st = OM.st, p = G.p[id], pink = id === 'pink', dark = pink ? C.pinkD : C.mintD;
+  g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.ellipse(x, y + 10, 13, 5, 0, 0, Math.PI * 2); g.fill();
+  const w = st.walk[id], bob = p.mv ? Math.abs(Math.sin(w)) * 2.2 : 0, step = p.mv ? Math.sin(w) * 3 : 0;
+  g.fillStyle = dark; for (const s of [-1, 1]) { g.beginPath(); g.ellipse(x + s * 6, y + 8 + s * step * .6, 4.2, 3, 0, 0, Math.PI * 2); g.fill(); }
+  roundBody(g, x, y - 3 - bob, 13, id);
+  // a little apron: they work here
+  g.fillStyle = 'rgba(255,255,255,.85)'; rr(g, x - 7, y - 1 - bob, 14, 9, 3); g.fill(); g.fillStyle = pink ? C.pinkD : C.mintD; g.fillRect(x - 2, y + 1 - bob, 4, 3);
+  if (pink) cuteBow(g, x + 5, y - 16 - bob, .95); else cuteSprout(g, x, y - 15 - bob, 1.05, t);
+  cuteFace(g, x + p.fx * 3.5, y - 5 - bob + Math.max(-1, p.fy) * 1.5, p.fx, t, pink, p.stun > 0 ? 'o' : '', .82, p.fy);
+  if (p.stun > 0) for (let k = 0; k < 3; k++) { const a = t * 6 + k * 2.1; g.fillStyle = C.gold; twinkle(g, x + Math.cos(a) * 12, y - 22 + Math.sin(a) * 4, 3); }
+  if (p.item >= 0) dzGarment(g, p.item, x, y - 30 - bob, .9);
+  if (G.t < Shop.START + 3) { g.globalAlpha = Math.min(1, (Shop.START + 3 - G.t) * 1.5); nameTag(g, S.names[id], x, y - 34, pink ? C.pink : C.mint); g.globalAlpha = 1; }
+}
+function dzCust(g, G, c, t) {
+  const st = OM.st, w = st.cwalk[c.id] || 0, step = c.mv ? Math.sin(w) * 2.4 : 0, bob = c.mv ? Math.abs(Math.sin(w)) * 1.8 : 0;
+  let mood = '', got = c.got, extra = {};
+  if (c.st === 'pose' && c.out) {
+    const k = c.out.kind; mood = k === 'perfect' ? 'happy' : k === 'tight' || k === 'style' || k === 'nostyle' ? 'o' : 'sad';
+    if (k === 'perfect') extra.spin = Math.sin(c.t * 7) * .25;
+  } else if (c.angry) mood = 'angry';
+  else if ((c.st === 'wait' || c.st === 'queue') && c.pat < c.patMax * .3) mood = 'sad';
+  else if (c.st === 'pay' || (c.st === 'out' && !c.angry)) mood = 'happy';
+  if (c.st === 'out' || c.st === 'pay') got = c.st === 'pay' ? c.got : {};
+  g.save();
+  if (extra.spin) { g.translate(c.x, c.y); g.scale(Math.cos(extra.spin * 6) > 0 ? 1 : -1, 1); g.translate(-c.x, -c.y); }
+  const b = dzPerson(g, c.look, c.z, c.x, c.y, got, t, { bob, step, fx: c.fx || 0, mood });
+  g.restore();
+  // walking out happy: a shopping bag; a perfect outfit: a selfie
+  if (c.st === 'out' && !c.angry) { g.fillStyle = '#ff8fb8'; rr(g, c.x + b.r * .8, c.y - 2, 10, 12, 2); g.fill(); g.strokeStyle = '#d06090'; g.lineWidth = 1.4; g.beginPath(); g.arc(c.x + b.r * .8 + 5, c.y - 2, 3, Math.PI, 0); g.stroke(); }
+  if (c.st === 'pose' && c.out && c.out.kind === 'perfect' && c.t > 1) { g.fillStyle = '#2a2440'; rr(g, c.x + b.r + 2, b.cy - b.r - 6, 8, 13, 2); g.fill(); if (Math.floor(c.t * 4) % 3 === 0) { g.fillStyle = 'rgba(255,255,255,.9)'; g.beginPath(); g.arc(c.x + b.r + 6, b.cy - b.r - 4, 6, 0, Math.PI * 2); g.fill(); } }
+  if (c.st === 'pose' && c.out && c.out.kind === 'loose') { g.fillStyle = 'rgba(140,200,255,.8)'; g.beginPath(); g.arc(c.x - b.r, b.cy - b.r * .3, 2.2, 0, Math.PI * 2); g.fill(); }
+}
+function dzKid(g, k, t) {
+  const bob = Math.abs(Math.sin(t * 16)) * 2;
+  g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.ellipse(k.x, k.y + 7, 7, 3, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#ffe08a'; g.beginPath(); g.arc(k.x, k.y - bob, 8, 0, Math.PI * 2); g.fill(); g.strokeStyle = 'rgba(21,18,43,.3)'; g.lineWidth = 1; g.stroke();
+  g.fillStyle = '#e85a5a'; g.beginPath(); g.arc(k.x, k.y - 7 - bob, 8, Math.PI, 0); g.fill(); g.fillRect(k.x, k.y - 8 - bob, 10, 2.5);
+  cuteFace(g, k.x, k.y - 1 - bob, 0, t, true, 'happy', .55);
+}
+function dzThief(g, th, t) {
+  const bob = th.mv ? Math.abs(Math.sin(t * (th.alarm ? 22 : 12))) * 2 : 0, x = th.x, y = th.y;
+  g.fillStyle = 'rgba(0,0,0,.25)'; g.beginPath(); g.ellipse(x, y + 10, 12, 4, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#3a3446'; g.beginPath(); g.arc(x, y - 3 - bob, 13, 0, Math.PI * 2); g.fill();
+  // the hood, a gap for the eyes, shifty eyes
+  g.fillStyle = '#2a2436'; g.beginPath(); g.arc(x, y - 6 - bob, 13, Math.PI * .95, Math.PI * 2.05); g.fill();
+  g.fillStyle = '#e8c8a8'; rr(g, x - 8, y - 9 - bob, 16, 7, 3); g.fill();
+  const look = Math.sin(t * 2.5) * 2.5; g.fillStyle = C.ink; for (const s of [-1, 1]) { g.beginPath(); g.arc(x + s * 3.8 + look, y - 5.5 - bob, 1.4, 0, Math.PI * 2); g.fill(); }
+  if (th.item >= 0) dzGarment(g, th.item, x + 12, y - 4 - bob, .7, .5);
+  if (th.alarm) { g.fillStyle = '#ff6b6b'; g.font = `400 14px ${FONT_D}`; g.textAlign = 'center'; g.fillText('ขโมย!', x, y - 26 - bob); }
+}
+// what a customer wants: where they are going, the pieces (a tick on each one they have), the colour, their size,
+// and how long they will wait
+function dzBubble(g, G, c, t) {
+  const pay = c.st === 'pay', n = c.want.pieces.length, w = pay ? 70 : Math.max(76, 22 * n + 34), h = pay ? 26 : 44, x = c.x - w / 2, y = c.y - [10.5, 13, 16][c.z] * 1.3 - h - 16;
+  g.globalAlpha = c.st === 'in' ? .75 : 1;
+  rr(g, x, y, w, h, 9); g.fillStyle = 'rgba(255,255,255,.95)'; g.fill(); g.strokeStyle = 'rgba(21,18,43,.25)'; g.lineWidth = 1; g.stroke();
+  g.beginPath(); g.moveTo(c.x - 5, y + h); g.lineTo(c.x, y + h + 6); g.lineTo(c.x + 5, y + h); g.fill();
+  g.textAlign = 'left'; g.fillStyle = C.ink;
+  if (pay) {
+    g.font = `600 11px ${FONT}`; g.fillText('คิดเงินด้วย', x + 7, y + 17);
+    const q = c.st === 'pay' ? Math.max(0, c.tillPat / Shop.TILL_PAT) : 1; g.fillStyle = q < .35 ? '#ff6b6b' : '#ffb35a'; g.fillRect(x + 6, y + h - 4, (w - 12) * q, 2.5);
+    g.globalAlpha = 1; return;
+  }
+  g.font = `600 11px ${FONT}`; g.fillText(DZ_GO[c.want.s], x + 7, y + 14);
+  if (G.def.sizeShow !== false) { g.fillStyle = c.z === 0 ? '#5aa8ff' : c.z === 2 ? '#ff9a3a' : '#9a8ab8'; rr(g, x + w - 22, y + 4, 16, 13, 5); g.fill(); g.fillStyle = '#fff'; g.font = `700 10px ${FONT}`; g.textAlign = 'center'; g.fillText(Shop.SIZES[c.z], x + w - 14, y + 14.5); }
+  c.want.pieces.forEach((p, i) => {
+    const ix = x + 16 + i * 22, iy = y + 29, have = c.got[p] != null;
+    const code = have ? c.got[p] : Shop.gc({ p, s: c.want.s, c: c.want.c >= 0 ? c.want.c : 6, z: 1 });
+    g.globalAlpha = (c.st === 'in' ? .75 : 1) * (have ? 1 : c.want.c >= 0 ? .85 : .45);
+    dzGarment(g, code, ix, iy, .55);
+    g.globalAlpha = c.st === 'in' ? .75 : 1;
+    if (have) { g.fillStyle = '#5cc87a'; g.beginPath(); g.arc(ix + 7, iy - 7, 4.5, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(ix + 5, iy - 7); g.lineTo(ix + 6.6, iy - 5.4); g.lineTo(ix + 9, iy - 8.8); g.stroke(); }
+  });
+  if (c.want.c >= 0) { g.fillStyle = DZ_COL[c.want.c]; g.beginPath(); g.arc(x + w - 10, y + 29, 5, 0, Math.PI * 2); g.fill(); g.strokeStyle = 'rgba(21,18,43,.35)'; g.lineWidth = 1; g.stroke(); }
+  const q = Math.max(0, c.pat / c.patMax); g.fillStyle = 'rgba(21,18,43,.12)'; g.fillRect(x + 6, y + h - 4, w - 12, 2.5); g.fillStyle = q < .3 ? '#ff6b6b' : q < .6 ? '#ffb35a' : '#5cc87a'; g.fillRect(x + 6, y + h - 4, (w - 12) * q, 2.5);
+  if (c.st === 'queue') { g.fillStyle = '#9a8ab8'; g.font = `600 9px ${FONT}`; g.textAlign = 'center'; g.fillText('รอห้องลอง', c.x, y - 3); }
+  g.globalAlpha = 1;
+}
+// closing time: the lights down, a runway, the best outfits walking it, a photo as each one poses
+function dzShow(g, G, t) {
+  const s = Shop.showAt(G), fade = G.st === 'close' ? Math.min(1, (G.ct - 1.2) / .8) : 1;
+  g.fillStyle = `rgba(14,10,36,${.82 * fade})`; g.fillRect(0, 0, VW, VH);
+  if (!s) return;
+  const rx = VW / 2, top = 70, bot = 455;
+  g.globalAlpha = fade;
+  // spotlights, the runway, the crowd along it
+  for (const sx of [rx - 260, rx + 260]) { const gr = g.createLinearGradient(sx, 0, rx, bot); gr.addColorStop(0, 'rgba(255,240,200,.18)'); gr.addColorStop(1, 'rgba(255,240,200,0)'); g.fillStyle = gr; g.beginPath(); g.moveTo(sx - 10, 0); g.lineTo(sx + 10, 0); g.lineTo(rx + 90, bot); g.lineTo(rx - 90, bot); g.closePath(); g.fill(); }
+  g.fillStyle = '#3a2a5a'; g.beginPath(); g.moveTo(rx - 40, top); g.lineTo(rx + 40, top); g.lineTo(rx + 70, bot); g.lineTo(rx - 70, bot); g.closePath(); g.fill();
+  g.strokeStyle = 'rgba(255,207,90,.6)'; g.lineWidth = 2; g.stroke();
+  for (let i = 0; i < 12; i++) { const yy = top + 30 + i * 32, k = (yy - top) / (bot - top); g.fillStyle = 'rgba(255,207,90,.5)'; g.beginPath(); g.arc(rx - 42 - 30 * k, yy, 2, 0, Math.PI * 2); g.arc(rx + 42 + 30 * k, yy, 2, 0, Math.PI * 2); g.fill(); }
+  for (let i = 0; i < 14; i++) for (const side of [-1, 1]) { const yy = top + 20 + i * 30, xx = rx + side * (110 + (i % 2) * 22 + (yy - top) * .12); g.fillStyle = '#1a1438'; g.beginPath(); g.arc(xx, yy + Math.sin(t * 3 + i) * 1.2, 10, 0, Math.PI * 2); g.fill(); g.fillRect(xx - 11, yy + 6, 22, 14); if ((i + (side > 0 ? 3 : 0)) % 5 === 0 && Math.sin(t * 5 + i * 1.7) > .85) { g.fillStyle = 'rgba(255,255,255,.9)'; g.beginPath(); g.arc(xx + side * -6, yy - 2, 4, 0, Math.PI * 2); g.fill(); } }
+  g.fillStyle = C.gold; g.font = `400 22px ${FONT_D}`; g.textAlign = 'center'; g.fillText('แฟชั่นโชว์ปิดร้าน', rx, 44);
+  if (s.i >= 0 && s.i < s.n) {
+    const m = G.best[s.i], k = s.k, y = top + 30 + k * (bot - top - 90), sc = 1.9 + k * .7, got = {};
+    (m.got || []).forEach(n => { got[Shop.gd(n).p] = n; });
+    const walk = k < 1 ? Math.sin(s.lt * 9) : 0;
+    g.save(); g.translate(rx, y); g.scale(sc, sc); g.translate(-rx, -y);
+    dzPerson(g, m.look, m.z, rx + walk * 2, y, got, t, { bob: Math.abs(walk) * 2, step: walk * 2, mood: s.pose ? 'happy' : '' });
+    g.restore();
+    g.font = `600 13px ${FONT}`; g.fillStyle = '#fff'; g.fillText(`ชุด${DZ_GO[m.s] || ''}  ·  ${th(s.i + 1)}/${th(s.n)}`, rx, bot + 28);
+    // the pose: the moment for a photo
+    if (s.pose) {
+      const u = (s.lt - Shop.FLASH[0]) / (Shop.FLASH[1] - Shop.FLASH[0]);
+      g.strokeStyle = `rgba(255,207,90,${1 - u})`; g.lineWidth = 4; g.beginPath(); g.arc(rx, y - 20, 60 + u * 30, 0, Math.PI * 2); g.stroke();
+      g.fillStyle = C.gold; g.font = `400 26px ${FONT_D}`; g.fillText('ถ่ายเลย!', rx, y - 95);
+    } else if (s.lt < Shop.FLASH[0]) { g.fillStyle = 'rgba(255,255,255,.6)'; g.font = `600 13px ${FONT}`; g.fillText('รอนายแบบหยุดโพสท่าแล้วกดถ่ายรูป (กดพร้อมกันได้ภาพคู่)', rx, VH - 18); }
+  }
+  g.globalAlpha = 1;
+}
+function dzHud(g, G) {
+  const c = Shop.clock(G), sec = Math.ceil(c.left), mm = Math.floor(sec / 60), ss = sec % 60;
+  panel(g, 8, 8, 196, 50, 12, .85);
+  g.textAlign = 'left'; g.font = `400 20px ${FONT_D}`; g.fillStyle = c.left < 30 && G.st === 'run' && Math.sin(S.time * 8) > 0 ? '#ff8a8a' : C.paper;
+  g.fillText(G.st === 'run' || G.st === 'count' ? `${th(mm)}:${ss < 10 ? '๐' : ''}${th(ss)}` : 'ปิดร้าน', 18, 33);
+  g.font = `600 11px ${FONT}`; g.fillStyle = '#c9bfef'; g.fillText('ก่อนปิดร้าน', 18, 50);
+  g.textAlign = 'right'; g.font = `400 20px ${FONT_D}`; g.fillStyle = C.gold; g.fillText('฿' + th(Math.max(0, Math.round(G.money))), 194, 33);
+  g.font = `600 11px ${FONT}`; g.fillStyle = '#c9bfef'; g.fillText(`ขายได้ ${th(G.stats.served)} คน`, 194, 50);
+  // the stars, and how far to each
+  const s = G.def.stars, w = 150, x = VW - 8 - w;
+  panel(g, x, 8, w, 30, 12, .85);
+  const got = s.filter(v => G.money >= v).length;
+  for (let i = 0; i < 3; i++) { g.fillStyle = i < got ? C.gold : 'rgba(255,255,255,.2)'; twinkle(g, x + 20 + i * 24, 23, 8); }
+  g.font = `600 10px ${FONT}`; g.textAlign = 'right'; g.fillStyle = '#c9bfef'; g.fillText(got < 3 ? `ดาวถัดไป ฿${th(s[got])}` : 'ครบสามดาว!', x + w - 8, 27);
+  if (G.st === 'show') return;
+  // what each of you holds, in your corner
+  for (const id of ['pink', 'mint']) {
+    const p = G.p[id]; if (p.item < 0) continue;
+    const ww = 210, xx = id === 'pink' ? 8 : VW - 8 - ww, yy = VH - 36;
+    panel(g, xx, yy, ww, 28, 10, .85);
+    dzGarment(g, p.item, xx + 16, yy + 14, .6);
+    g.font = `600 11px ${FONT}`; g.textAlign = 'left'; g.fillStyle = id === 'pink' ? C.pink : C.mint; g.fillText(dzName(p.item), xx + 30, yy + 18);
+  }
+  if (S.mode !== 'play' || G.st !== 'run' || G.over) return;
+  // a word over the head when it helps
+  for (const id of ['pink', 'mint']) {
+    if (O.role && id !== O.local) continue;
+    const p = G.p[id], d = OM.st.disp[id], tg = Shop.target(G, id); let tip = null;
+    if (G.thief && G.thief.alarm && G.thief.st === 'run') tip = 'วิ่งไปชนขโมย!';
+    else if (tg && tg.k === 'kid') tip = 'จับเด็ก!';
+    else if (tg && tg.k === 'till') tip = 'คิดเงิน';
+    else if (tg && tg.k === 'mach') { const m = Shop.machAt(G, tg.tx, tg.ty); tip = m.g < 0 ? (tg.ok ? (m.dir < 0 ? 'ใส่จักรย่อเป็นไซซ์เล็กลง' : 'ใส่จักรขยายเป็นไซซ์ใหญ่ขึ้น') : 'ไซซ์นี้สุดแล้ว') : m.done ? 'หยิบออก' : 'กดสลับกันคนละที'; }
+    else if (tg && tg.k === 'cust' && !tg.ok) tip = 'ลูกค้าไม่ได้ขอชิ้นนี้';
+    else if (tg && tg.k === 'rack' && p.item >= 0 && !tg.ok) tip = 'ไม่ใช่ราวของมัน';
+    else if (tg && tg.k === 'rack' && p.item < 0 && !tg.ok) tip = 'ราวนี้หมด';
+    if (tip) xTip(g, id, tip, d.x, d.y - 46);
+  }
+}
+
 /* ---------- Fullscreen ---------- */
 const isIPhone = /iPhone|iPod/.test(navigator.userAgent);
 const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement || null;
@@ -9998,7 +10601,7 @@ function boot(data) {
   requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
   if (inClaude()) setTimeout(roomApi, 300);
 }
-try { Object.defineProperty(window, '__tsr', { value: { S, KS, DS, RS, TS, MS, WS, LS, BS, VS, IS, O, KK, KT, Twr, Leg, Boat, Mov, Kite, MODES, XK, Cin, Fart, Bed, Win, Trap, Isle, SM, BGMX: { TRACKS, bgmStep, mixerFor, stepDur, trackPrep, BGM, soundsInto, sfx } }, configurable: true }); } catch (e) {}
+try { Object.defineProperty(window, '__tsr', { value: { S, KS, DS, RS, TS, MS, WS, LS, BS, VS, IS, O, KK, KT, Twr, Leg, Boat, Mov, Kite, MODES, XK, Cin, Fart, Bed, Win, Trap, Isle, SM, Shop, OM, BGMX: { TRACKS, bgmStep, mixerFor, stepDur, trackPrep, BGM, soundsInto, sfx } }, configurable: true }); } catch (e) {}
 try { if (window.claude && window.claude.hot && window.claude.hot.snapshot) window.claude.hot.snapshot(() => ({ names: S.names, li: S.li })); } catch (e) {}
 if (window.claude && window.claude.hot && window.claude.hot.ready) window.claude.hot.ready(boot);
 else boot((window.claude && window.claude.hot && window.claude.hot.data) || {});
