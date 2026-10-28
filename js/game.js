@@ -12583,6 +12583,8 @@ function zHud(g, G, t) {
 const PEER_TV = 'thangsongrao-tv1-';
 const TVIDS = ['pink', 'mint'];
 const rid8 = () => Math.random().toString(36).slice(2, 10).padEnd(8, '0');
+// where this game lives in Claude (filled in when the Claude page is built; the web version uses its own address)
+const TV_HOME = '';
 // keep the screen awake while it is the big screen or a pad
 let tvLock = null;
 function tvWake() { try { if (navigator.wakeLock && !document.hidden) navigator.wakeLock.request('screen').then(l => { tvLock = l; }).catch(() => {}); } catch (e) {} }
@@ -12626,7 +12628,12 @@ async function tvConnect(code, hub) {
   O.api = api;
   try { return { room: await api.join('tsr-tv-' + code), lobby: false }; } catch (e) { return { room: api, lobby: true }; }
 }
-const tvSend = (room, lobby, o) => { try { const r = lobby ? room.presence({ tsr: o }) : room.presence(o); if (r && r.catch) r.catch(() => {}); } catch (e) {} };
+const tvSend = (room, lobby, o) => { try { const r = lobby ? room.presence(o.tv === 's' ? { tsr: o, tsrTv: { code: o.code } } : { tsr: o }) : room.presence(o); if (r && r.catch) r.catch(() => {}); } catch (e) {} };
+// in Claude, an open big screen also says so in the page's lobby, so a phone that opens the game sees it and joins with a tap
+function tvAdvert(on) {
+  if (!inClaude() || !O.api || TV.lobby) return;
+  try { const r = O.api.presence({ tsrTv: on ? { code: TV.code } : null }); if (r && r.catch) r.catch(() => {}); } catch (e) {}
+}
 const tvMsg = t => { $('#tvMsg').textContent = t; };
 
 /* ---------- the big screen ---------- */
@@ -12651,10 +12658,12 @@ async function tvOpen() {
   try { sessionStorage.setItem('tsr-tv-code', code); } catch (e) {}
   Object.assign(TV, { on: true, code, room: got.room, lobby: got.lobby, sid: rid8(), slots: { pink: '', mint: '' }, pads: new Map(), browse: {}, tips: {}, last: 0, waitFor: '', lists: {}, listsAt: 0 });
   try { TV.unsub.push(got.room.onPeers(tvPeers)); } catch (e) {}
+  padFindStop(); tvAdvert(true); TV.advAt = performance.now();
   app.classList.add('tvhub');
   toTitle();
 }
 function tvClose() {
+  tvAdvert(false);
   TV.unsub.forEach(u => { try { u(); } catch (e) {} }); TV.unsub = [];
   if (TV.room) { try { if (TV.lobby) TV.room.presence({ tsr: null }); else TV.room.leave(); } catch (e) {} }
   TV.on = false; TV.room = null; TV.code = '';
@@ -12788,6 +12797,7 @@ function tvPump(now) {
     if (st === 'pause') o.pause = { no: $('#pNo').textContent, hint: $('#pHint').textContent, swap: $('#bSwap').hidden ? '' : $('#bSwap').textContent };
   }
   tvSend(TV.room, TV.lobby, o);
+  if (now - (TV.advAt || 0) > 5000) { TV.advAt = now; tvAdvert(true); }
   // a phone that was playing went quiet: wait for it
   if (S.mode === 'play') for (const id of TVIDS) { const r = TV.slots[id] && TV.pads.get(TV.slots[id]); if (r && now - r.at > 3000) { TV.waitFor = S.names[id]; pause(); break; } }
   if (now - (TV.badgeAt || 0) > 400) {
@@ -12814,8 +12824,28 @@ function tvLobby() {
     seat.querySelector('span').textContent = !on ? 'ว่าง รอจอยมือถือ' : card ? 'กำลังดู ' + card.textContent : 'เข้ามาแล้ว';
   }
   $('#tvNote').textContent = any ? 'เลือกเกมกับด่านจากมือถือได้เลย' : 'ยังไม่มีจอยเข้ามา';
-  const where = inClaude() ? 'เปิดหน้านี้ใน Claude บนมือถือ (แชร์หน้านี้ให้แฟนด้วย)' : 'เปิด ' + location.host + location.pathname.replace(/index\.html$/, '') + ' บนมือถือ';
-  $('#tvHow').textContent = `${where} กด "จอใหญ่ + จอยมือถือ" แล้วกด "เป็นจอย" ใส่รหัสนี้`;
+  const url = tvQrUrl(), qr = !!url && tvQr(url), web = location.host + location.pathname.replace(/index\.html$/, '');
+  $('#tvHow').textContent = inClaude()
+    ? (qr ? `QR นี้เปิดเกมนี้ใน Claude บนมือถือ (แชร์หน้านี้ให้แฟนด้วย) แล้วกด "จอใหญ่ + จอยมือถือ" แตะจอกลาง ${TV.code}` : `เปิดหน้านี้ใน Claude บนมือถือ (แชร์หน้านี้ให้แฟนด้วย) กด "จอใหญ่ + จอยมือถือ" แล้วแตะจอกลาง ${TV.code} หรือใส่รหัสนี้`)
+    : (qr ? `สแกนแล้วกด "เป็นจอย" ก็เล่นได้เลย หรือเปิด ${web} บนมือถือ กด "จอใหญ่ + จอยมือถือ" แล้วใส่รหัสนี้` : `เปิด ${web} บนมือถือ กด "จอใหญ่ + จอยมือถือ" แล้วกด "เป็นจอย" ใส่รหัสนี้`);
+}
+// the link the QR code opens: this page with the code (a phone lands on the pad screen, code filled in); in Claude, the
+// game's page there. Not for a page a phone cannot reach (a file, this machine only).
+function tvQrUrl() {
+  if (inClaude()) return TV_HOME;
+  if (!/^https?:$/.test(location.protocol) || /^(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(location.hostname)) return '';
+  return location.origin + location.pathname + '?pad=' + TV.code;
+}
+function tvQr(url) {
+  if (TV.qrFor === url) return !$('#tvQr').hidden;
+  TV.qrFor = url;
+  const q = QR.make(url), box = $('#tvQr');
+  box.hidden = !q; if (!q) return false;
+  const n = q.size + 8, svg = $('#tvQrSvg');
+  svg.setAttribute('viewBox', `0 0 ${n} ${n}`);
+  svg.querySelector('rect').setAttribute('width', n); svg.querySelector('rect').setAttribute('height', n);
+  svg.querySelector('path').setAttribute('d', QR.path(q, 4));
+  return true;
 }
 function tvSticker(id, i) {
   const s = STK[i], layer = $('#stkLayer'); if (!s || !layer) return;
@@ -12848,17 +12878,48 @@ async function padJoin() {
   if (!/^[a-z0-9]{8}$/.test(sid)) { sid = rid8(); try { sessionStorage.setItem('tsr-pad-sid', sid); } catch (e) {} }
   Object.assign(PAD, { on: true, code, room: got.room, lobby: got.lobby, sid, name, me: '', scr: null, scrAt: 0, joinAt: performance.now(), seq: PAD.seq || 0, c: Object.assign(Object.fromEntries(TvLink.ALLKEYS.map(k => [k, 0])), PAD.c), t: {}, held: new Set(), j: [0, 0], br: '', off: null, sig: '', view: '', spec: '' });
   try { PAD.unsub.push(got.room.onPeers(padPeers)); } catch (e) {}
+  try { sessionStorage.setItem('tsr-pad-code', code); } catch (e) {}
+  padFindStop();
   app.classList.add('padmode'); $('#padApp').hidden = false;
   releaseAll(); releaseK(); xRelease(); engine(false, 0);
   audio(); tvWake();
   padRender(true);
 }
 function padLeave() {
+  try { sessionStorage.removeItem('tsr-pad-code'); } catch (e) {}
   PAD.unsub.forEach(u => { try { u(); } catch (e) {} }); PAD.unsub = [];
   if (PAD.room) { try { if (PAD.lobby) PAD.room.presence({ tsr: null }); else PAD.room.leave(); } catch (e) {} }
   PAD.on = false; PAD.room = null;
   app.classList.remove('padmode'); $('#padApp').hidden = true; $('#paStkPop').hidden = true;
   toTitle();
+}
+// in Claude: the big screens open right now (from the page's lobby), shown as buttons on the pad card
+let padFindOff = null;
+async function padFind() {
+  if (!inClaude() || padFindOff) return;
+  padFindOff = () => {};
+  const api = O.api || await roomApi();
+  if (!api || !padFindOff) { padFindOff = null; return; }
+  O.api = api;
+  try {
+    padFindOff = api.onPeers(ch => {
+      const found = [];
+      for (const p of (ch && ch.peers) || []) {
+        if (p.isMe || p.sameTab) continue;
+        const a = p.presence && p.presence.tsrTv, c = a && String(a.code);
+        if (c && /^\d{4}$/.test(c) && !found.includes(c)) found.push(c);
+      }
+      padFound(found.slice(0, 4));
+    }) || (() => {});
+  } catch (e) { padFindOff = null; }
+}
+function padFindStop() { if (padFindOff) { try { padFindOff(); } catch (e) {} } padFindOff = null; padFound([]); }
+function padFound(list) {
+  const box = $('#padFound'), row = $('#padFoundList'), sig = list.join();
+  if (box.dataset.sig === sig) return;
+  box.dataset.sig = sig; box.hidden = !list.length; row.textContent = ''; $('#tvPick').classList.toggle('found', !!list.length);   // a screen is open: this is a phone, its card first
+  for (const c of list) { const b = document.createElement('button'); b.type = 'button'; b.className = 'cta pad-found-b'; b.dataset.code = c; b.textContent = 'จอกลาง ' + c; row.appendChild(b); }
+  if (list.length === 1 && !$('#padCode').value) $('#padCode').value = list[0];
 }
 function padPeers(change) {
   const list = change && change.peers ? change.peers : [], now = performance.now();
@@ -12868,7 +12929,7 @@ function padPeers(change) {
     if (PAD.scr && PAD.scr.st !== 'menu' && s.st === 'menu') PAD.br = '';     // back from a game: both phones see all the games
     PAD.scr = s; PAD.scrAt = now;
     PAD.me = s.seat.pink[0] === PAD.sid ? 'pink' : s.seat.mint[0] === PAD.sid ? 'mint' : '';
-    if (PAD.me) PAD.want = PAD.me;                                           // if the screen starts again, ask for the same colour
+    if (PAD.me && PAD.want !== PAD.me) { PAD.want = PAD.me; store.set('padWant', PAD.me); }   // if the screen starts again (or next time), ask for the same colour
     const c = TvLink.clockFrom(s.ce[PAD.sid], s.hn, now); if (c && (!PAD.off || c.rtt <= PAD.off.rtt * 1.5 || now - PAD.off.at > 10000)) PAD.off = Object.assign(c, { at: now });
   }
 }
@@ -13042,10 +13103,11 @@ function padRender(force) {
 // the phone's own stickers: the same eight, sent to the big screen
 (function padInit() {
   const app2 = $('#padApp'); if (!app2) return;
-  $('#bTv').addEventListener('click', () => { releaseAll(); showScreen('tv'); setMode('menu'); $('#tvPick').hidden = false; $('#tvLobby').hidden = true; tvMsg(inClaude() ? 'ทั้งสามเครื่องเปิดหน้านี้ใน Claude ให้เครื่องที่ต่อกับจอใหญ่เปิดจอกลาง มือถือสองเครื่องเป็นจอย' : 'ให้เครื่องที่ต่อกับจอใหญ่ (ทีวี แท็บเล็ต หรือคอม) เปิดจอกลาง แล้วมือถือสองเครื่องใส่รหัสที่ขึ้นบนจอ'); $('#padName').value = store.get('padName', '') || ''; padWant(store.get('padWant', 'pink')); });
+  $('#bTv').addEventListener('click', () => { releaseAll(); showScreen('tv'); setMode('menu'); $('#tvPick').hidden = false; $('#tvLobby').hidden = true; tvMsg(inClaude() ? 'ทั้งสามเครื่องเปิดหน้านี้ใน Claude ให้เครื่องที่ต่อกับจอใหญ่เปิดจอกลาง มือถือสองเครื่องเป็นจอย' : 'ให้เครื่องที่ต่อกับจอใหญ่ (ทีวี แท็บเล็ต หรือคอม) เปิดจอกลาง แล้วมือถือสองเครื่องใส่รหัสที่ขึ้นบนจอ'); $('#padName').value = store.get('padName', '') || ''; padWant(store.get('padWant', 'pink')); $('#tvPick').classList.remove('joinonly'); padFind(); });
   $('#tvOpen').addEventListener('click', tvOpen);
   $('#bFull3').addEventListener('click', e => { e.currentTarget.blur(); toggleFull(); });
-  $('#tvBack').addEventListener('click', () => { if (TV.on) tvClose(); else toTitle(); });
+  $('#tvBack').addEventListener('click', () => { padFindStop(); if (TV.on) tvClose(); else toTitle(); });
+  $('#padFoundList').addEventListener('click', e => { const b = e.target.closest('.pad-found-b'); if (b) { $('#padCode').value = b.dataset.code; padJoin(); } });
   $('#padJoin').addEventListener('click', padJoin);
   $('#padCode').addEventListener('keydown', e => { if (e.key === 'Enter') padJoin(); });
   const padWant = c => { PAD.want = c === 'mint' ? 'mint' : 'pink'; document.querySelectorAll('#padColor button').forEach(b => b.classList.toggle('on', b.dataset.c === PAD.want)); };
@@ -13076,10 +13138,16 @@ function padRender(force) {
     SK.last = now; SK.n++; SK.id = +b.dataset.i; pop.hidden = true;
     const f = $('#paSent'); f.textContent = 'ส่ง "' + STK[SK.id][1] + '" ขึ้นจอแล้ว'; f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
   });
-  // from a link: ?pad=1234 opens the pad screen with the code, ?tv opens the big screen
+  // from a link: ?pad=1234 (the QR code on the big screen) opens just the pad card with the code filled in, ?tv opens the
+  // big screen choice; a pad page that was reloaded while joined goes straight back in
   try {
-    const q = new URLSearchParams(location.search);
-    if (q.has('pad')) setTimeout(() => { $('#bTv').click(); $('#padCode').value = (q.get('pad') || '').slice(0, 4); }, 0);
+    const q = new URLSearchParams(location.search), code = (q.get('pad') || '').replace(/\D/g, '').slice(0, 4);
+    let back = ''; try { back = sessionStorage.getItem('tsr-pad-code') || ''; } catch (e) {}
+    if (/^\d{4}$/.test(back) && (!q.has('pad') || code === back)) setTimeout(() => { $('#bTv').click(); $('#padCode').value = back; padJoin(); }, 0);
+    else if (q.has('pad')) setTimeout(() => {
+      $('#bTv').click(); $('#padCode').value = code; $('#tvPick').classList.add('joinonly');
+      tvMsg(code.length === 4 ? `ต่อกับจอกลางรหัส ${code} ใส่ชื่อ เลือกสี แล้วกด "เป็นจอย"` : 'ใส่รหัสที่ขึ้นบนจอกลาง');
+    }, 0);
     else if (q.has('tv')) setTimeout(() => $('#bTv').click(), 0);
   } catch (e) {}
 })();

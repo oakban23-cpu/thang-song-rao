@@ -195,6 +195,20 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
 .pad-color button.on{color:var(--paper);border-color:var(--pink);background:rgba(255,111,156,.12)}
 .pad-color button[data-c="mint"].on{border-color:var(--mint);background:rgba(79,224,191,.12)}
 .tv-lobby{text-align:center}
+.tv-top{display:flex;align-items:center;justify-content:center;gap:clamp(18px, 5vmin, 56px);margin-top:10px}
+.tv-codebox{min-width:0}
+.tv-qr{margin:0;display:flex;flex-direction:column;align-items:center;gap:8px}
+.tv-qr[hidden]{display:none}
+.tv-qr svg{display:block;width:clamp(150px, 30vmin, 340px);height:auto;border-radius:14px;box-shadow:0 0 0 3px var(--gold),0 14px 34px rgba(0,0,0,.35);shape-rendering:crispEdges}
+.tv-qr figcaption{font:400 clamp(14px, 2.2vmin, 22px)/1.3 var(--f-display);color:var(--gold)}
+.pad-found[hidden]{display:none}
+.pad-found .field{margin:0 0 6px}
+.pad-found-l{display:flex;flex-wrap:wrap;gap:8px}
+.pad-found-b{flex:1 1 140px;font-size:18px;padding:13px 16px}
+#tvPick.joinonly .tv-hostcard{display:none}
+#tvPick.found .tv-padcard{order:-1}
+#tvPick.joinonly .o-two{grid-template-columns:minmax(0, 420px);justify-content:center}
+html:has(.app.padmode),body:has(.app.padmode){overscroll-behavior:none}
 .tv-code-h{margin:14px 0 0;color:var(--muted);font-size:clamp(14px, 2.2vmin, 22px)}
 .tv-code{margin:0;font:400 clamp(64px, 15vmin, 150px)/1.1 var(--f-display);color:var(--gold);letter-spacing:.16em;font-variant-numeric:tabular-nums;text-shadow:0 6px 24px rgba(255,207,90,.25)}
 .tv-how{margin:4px auto 16px;max-width:46ch;color:var(--paper);font-size:clamp(14px, 2.1vmin, 21px);text-wrap:pretty}
@@ -280,6 +294,7 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
 @media (orientation:portrait){.pc{flex-direction:column}.pc-k .pc-joy{min-height:44%}.pc-row.big{flex-direction:row}}
 @media (orientation:landscape) and (max-height:520px){.pa-card{max-width:760px}.pa-stars{font-size:30px;margin:2px 0}.pa-stats{font-size:12px}.pa-acts{flex-direction:row;margin-top:10px}.pa-acts>*{flex:1}.pa-acts .cta,.pa-acts .ghost{padding:13px 8px}}
 @media (max-width:560px){.tv-seats{grid-template-columns:1fr}}
+@media (max-width:640px),(max-aspect-ratio:4/5){.tv-top{flex-direction:column;gap:10px}}
 
 .tab.mode .ms{align-self:start;font:600 12px/1.35 var(--f-ui);color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
 .tab.mode .ms b{color:var(--gold);font-weight:600}
@@ -781,25 +796,34 @@ body{background:radial-gradient(90% 60% at 50% 0%, #221b46, var(--night) 70%)}
           <h2>จอใหญ่ + จอยมือถือ</h2>
           <p class="phint" id="tvMsg"></p>
           <div class="o-two">
-            <div class="o-card">
+            <div class="o-card tv-hostcard">
               <p class="o-h">เครื่องนี้เป็นจอกลาง</p>
               <p class="o-p">เปิดในทีวี แท็บเล็ต หรือคอมที่ต่อกับทีวี ฉากเกมกับเสียงจะออกที่จอนี้ ความคืบหน้าและดาวเก็บไว้ที่เครื่องนี้</p>
               <button class="cta" id="tvOpen" type="button">เปิดจอกลาง</button>
             </div>
-            <div class="o-card">
+            <div class="o-card tv-padcard">
               <p class="o-h">เครื่องนี้เป็นจอย</p>
               <p class="o-p">ใส่รหัสที่ขึ้นบนจอกลาง แล้วใช้มือถือนี้บังคับตัวละคร เลือกเกม และส่งสติกเกอร์ขึ้นจอ</p>
               <label class="field" for="padName">ชื่อของคุณ</label>
               <input class="field-in" id="padName" maxlength="10" autocomplete="off">
               <div class="pad-color" id="padColor"><button type="button" data-c="pink" class="on"><i></i>อยากเป็นตัวชมพู</button><button type="button" data-c="mint"><i></i>อยากเป็นตัวมิ้นต์</button></div>
+              <div class="pad-found" id="padFound" hidden><p class="field">จอกลางที่เปิดอยู่ตอนนี้ แตะเพื่อเป็นจอย</p><div class="pad-found-l" id="padFoundList"></div></div>
               <div class="o-join"><input class="field-in code-in" id="padCode" inputmode="numeric" maxlength="4" placeholder="รหัส" autocomplete="off"><button class="cta" id="padJoin" type="button">เป็นจอย</button></div>
             </div>
           </div>
         </div>
         <div id="tvLobby" class="tv-lobby" hidden>
           <p class="eyebrow">จอกลาง · ทางสองเรา</p>
-          <p class="tv-code-h">รหัสจอกลาง</p>
-          <p class="tv-code" id="tvCode"></p>
+          <div class="tv-top">
+            <div class="tv-codebox">
+              <p class="tv-code-h">รหัสจอกลาง</p>
+              <p class="tv-code" id="tvCode"></p>
+            </div>
+            <figure class="tv-qr" id="tvQr" hidden>
+              <svg id="tvQrSvg" viewBox="0 0 41 41" role="img" aria-label="QR code สำหรับมือถือ"><rect width="41" height="41" fill="#fff"/><path fill="#1d1840" d=""/></svg>
+              <figcaption>สแกนด้วยกล้องมือถือ</figcaption>
+            </figure>
+          </div>
           <p class="tv-how" id="tvHow"></p>
           <div class="tv-seats">
             <div class="tv-seat pink" id="tvSeatP"><i class="face"></i><div><b></b><span></span></div></div>
@@ -998,6 +1022,7 @@ body{background:radial-gradient(90% 60% at 50% 0%, #221b46, var(--night) 70%)}
 <script src="js/fish.js"></script>
 <script src="js/rope.js"></script>
 <script src="js/tvlink.js"></script>
+<script src="js/qr.js"></script>
 <script src="js/levels.js"></script>
 <script src="js/klevels.js"></script>
 <script src="js/dlevels.js"></script>
