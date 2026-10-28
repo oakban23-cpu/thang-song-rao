@@ -184,6 +184,103 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
 .tab.mode .pic svg{display:block;width:100%;height:100%}
 .tab.mode .nm{align-self:end;font:600 14px/1.3 var(--f-ui);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tab.mode .nm.long{font-size:12.5px;letter-spacing:-.01em}
+/* the big screen and the phone pads */
+.tv-btn{display:inline-flex;align-items:center;gap:7px;border-color:var(--gold);color:var(--gold)}
+.tv-btn svg{width:18px;height:18px}
+.panel.tvp{width:min(100%, 760px)}
+.pad-color{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.pad-color button{display:flex;align-items:center;gap:6px;justify-content:center;font:600 13px/1.2 var(--f-ui);padding:9px 6px;border-radius:12px;border:1.5px solid var(--line);background:transparent;color:var(--muted);cursor:pointer}
+.pad-color button i{width:14px;height:14px;border-radius:5px;background:var(--pink);flex:none}
+.pad-color button[data-c="mint"] i{background:var(--mint)}
+.pad-color button.on{color:var(--paper);border-color:var(--pink);background:rgba(255,111,156,.12)}
+.pad-color button[data-c="mint"].on{border-color:var(--mint);background:rgba(79,224,191,.12)}
+.tv-lobby{text-align:center}
+.tv-code-h{margin:14px 0 0;color:var(--muted);font-size:clamp(14px, 2.2vmin, 22px)}
+.tv-code{margin:0;font:400 clamp(64px, 15vmin, 150px)/1.1 var(--f-display);color:var(--gold);letter-spacing:.16em;font-variant-numeric:tabular-nums;text-shadow:0 6px 24px rgba(255,207,90,.25)}
+.tv-how{margin:4px auto 16px;max-width:46ch;color:var(--paper);font-size:clamp(14px, 2.1vmin, 21px);text-wrap:pretty}
+.tv-seats{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.tv-seat{display:flex;align-items:center;gap:14px;padding:16px;border-radius:18px;border:2px dashed var(--line);background:var(--panel-2);text-align:left;transition:border-color .2s,background .2s}
+.tv-seat .face{position:relative;flex:none;width:clamp(48px, 8vmin, 72px);aspect-ratio:1;border-radius:30%;background:linear-gradient(#ffb8cf,var(--pink));opacity:.35;transition:opacity .2s,transform .3s}
+.tv-seat.mint .face{background:linear-gradient(#a9f2de,var(--mint))}
+.tv-seat .face::before,.tv-seat .face::after{content:"";position:absolute;top:38%;width:14%;height:20%;border-radius:50%;background:#2a1f4a}
+.tv-seat .face::before{left:26%}.tv-seat .face::after{right:26%}
+.tv-seat b{display:block;font:400 clamp(18px, 3vmin, 30px)/1.3 var(--f-display);color:var(--muted)}
+.tv-seat span{display:block;color:var(--muted);font-size:clamp(13px, 1.8vmin, 18px)}
+.tv-seat.on{border-style:solid}
+.tv-seat.on .face{opacity:1;transform:translateY(-2px)}
+.tv-seat.pink.on{border-color:var(--pink)}.tv-seat.mint.on{border-color:var(--mint)}
+.tv-seat.pink.on b{color:var(--pink)}.tv-seat.mint.on b{color:var(--mint)}
+.tv-note{margin:16px 0 4px;font:400 clamp(16px, 2.6vmin, 26px)/1.4 var(--f-display);color:var(--gold)}
+.tv-small{margin:6px 0 0;color:var(--muted);font-size:13px}
+.app.tvhub .pad,.app.tvhub .kpad,.app.tvhub .xpad,.app.tvhub .mpad,.app.tvhub .wpad,.app.tvhub .lpad,.app.tvhub .bpad{display:none!important}
+.stk.tv{top:16%;transform:translate(calc(-50% + var(--x)),0) scale(1.35)}
+.app.padmode .stage,.app.padmode .hud{visibility:hidden}
+.padapp{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;color:var(--paper);font-family:var(--f-ui);background:radial-gradient(80% 60% at 0% 0%, rgba(255,111,156,.18), transparent 70%),radial-gradient(70% 60% at 100% 100%, rgba(79,224,191,.14), transparent 70%),#1d1840;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.padapp[hidden]{display:none}
+.padapp{--pc:var(--pink)}.padapp.mint{--pc:var(--mint)}
+.pa-top{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);background:rgba(20,16,44,.6)}
+.pa-me{display:flex;align-items:center;gap:8px;min-width:0}
+.pa-me>i{flex:none;width:30px;height:30px;border-radius:10px;background:linear-gradient(#ffb8cf,var(--pink))}
+.padapp.mint .pa-me>i{background:linear-gradient(#a9f2de,var(--mint))}
+.pa-me b{display:block;font:400 16px/1.2 var(--f-display);color:var(--pc);white-space:nowrap}
+.pa-me small{display:block;font-size:11px;color:var(--muted)}
+.pa-net{flex:1;min-width:0;font-size:12px;color:var(--mint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}
+.pa-net.wait{color:var(--gold)}
+.pa-btn{flex:none;display:inline-flex;align-items:center;gap:4px;font:600 14px/1 var(--f-ui);padding:9px 13px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--paper);cursor:pointer}
+.pa-btn svg{width:18px;height:18px;color:var(--pink)}
+.pa-body{flex:1;min-height:0;overflow:auto;padding:10px 12px 14px;-webkit-overflow-scrolling:touch}
+.pa-view[hidden]{display:none!important}
+.pa-wait{margin:18vh auto 0;max-width:30ch;text-align:center;font:400 18px/1.5 var(--f-display);color:var(--gold)}
+.pa-h{margin:4px 0 8px;font:400 22px/1.3 var(--f-display);color:var(--gold)}
+.pa-cat{margin:12px 2px 6px;font:400 15px/1.4 var(--f-display);color:var(--muted)}
+.pa-modes{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.pa-mode{display:flex;align-items:center;gap:10px;min-width:0;padding:8px;border-radius:14px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));color:var(--paper);text-align:left;cursor:pointer}
+.pa-mode .pic{flex:none;width:42px;height:42px;border-radius:11px;overflow:hidden}
+.pa-mode .pic svg{display:block;width:100%;height:100%}
+.pa-mode .tx{min-width:0}
+.pa-mode b{display:block;font:600 14px/1.3 var(--f-ui);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pa-mode small{display:block;font-size:12px;color:var(--gold);white-space:nowrap}
+.pa-bar{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.pa-bar b{font:400 19px/1.3 var(--f-display);color:var(--gold)}
+.pa-lvls{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.pa-lv .nm{font-weight:600}
+.pa-lv .hs{font-size:12px;color:var(--muted)}
+.pa-lv:disabled{opacity:.42}
+.pa-play{display:flex;flex-direction:column;height:100%;min-height:260px}
+.pa-info{font-size:14px;line-height:1.5}
+.pa-lab{color:var(--muted)}
+.pa-info b{font:400 17px/1.3 var(--f-display);color:var(--paper)}
+.pa-role{display:inline-block;margin-left:4px;padding:2px 9px;border-radius:999px;background:var(--pc);color:var(--ink);font-weight:600;font-size:13px}
+.pa-hint{margin:4px 0 0;color:var(--muted);font-size:13px;line-height:1.5;max-height:4.6em;overflow:auto}
+.pa-tip{margin:6px 0;min-height:1.5em;text-align:center;font:400 19px/1.4 var(--f-display);color:var(--gold)}
+.pc{flex:1;display:flex;gap:12px;min-height:170px;color:var(--pc);touch-action:none}
+.pc-joy,.pc-col,.pc-row{flex:1;min-width:0}
+.pc-col{display:flex;flex-direction:column;gap:12px}
+.pc-row{display:flex;gap:12px}
+.pc-joy{position:relative;border-radius:22px;border:1.5px dashed rgba(255,255,255,.18);background:rgba(255,255,255,.03);overflow:hidden;--cx:50%;--cy:55%;--kx:0px;--ky:0px}
+.pc-joy .ring{position:absolute;left:var(--cx);top:var(--cy);width:128px;height:128px;margin:-64px 0 0 -64px;border-radius:50%;border:3px solid currentColor;opacity:.45}
+.pc-joy .knob{position:absolute;left:var(--cx);top:var(--cy);width:62px;height:62px;margin:-31px 0 0 -31px;border-radius:50%;background:currentColor;opacity:.85;transform:translate(var(--kx),var(--ky));box-shadow:0 6px 16px rgba(0,0,0,.35)}
+.pc-joy .hint{position:absolute;left:0;right:0;bottom:8px;text-align:center;font-size:12px;color:var(--muted)}
+.pc-joy.live .hint{display:none}
+.pb{flex:1;min-height:64px;border-radius:22px;border:3px solid currentColor;background:rgba(255,255,255,.05);color:inherit;font:400 clamp(18px, 5.5vmin, 30px)/1.25 var(--f-display);white-space:pre-line;cursor:pointer;touch-action:none;transition:background .06s,transform .06s}
+.pb.on{background:currentColor;color:var(--ink);transform:scale(.97)}
+.pc-row.big .pb{font-size:clamp(22px, 7vmin, 40px)}
+.pa-card{max-width:520px;margin:0 auto;text-align:center}
+.pa-sub{margin:6px 0 0;color:var(--muted)}
+.pa-stars{margin:6px 0;font-size:40px;letter-spacing:.1em;color:var(--gold)}
+.pa-msg{margin:4px 0;font-size:15px}
+.pa-stats{margin:6px 0 0;white-space:pre-line;font-size:13px;color:var(--muted)}
+.pa-acts{display:flex;flex-direction:column;gap:10px;margin-top:16px}
+.pa-acts .cta,.pa-acts .ghost{width:100%;padding:16px}
+.pa-stk{position:absolute;right:10px;top:56px;z-index:2;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:10px;border-radius:18px;background:#2b2456;border:1px solid var(--line);box-shadow:0 18px 40px rgba(0,0,0,.5);width:min(340px, calc(100% - 20px))}
+.pa-stk[hidden]{display:none}
+.pa-sent{position:absolute;left:50%;bottom:18px;margin:0;padding:8px 14px;border-radius:999px;background:rgba(21,17,46,.9);color:var(--gold);font-size:14px;white-space:nowrap;transform:translate(-50%,20px);opacity:0;pointer-events:none}
+.pa-sent.go{animation:paSent 1.8s ease forwards}
+@keyframes paSent{12%{opacity:1;transform:translate(-50%,0)}80%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,0)}}
+@media (orientation:portrait){.pc{flex-direction:column}.pc-k .pc-joy{min-height:44%}.pc-row.big{flex-direction:row}}
+@media (orientation:landscape) and (max-height:520px){.pa-card{max-width:760px}.pa-stars{font-size:30px;margin:2px 0}.pa-stats{font-size:12px}.pa-acts{flex-direction:row;margin-top:10px}.pa-acts>*{flex:1}.pa-acts .cta,.pa-acts .ghost{padding:13px 8px}}
+@media (max-width:560px){.tv-seats{grid-template-columns:1fr}}
+
 .tab.mode .ms{align-self:start;font:600 12px/1.35 var(--f-ui);color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
 .tab.mode .ms b{color:var(--gold);font-weight:600}
 .tab.mode:hover{border-color:#6a5fae}
@@ -611,6 +708,7 @@ body{background:radial-gradient(90% 60% at 50% 0%, #221b46, var(--night) 70%)}
           <button class="cta" id="bGo" type="button">ออกเดินทาง</button>
           <button class="ghost" id="bCh2" type="button" data-mode="adv">ไปบทใหม่ · กลไกโบราณ</button>
           <button class="ghost online-btn" id="bOnline" type="button">เล่นออนไลน์ คนละเครื่อง</button>
+          <button class="ghost tv-btn" id="bTv" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="4" width="19" height="12.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8.5 20.5h7M12 16.5v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>จอใหญ่ + จอยมือถือ</span></button>
           <button class="ghost full-btn" id="bFull2" type="button" data-full><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span>เต็มจอ</span></button>
           <label class="toggle"><input type="checkbox" id="snd" checked> เสียง</label>
           <label class="toggle music"><input type="checkbox" id="bgmOn" checked> เพลง</label>
@@ -672,6 +770,47 @@ body{background:radial-gradient(90% 60% at 50% 0%, #221b46, var(--night) 70%)}
           <button class="ghost" id="bAgain" type="button">เล่นด่านนี้อีกครั้ง</button>
           <button class="ghost" id="bLevels2" type="button">เลือกด่าน</button>
           <button class="ghost" id="bLeave2" type="button" hidden>ออกจากห้อง</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen" id="sTv" hidden>
+      <div class="panel tvp">
+        <div id="tvPick">
+          <p class="eyebrow">เล่นบนจอใหญ่ ใช้มือถือสองเครื่องเป็นจอย</p>
+          <h2>จอใหญ่ + จอยมือถือ</h2>
+          <p class="phint" id="tvMsg"></p>
+          <div class="o-two">
+            <div class="o-card">
+              <p class="o-h">เครื่องนี้เป็นจอกลาง</p>
+              <p class="o-p">เปิดในทีวี แท็บเล็ต หรือคอมที่ต่อกับทีวี ฉากเกมกับเสียงจะออกที่จอนี้ ความคืบหน้าและดาวเก็บไว้ที่เครื่องนี้</p>
+              <button class="cta" id="tvOpen" type="button">เปิดจอกลาง</button>
+            </div>
+            <div class="o-card">
+              <p class="o-h">เครื่องนี้เป็นจอย</p>
+              <p class="o-p">ใส่รหัสที่ขึ้นบนจอกลาง แล้วใช้มือถือนี้บังคับตัวละคร เลือกเกม และส่งสติกเกอร์ขึ้นจอ</p>
+              <label class="field" for="padName">ชื่อของคุณ</label>
+              <input class="field-in" id="padName" maxlength="10" autocomplete="off">
+              <div class="pad-color" id="padColor"><button type="button" data-c="pink" class="on"><i></i>อยากเป็นตัวชมพู</button><button type="button" data-c="mint"><i></i>อยากเป็นตัวมิ้นต์</button></div>
+              <div class="o-join"><input class="field-in code-in" id="padCode" inputmode="numeric" maxlength="4" placeholder="รหัส" autocomplete="off"><button class="cta" id="padJoin" type="button">เป็นจอย</button></div>
+            </div>
+          </div>
+        </div>
+        <div id="tvLobby" class="tv-lobby" hidden>
+          <p class="eyebrow">จอกลาง · ทางสองเรา</p>
+          <p class="tv-code-h">รหัสจอกลาง</p>
+          <p class="tv-code" id="tvCode"></p>
+          <p class="tv-how" id="tvHow"></p>
+          <div class="tv-seats">
+            <div class="tv-seat pink" id="tvSeatP"><i class="face"></i><div><b></b><span></span></div></div>
+            <div class="tv-seat mint" id="tvSeatM"><i class="face"></i><div><b></b><span></span></div></div>
+          </div>
+          <p class="tv-note" id="tvNote"></p>
+          <p class="tv-small">ต่อจอนี้เข้าทีวีแล้วกดปุ่มเต็มจอมุมขวาบน ถ้ามีคีย์บอร์ดก็ยังเล่นด้วยคีย์บอร์ดได้เหมือนเดิม</p>
+        </div>
+        <div class="actions">
+          <button class="ghost" id="tvBack" type="button">กลับหน้าแรก</button>
+          <button class="ghost full-btn" id="bFull3" type="button" data-full><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span>เต็มจอ</span></button>
         </div>
       </div>
     </section>
@@ -805,6 +944,35 @@ body{background:radial-gradient(90% 60% at 50% 0%, #221b46, var(--night) 70%)}
     </div>
     <p class="rotate">หมุนจอเป็นแนวนอนจะเห็นฉากชัดกว่า</p>
   </main>
+  <div class="padapp" id="padApp" hidden>
+    <header class="pa-top">
+      <span class="pa-me"><i></i><span><b id="paMe"></b><small id="paMeC"></small></span></span>
+      <span class="pa-net" id="paNet"></span>
+      <button class="pa-btn" id="paStk" type="button" aria-label="ส่งสติกเกอร์ขึ้นจอใหญ่"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5C5.8 16 3 12.6 3 8.9 3 6.1 5.2 4 7.9 4c1.7 0 3.2.9 4.1 2.4C12.9 4.9 14.4 4 16.1 4 18.8 4 21 6.1 21 8.9c0 3.7-2.8 7.1-9 11.6z" fill="currentColor"/></svg></button>
+      <button class="pa-btn" id="paPauseB" type="button" hidden>พัก</button>
+      <button class="pa-btn" id="paLeave" type="button">ออก</button>
+    </header>
+    <div class="pa-body">
+      <section class="pa-view" id="paWait"><p class="pa-wait" id="paWaitT"></p></section>
+      <section class="pa-view" id="paMenu" hidden><p class="pa-h">เลือกเกม</p><div id="paModes"></div></section>
+      <section class="pa-view" id="paLevels" hidden><div class="pa-bar"><button class="pa-btn" id="paBack" type="button">‹ เลือกเกม</button><b id="paLvT"></b></div><div id="paLvls"></div></section>
+      <section class="pa-view pa-play" id="paPlay" hidden>
+        <div class="pa-info"><span class="pa-lab" id="paLab"></span> <b id="paName"></b> <span class="pa-role" id="paRole" hidden></span><p class="pa-hint" id="paHint"></p></div>
+        <p class="pa-tip" id="paTip"></p>
+        <div class="pc" id="paCtl"></div>
+      </section>
+      <section class="pa-view pa-card" id="paPause" hidden>
+        <p class="pa-h">พักเกม</p><p class="pa-sub" id="paPNo"></p><p class="pa-hint" id="paPHint"></p>
+        <div class="pa-acts"><button class="cta" id="paResume" type="button">เล่นต่อ</button><button class="ghost" id="paRestart" type="button">เริ่มด่านใหม่</button><button class="ghost" id="paSwap" type="button" hidden></button><button class="ghost" id="paMenu1" type="button">เลือกเกมอื่น</button></div>
+      </section>
+      <section class="pa-view pa-card" id="paClear" hidden>
+        <p class="pa-sub" id="paCH"></p><p class="pa-h" id="paCN"></p><p class="pa-stars" id="paCStars"></p><p class="pa-msg" id="paCMsg"></p><p class="pa-stats" id="paCStats"></p>
+        <div class="pa-acts"><button class="cta" id="paNext" type="button" hidden></button><button class="ghost" id="paAgain" type="button" hidden></button><button class="ghost" id="paMenu2" type="button">เลือกเกมอื่น</button></div>
+      </section>
+    </div>
+    <div class="pa-stk" id="paStkPop" hidden></div>
+    <p class="pa-sent" id="paSent"></p>
+  </div>
 </div>
 
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" onerror="var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';document.head.appendChild(s)"></script>
@@ -829,6 +997,7 @@ body{background:radial-gradient(90% 60% at 50% 0%, #221b46, var(--night) 70%)}
 <script src="js/shop.js"></script>
 <script src="js/fish.js"></script>
 <script src="js/rope.js"></script>
+<script src="js/tvlink.js"></script>
 <script src="js/levels.js"></script>
 <script src="js/klevels.js"></script>
 <script src="js/dlevels.js"></script>

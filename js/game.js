@@ -42,7 +42,7 @@ const topDown = () => S.kind === 'kit' || S.kind === 'def' || S.kind === 'drv' |
 
 /* ---------- DOM ---------- */
 const app = $('#app'), stage = $('#stage'), cv = $('#cv'), ctx = cv.getContext('2d');
-const scr = { title: $('#sTitle'), pause: $('#sPause'), clear: $('#sClear'), online: $('#sOnline'), ward: $('#sWard') };
+const scr = { title: $('#sTitle'), pause: $('#sPause'), clear: $('#sClear'), online: $('#sOnline'), ward: $('#sWard'), tv: $('#sTv') };
 const nPink = $('#nPink'), nMint = $('#nMint'), snd = $('#snd'), bgmOn = $('#bgmOn');
 const isTouch = window.matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints || 0) > 0 && !window.matchMedia('(pointer: fine)').matches;
 app.classList.toggle('touch', isTouch);
@@ -56,6 +56,9 @@ const S = { mode: 'menu', li: 0, W: null, deathT: 0, winT: 0, flash: 0, banner: 
 const KB = { pink: { left: false, right: false, jump: false }, mint: { left: false, right: false, jump: false } };
 const TC = { pink: { left: false, right: false, jump: false }, mint: { left: false, right: false, jump: false } };
 const JP = { pink: false, mint: false };
+// the big screen (TV) and a phone used as its pad (PAD); see the big screen part further down
+const TV = { on: false, busy: false, code: '', room: null, lobby: false, sid: '', slots: { pink: '', mint: '' }, pads: new Map(), unsub: [], browse: {}, tips: {}, last: 0, waitFor: '', lists: {}, listsAt: 0, ms: {} };
+const PAD = { on: false, busy: false, code: '', room: null, lobby: false, sid: '', name: '', want: 'pink', me: '', scr: null, scrAt: 0, seq: 0, cmd: null, c: {}, t: {}, held: new Set(), j: [0, 0], br: '', off: null, unsub: [], sig: '', view: '', spec: '', top: '' };
 const input = id => ({ left: KB[id].left || TC[id].left, right: KB[id].right || TC[id].right, jump: KB[id].jump || TC[id].jump, jp: JP[id] });
 
 /* ---------- Sound: one soft mixer for the effects, the music and the sounds of each place ---------- */
@@ -356,7 +359,7 @@ function drum(a, out, k, at, v) {
 const BGM = { name: undefined, tr: null, step: 0, next: 0, fadeIn: false, hold: 0, prevMode: '', banner: 0, amb: {}, ambKind: null };
 const MODE_TRACK = { adv: 'adv', kit: 'kit', def: 'def', drv: 'drv', tak: 'tak', twr: 'twr', leg: 'leg', boat: 'boat', mov: 'mov', kite: 'kite', cin: 'cin', fart: 'fart', bed: 'bed', win: 'win', trap: 'trap', isle: 'isle', shop: 'shop', fish: 'fish', climb: 'climb' };
 function bgmWanted() {
-  if (!S.music || document.hidden) return null;
+  if (!S.music || document.hidden || PAD.on) return null;              // a phone used as a pad stays quiet (the big screen plays)
   if (S.mode === 'menu' || S.mode === 'clear' || !scr.title.hidden || !scr.online.hidden) return 'title';
   if (S.kind === 'mus') return null;                                   // the rhythm game's song is the music
   return MODE_TRACK[S.kind] || 'title';
@@ -1866,7 +1869,7 @@ function setMode(m) {
   app.classList.toggle('menu', m === 'menu');
   app.classList.toggle('playing', m === 'play' || m === 'dying' || m === 'won');
 }
-function showScreen(name) { for (const k in scr) scr[k].hidden = k !== name; }
+function showScreen(name) { if (name === 'title' && TV.on) name = 'tv'; for (const k in scr) scr[k].hidden = k !== name; if (name === 'tv' && TV.on) tvLobby(); }
 function updateHud() {
   const lv = ALL[S.li];
   $('#hNo').textContent = lvLabel(S.li);
@@ -2065,6 +2068,8 @@ function tick() {
 function frame(now) {
   const dt = Math.min(.05, (now - last) / 1000); last = now;
   S.time += dt;
+  if (PAD.on) { padFrame(now); requestAnimationFrame(frame); return; }      // a phone used as a pad shows no game
+  if (TV.on) tvPump(now);
   if (S.kind === 'kit') { kitFrame(dt, now); requestAnimationFrame(frame); return; }
   if (S.kind === 'def') { defFrame(dt, now); requestAnimationFrame(frame); return; }
   if (S.kind === 'drv') { drvFrame(dt, now); requestAnimationFrame(frame); return; }
@@ -2196,12 +2201,12 @@ const peerErrText = t => PEER_ERR[t] || 'ต่อระบบจับคู่
 const newCode = () => String(1000 + Math.floor(Math.random() * 9000));
 
 /* A PeerJS data connection dressed up as the small part of a room this game uses: presence(), onPeers(), leave(). */
-function peerRoom(code, role) {
+function peerRoom(code, role, prefix = PEER_PREFIX) {
   const Peer = peerCtor();
   return new Promise((resolve, reject) => {
     if (!Peer) { reject('no-lib'); return; }
     let peer = null, conn = null, fn = null, done = false, closed = false, lastSent = 0, retry = null, heard = 0;
-    try { peer = role === 'host' ? new Peer(PEER_PREFIX + code) : new Peer(); } catch (e) { reject('browser-incompatible'); return; }
+    try { peer = role === 'host' ? new Peer(prefix + code) : new Peer(); } catch (e) { reject('browser-incompatible'); return; }
     const deliver = data => { if (fn) fn({ peers: data ? [{ peer: 'remote', presence: data, updatedAt: performance.now(), sameTab: false }] : [] }); };
     // a phone's line can drop for a moment and the guest dials again while the host still thinks the old line is up:
     // the newest line that opens is the one used (the old one is hung up), and whatever comes in on a line is listened to
@@ -2225,7 +2230,7 @@ function peerRoom(code, role) {
     const timer = setTimeout(() => fail('timeout'), 15000);
     peer.on('error', err => { if (!done) fail((err && err.type) || 'error'); });
     peer.on('disconnected', () => { if (!closed) { try { peer.reconnect(); } catch (e) {} } });
-    const dial = () => { const c = peer.connect(PEER_PREFIX + code, { serialization: 'json', reliable: false }); if (!conn) conn = c; wire(c); return c; };
+    const dial = () => { const c = peer.connect(prefix + code, { serialization: 'json', reliable: false }); if (!conn) conn = c; wire(c); return c; };
     peer.on('open', () => {
       if (role === 'host') {
         peer.on('connection', c => { wire(c); if (c.open) use(c); });
@@ -12570,6 +12575,516 @@ function zHud(g, G, t) {
   for (const [id, tip, x, y] of tips) xTip(g, id, tip, x, y);
 }
 
+/* ---------- the big screen and the phone pads: a TV or a tablet plays the game, two phones are the controllers ----------
+   The big screen (the hub) plays exactly as when two sit at one keyboard; what each phone presses goes into that
+   colour's touch controls. The phones choose the mode and the level, pause, start again and go on, see their own
+   buttons' words, the level's hint and what to do now, and send stickers that pop up on the big screen.
+   (TV and PAD, the two states, are made near the top, with S.) */
+const PEER_TV = 'thangsongrao-tv1-';
+const TVIDS = ['pink', 'mint'];
+const rid8 = () => Math.random().toString(36).slice(2, 10).padEnd(8, '0');
+// keep the screen awake while it is the big screen or a pad
+let tvLock = null;
+function tvWake() { try { if (navigator.wakeLock && !document.hidden) navigator.wakeLock.request('screen').then(l => { tvLock = l; }).catch(() => {}); } catch (e) {} }
+document.addEventListener('visibilitychange', () => { if (!document.hidden && (TV.on || PAD.on)) tvWake(); });
+
+/* A PeerJS hub for the big screen: every phone that dials in is a line; what came in last on each line is that phone's
+   presence; whatever the screen says goes out on all of them. */
+function peerHub(code) {
+  const Peer = peerCtor();
+  return new Promise((resolve, reject) => {
+    if (!Peer) { reject('no-lib'); return; }
+    let peer = null, fn = null, done = false, closed = false, lastSent = 0;
+    const lines = new Map();
+    try { peer = new Peer(PEER_TV + code); } catch (e) { reject('browser-incompatible'); return; }
+    const deliver = () => { if (fn) fn({ peers: [...lines.entries()].filter(([, v]) => v.data).map(([c, v], i) => ({ peer: 'line' + i, presence: v.data, updatedAt: v.at, sameTab: false })) }); };
+    const room = {
+      presence(o) { const now = performance.now(); if (now - lastSent > 33) { lastSent = now; for (const c of lines.keys()) if (c.open) { try { c.send(o); } catch (e) {} } } return Promise.resolve(); },
+      onPeers(f) { fn = f; return () => { if (fn === f) fn = null; }; },
+      leave() { closed = true; for (const c of lines.keys()) { try { c.close(); } catch (e) {} } try { peer.destroy(); } catch (e) {} return Promise.resolve(); }
+    };
+    const fail = t => { if (done) return; done = true; clearTimeout(timer); try { peer.destroy(); } catch (e) {} reject(t); };
+    const timer = setTimeout(() => fail('timeout'), 15000);
+    peer.on('error', err => { if (!done) fail((err && err.type) || 'error'); });
+    peer.on('disconnected', () => { if (!closed) { try { peer.reconnect(); } catch (e) {} } });
+    peer.on('connection', c => {
+      lines.set(c, { data: null, at: 0 });
+      c.on('data', d => { if (closed || !d || typeof d !== 'object') return; lines.set(c, { data: d, at: performance.now() }); deliver(); });
+      c.on('close', () => { lines.delete(c); deliver(); });
+      c.on('error', () => {});
+    });
+    // a line that has said nothing for a long while is gone
+    setInterval(() => { const now = performance.now(); let gone = false; for (const [c, v] of lines) if (v.at && now - v.at > 20000) { lines.delete(c); gone = true; } if (gone) deliver(); }, 5000);
+    peer.on('open', () => { if (done) return; done = true; clearTimeout(timer); resolve(room); });
+  });
+}
+// into the big screen's room: as the hub, or as a pad
+async function tvConnect(code, hub) {
+  if (!inClaude()) return { room: hub ? await peerHub(code) : await peerRoom(code, 'guest', PEER_TV), lobby: false };
+  const api = O.api || await roomApi();
+  if (!api) throw 'no-room';
+  O.api = api;
+  try { return { room: await api.join('tsr-tv-' + code), lobby: false }; } catch (e) { return { room: api, lobby: true }; }
+}
+const tvSend = (room, lobby, o) => { try { const r = lobby ? room.presence({ tsr: o }) : room.presence(o); if (r && r.catch) r.catch(() => {}); } catch (e) {} };
+const tvMsg = t => { $('#tvMsg').textContent = t; };
+
+/* ---------- the big screen ---------- */
+async function tvOpen() {
+  if (TV.busy) return;
+  TV.busy = true; audio(); tvWake();
+  $('#tvOpen').disabled = true; tvMsg('กำลังเปิดจอกลาง…');
+  // the same code as last time on this screen (a reload): the phones, still trying it, come back by themselves
+  let code = '', got = null;
+  try { code = sessionStorage.getItem('tsr-tv-code') || ''; } catch (e) {}
+  if (!/^\d{4}$/.test(code)) code = newCode();
+  for (let k = 0; k < 4 && !got; k++) {
+    try { got = await tvConnect(code, true); }
+    catch (e) {
+      if (e === 'unavailable-id') { code = newCode(); continue; }
+      TV.busy = false; $('#tvOpen').disabled = false;
+      tvMsg(e === 'no-room' ? 'เครื่องนี้ต่อห้องไม่ได้ ต้องเปิดหน้านี้ในแอปหรือเว็บ Claude และล็อกอินอยู่' : peerErrText(e)); return;
+    }
+  }
+  TV.busy = false; $('#tvOpen').disabled = false;
+  if (!got) { tvMsg(peerErrText('error')); return; }
+  try { sessionStorage.setItem('tsr-tv-code', code); } catch (e) {}
+  Object.assign(TV, { on: true, code, room: got.room, lobby: got.lobby, sid: rid8(), slots: { pink: '', mint: '' }, pads: new Map(), browse: {}, tips: {}, last: 0, waitFor: '', lists: {}, listsAt: 0 });
+  try { TV.unsub.push(got.room.onPeers(tvPeers)); } catch (e) {}
+  app.classList.add('tvhub');
+  toTitle();
+}
+function tvClose() {
+  TV.unsub.forEach(u => { try { u(); } catch (e) {} }); TV.unsub = [];
+  if (TV.room) { try { if (TV.lobby) TV.room.presence({ tsr: null }); else TV.room.leave(); } catch (e) {} }
+  TV.on = false; TV.room = null; TV.code = '';
+  app.classList.remove('tvhub'); $('#hNet').hidden = true;
+  for (const id of TVIDS) { Object.assign(TC[id], { left: false, right: false, jump: false }); Object.assign(KT[id], { x: 0, y: 0, use: 0 }); }
+  toTitle();
+}
+// what the phones say
+function tvPeers(change) {
+  const list = change && change.peers ? change.peers : [], now = performance.now();
+  for (const p of list) {
+    if (p.sameTab) continue;
+    const m = TvLink.readPad(TV.lobby ? p.presence && p.presence.tsr : p.presence, TV.code); if (!m) continue;
+    let r = TV.pads.get(m.sid);
+    if (!r) { r = { first: now, at: now, seen: {}, cmds: {}, sk: null, ck: NaN, ckAt: 0 }; TV.pads.set(m.sid, r); }
+    if (m.ck !== r.ck) { r.at = now; r.ck = m.ck; r.ckAt = now; }
+    r.m = m; r.want = m.want;
+  }
+  for (const [s, r] of TV.pads) if (now - r.at > 60000) TV.pads.delete(s);
+  const was = TV.slots.pink + '|' + TV.slots.mint;
+  TV.slots = TvLink.seat(TV.slots, TV.pads, now);
+  for (const id of TVIDS) {
+    const r = TV.slots[id] && TV.pads.get(TV.slots[id]);
+    if (!r || !r.m) { TV.browse[id] = ''; continue; }
+    if (r.m.n && S.names[id] !== r.m.n) { S.names[id] = r.m.n; (id === 'pink' ? nPink : nMint).value = r.m.n; }
+    tvHear(id, r);
+  }
+  if (was !== TV.slots.pink + '|' + TV.slots.mint || !scr.tv.hidden) tvLobby();
+}
+function tvHear(id, r) {
+  const m = r.m, pr = TvLink.newPresses(r.seen, m.c);
+  tvInput(id, m, pr);
+  const cmd = TvLink.newCmd(r.cmds, m.cmd); if (cmd) tvCommand(cmd);
+  if (m.sk) { const [n, i] = m.sk.split('.').map(Number); if (r.sk == null) r.sk = n; else if (n > r.sk) { r.sk = n; tvSticker(id, i); } }
+  TV.browse[id] = m.br;
+}
+// which controls the game on screen uses
+function tvPadType() {
+  const k = S.kind;
+  if (k === 'adv') return 'adv';
+  if (k === 'mus') return 'm';
+  if (k === 'twr') return 'w';
+  if (k === 'leg') return 'l';
+  if (k === 'boat') return 'b';
+  if (MODES[k] && MODES[k].pad === 'x') return 'x';
+  return 'k';
+}
+const tvTime = v => (Number.isFinite(v) && Math.abs(v - performance.now()) < 1500 ? v : performance.now());
+// a phone's buttons into that colour's touch controls (presses only count while playing)
+function tvInput(id, m, pr) {
+  if (S.mode !== 'play') return;
+  const t = tvPadType(), h = m.h, dz = v => (Math.abs(v) < .18 ? 0 : v);
+  if (t === 'adv') { TC[id].left = h.has('L'); TC[id].right = h.has('R'); TC[id].jump = h.has('J'); if (pr.J) JP[id] = true; }
+  else if (t === 'k') { KT[id].x = dz(m.j[0]); KT[id].y = dz(m.j[1]); if (pr.A) KT[id].act += pr.A; KT[id].use = h.has('U') ? 1 : 0; if (pr.U) KT[id].jp = (KT[id].jp || 0) + pr.U; }
+  else if (t === 'x') { XK[id].a = h.has('a') ? 1 : 0; XK[id].b = h.has('b') ? 1 : 0; if (pr.a) XK[id].an += pr.a; if (pr.b) XK[id].bn += pr.b; }
+  else if (t === 'm') { for (const k of ['lo', 'hi']) if (pr[k]) musPress(Rhy.LANE_OF[id][k === 'lo' ? 0 : 1], tvTime(m.t[k])); }
+  else if (t === 'w') { if (pr.go) wPress(id); }
+  else if (t === 'l') { for (const k of ['out', 'in']) if (pr[k]) lPress(id, k, tvTime(m.t[k])); }
+  else if (t === 'b') { for (const k of ['fwd', 'back']) if (pr[k]) bPress(id, k, tvTime(m.t[k])); }
+}
+// the level lists on the big screen's own title (kept up to date there), read as they are
+function tvListIds(kind) {
+  if (kind === 'adv') return ['levels1', 'levels2', 'levels3', 'levels4'];
+  if (MODES[kind]) return [MODES[kind].list];
+  const id = { kit: 'klevels', def: 'dlevels', drv: 'rlevels', tak: 'tlevels', mus: 'mlevels', twr: 'wlevels', leg: 'llevels', boat: 'blevels', mov: 'vlevels', kite: 'ilevels' }[kind];
+  return id ? [id] : [];
+}
+const tvIdx = b => { for (const k of Object.keys(b.dataset)) { const v = Number(b.dataset[k]); if (Number.isInteger(v)) return v; } return -1; };
+const tvTxt = (b, s) => { const e = b.querySelector(s); return e ? e.textContent.trim() : ''; };
+function tvLevels(kind) {
+  const out = [];
+  for (const id of tvListIds(kind)) { const box = $('#' + id); if (box) box.querySelectorAll('button.lv').forEach(b => out.push([tvIdx(b), tvTxt(b, '.n'), tvTxt(b, '.nm'), tvTxt(b, '.hs'), b.disabled ? 1 : 0, b.classList.contains('done') ? 1 : 0])); }
+  return out;
+}
+function tvStart(kind, li) {
+  for (const id of tvListIds(kind)) {
+    const box = $('#' + id); if (!box) continue;
+    for (const b of box.querySelectorAll('button.lv')) if (tvIdx(b) === li) { if (!b.disabled) { if (S.tab !== kind) { S.tab = kind; store.set('tab', kind); } b.click(); } return; }
+  }
+}
+function tvCommand(cmd) {
+  const what = cmd[1], mode = S.mode;
+  if (what === 'start') { if (mode === 'menu' || mode === 'clear' || mode === 'paused') tvStart(cmd[2], cmd[3]); }
+  else if (what === 'pause') { if (mode === 'play') pause(); }
+  else if (what === 'resume') { if (mode === 'paused') resume(); }
+  else if (what === 'restart') { if (mode === 'paused') $('#bRestart2').click(); else if (mode === 'play' || mode === 'dying') restart(); }
+  else if (what === 'menu') { if (mode !== 'menu') toTitle(); }
+  else if (what === 'next') { if (mode === 'clear' && !$('#bNext').hidden) $('#bNext').click(); }
+  else if (what === 'again') { if (mode === 'clear' && !$('#bAgain').hidden) $('#bAgain').click(); }
+  else if (what === 'swap') { if (mode === 'paused' && !$('#bSwap').hidden) $('#bSwap').click(); }
+}
+function tvRole(id) {
+  if (S.kind === 'drv') return RS.roles.steer === id ? 'คุมพวงมาลัย' : 'คุมคันเร่ง';
+  if (S.kind === 'kite') return iRoleOf(id) === 'run' ? 'เป็นคนวิ่ง' : 'เป็นคนคุมสาย';
+  const m = MODES[S.kind]; if (m && m.R && m.roleName) return m.roleName[m.roleOf(id)];
+  return '';
+}
+function tvPadSpec(id) {
+  const t = tvPadType(), q = s => { const e = document.querySelector(s); return e ? e.innerHTML : ''; };
+  let b;
+  if (t === 'adv') b = [['L', 'ซ้าย'], ['R', 'ขวา'], ['J', 'กระโดด']];
+  else if (t === 'k') b = [['A', '.act'], ['U', '.use']].map(([k, c]) => { const e = document.querySelector(`#kpad .kside.${id} .kb${c}`); return [k, e && getComputedStyle(e).display !== 'none' ? e.innerHTML : '']; });
+  else { const box = { x: 'xpad', m: 'mpad', w: 'wpad', l: 'lpad', b: 'bpad' }[t]; b = [...document.querySelectorAll(`#${box} .side[data-p="${id}"] button`)].map(e => [e.dataset.k || 'go', e.innerHTML]); }
+  return { t, b: b.map(([k, h]) => [k, TvLink.label(h)]).filter(([, l]) => l), role: tvRole(id) };   // a button the game does not use here is left off
+}
+const tvLi = () => { const st = MODES[S.kind] ? MODES[S.kind].st : { kit: KS, def: DS, drv: RS, tak: TS, mus: MS, twr: WS, leg: LS, boat: BS, mov: VS, kite: IS }[S.kind]; return st ? st.li : S.li; };
+// what the screen tells the phones, a few times a second
+function tvPump(now) {
+  if (!TV.room || now - TV.last < 45) return;
+  TV.last = now;
+  const st = S.mode === 'menu' ? 'menu' : S.mode === 'paused' ? 'pause' : S.mode === 'clear' ? 'clear' : 'play';
+  const o = { app: 'tsr', tv: 's', v: 1, code: TV.code, sid: TV.sid, st, hn: Math.round(now * 10) / 10, seat: {}, ce: {} };
+  for (const id of TVIDS) {
+    const s = TV.slots[id], r = s && TV.pads.get(s);
+    o.seat[id] = [s, s ? S.names[id] : ''];
+    if (r && Number.isFinite(r.ck)) o.ce[s] = [r.ck, Math.round((now - r.ckAt) * 10) / 10];
+  }
+  if (st === 'menu') {
+    if (now - TV.listsAt > 600) { TV.listsAt = now; TV.ms = {}; document.querySelectorAll('[id^="ms-"]').forEach(e => { TV.ms[e.id.slice(3)] = e.textContent.trim(); }); TV.lists = {}; }
+    o.ms = TV.ms; o.lv = {};
+    for (const id of TVIDS) { const k = TV.browse[id]; if (k && !o.lv[k]) o.lv[k] = TV.lists[k] || (TV.lists[k] = tvLevels(k)); }
+  } else {
+    const lv = curLevel();
+    Object.assign(o, { kind: S.kind, li: tvLi(), lab: curLabel(), nm: lv.name, hint: lv.hint, pad: { pink: tvPadSpec('pink'), mint: tvPadSpec('mint') }, tip: {} });
+    for (const id of TVIDS) { const t = TV.tips[id]; o.tip[id] = t && S.time - t.at < .4 ? t.text : ''; }
+    if (st === 'clear') {
+      const cs = $('#cStars');
+      o.clear = { h: $('#cNo').textContent, nm: $('#cName').textContent, s: cs.hidden ? -1 : cs.querySelectorAll('span:not(.off)').length, msg: $('#cMsg').textContent,
+        stats: [...$('#cStats').children].map(e => e.textContent.trim()).join('\n'), next: $('#bNext').hidden ? '' : $('#bNext').textContent, again: $('#bAgain').hidden ? '' : $('#bAgain').textContent };
+    }
+    if (st === 'pause') o.pause = { no: $('#pNo').textContent, hint: $('#pHint').textContent, swap: $('#bSwap').hidden ? '' : $('#bSwap').textContent };
+  }
+  tvSend(TV.room, TV.lobby, o);
+  // a phone that was playing went quiet: wait for it
+  if (S.mode === 'play') for (const id of TVIDS) { const r = TV.slots[id] && TV.pads.get(TV.slots[id]); if (r && now - r.at > 3000) { TV.waitFor = S.names[id]; pause(); break; } }
+  if (now - (TV.badgeAt || 0) > 400) {
+    TV.badgeAt = now;
+    const b = $('#hNet'), here = id => { const r = TV.slots[id] && TV.pads.get(TV.slots[id]); return !!(r && now - r.at < 3000); };
+    b.hidden = false; b.classList.toggle('wait', !here('pink') || !here('mint'));
+    b.textContent = `จอกลาง ${TV.code} · ${TVIDS.map(id => (here(id) ? '●' : '○') + (S.names[id] || '')).join(' ')}`;
+    if (!scr.pause.hidden) { const n = $('#pNet'); n.hidden = !TV.waitFor; if (TV.waitFor) n.textContent = `รอจอยของ${TV.waitFor}ต่อกลับมา แล้วกดเล่นต่อจากมือถือ`; }
+  }
+  if (S.mode !== 'paused') TV.waitFor = '';
+}
+// the lobby on the big screen: the code, who is in, who is choosing what
+function tvLobby() {
+  if (!TV.on) return;
+  $('#tvPick').hidden = true; $('#tvLobby').hidden = false;
+  $('#tvCode').textContent = TV.code;
+  const now = performance.now();
+  let any = false;
+  for (const id of TVIDS) {
+    const r = TV.slots[id] && TV.pads.get(TV.slots[id]), on = !!(r && now - r.at < 4000), seat = $('#tvSeat' + (id === 'pink' ? 'P' : 'M'));
+    seat.classList.toggle('on', on); any = any || on;
+    seat.querySelector('b').textContent = on ? S.names[id] : (id === 'pink' ? 'ตัวชมพู' : 'ตัวมิ้นต์');
+    const k = TV.browse[id], card = k && document.querySelector(`.tab.mode[data-tab="${k}"] .nm`);
+    seat.querySelector('span').textContent = !on ? 'ว่าง รอจอยมือถือ' : card ? 'กำลังดู ' + card.textContent : 'เข้ามาแล้ว';
+  }
+  $('#tvNote').textContent = any ? 'เลือกเกมกับด่านจากมือถือได้เลย' : 'ยังไม่มีจอยเข้ามา';
+  const where = inClaude() ? 'เปิดหน้านี้ใน Claude บนมือถือ (แชร์หน้านี้ให้แฟนด้วย)' : 'เปิด ' + location.host + location.pathname.replace(/index\.html$/, '') + ' บนมือถือ';
+  $('#tvHow').textContent = `${where} กด "จอใหญ่ + จอยมือถือ" แล้วกด "เป็นจอย" ใส่รหัสนี้`;
+}
+function tvSticker(id, i) {
+  const s = STK[i], layer = $('#stkLayer'); if (!s || !layer) return;
+  const el = document.createElement('div');
+  el.className = 'stk theirs tv ' + (id === 'mint' ? 'm' : 'p');
+  el.style.left = (id === 'pink' ? 28 : 72) + '%'; el.style.setProperty('--x', (Math.random() * 16 - 8) + '%');
+  el.innerHTML = stkSvg(s) + '<span class="w"></span><span class="by"></span>';
+  el.querySelector('.w').textContent = s[1]; el.querySelector('.by').textContent = 'จาก' + (S.names[id] || '');
+  if (s[0] === 'love') for (let k = 0; k < 6; k++) { const h = document.createElement('i'); h.style.setProperty('--d', (k * 60 - 150) + 'px'); h.style.animationDelay = (k * .05) + 's'; el.appendChild(h); }
+  layer.appendChild(el); setTimeout(() => el.remove(), 3200);
+  while (layer.children.length > 6) layer.firstChild.remove();
+  try { say(id, STK_MOOD[i], .1, true); const f = [988, 1175, 784, 880, 1319, 659, 1047, 523][i] || 880; chime(f, .35, .05); chime(f * 1.5, .4, .035, .1); } catch (e) {}
+}
+// the words each one is shown in the game (the newer modes): passed on to that one's phone
+{ const xTip0 = xTip; xTip = function (g, id, text) { if (TV.on) TV.tips[id] = { text, at: S.time }; return xTip0.apply(this, arguments); }; }
+
+/* ---------- a phone as a pad ---------- */
+async function padJoin() {
+  if (PAD.busy) return;
+  const code = ($('#padCode').value || '').replace(/[^0-9๐-๙]/g, '').replace(/[๐-๙]/g, d => String(TH.indexOf(d)));
+  if (code.length !== 4) { tvMsg('รหัสจอกลางมี ๔ ตัวเลข ดูได้ที่จอใหญ่'); return; }
+  PAD.busy = true; $('#padJoin').disabled = true; tvMsg('กำลังต่อกับจอกลาง…');
+  let got = null;
+  try { got = await tvConnect(code, false); }
+  catch (e) { PAD.busy = false; $('#padJoin').disabled = false; tvMsg(e === 'peer-unavailable' ? 'ไม่เจอจอกลางรหัสนี้ ลองดูรหัสบนจอใหญ่อีกที' : e === 'no-room' ? 'เครื่องนี้ต่อห้องไม่ได้ ต้องเปิดหน้านี้ในแอปหรือเว็บ Claude และล็อกอินอยู่' : peerErrText(e)); return; }
+  PAD.busy = false; $('#padJoin').disabled = false;
+  const name = cleanName($('#padName').value) || (PAD.want === 'mint' ? 'ตัวเอง' : 'เค้า');
+  store.set('padName', name); store.set('padWant', PAD.want);
+  let sid = ''; try { sid = sessionStorage.getItem('tsr-pad-sid') || ''; } catch (e) {}
+  if (!/^[a-z0-9]{8}$/.test(sid)) { sid = rid8(); try { sessionStorage.setItem('tsr-pad-sid', sid); } catch (e) {} }
+  Object.assign(PAD, { on: true, code, room: got.room, lobby: got.lobby, sid, name, me: '', scr: null, scrAt: 0, joinAt: performance.now(), seq: PAD.seq || 0, c: Object.assign(Object.fromEntries(TvLink.ALLKEYS.map(k => [k, 0])), PAD.c), t: {}, held: new Set(), j: [0, 0], br: '', off: null, sig: '', view: '', spec: '' });
+  try { PAD.unsub.push(got.room.onPeers(padPeers)); } catch (e) {}
+  app.classList.add('padmode'); $('#padApp').hidden = false;
+  releaseAll(); releaseK(); xRelease(); engine(false, 0);
+  audio(); tvWake();
+  padRender(true);
+}
+function padLeave() {
+  PAD.unsub.forEach(u => { try { u(); } catch (e) {} }); PAD.unsub = [];
+  if (PAD.room) { try { if (PAD.lobby) PAD.room.presence({ tsr: null }); else PAD.room.leave(); } catch (e) {} }
+  PAD.on = false; PAD.room = null;
+  app.classList.remove('padmode'); $('#padApp').hidden = true; $('#paStkPop').hidden = true;
+  toTitle();
+}
+function padPeers(change) {
+  const list = change && change.peers ? change.peers : [], now = performance.now();
+  for (const p of list) {
+    if (p.sameTab) continue;
+    const s = TvLink.readScreen(PAD.lobby ? p.presence && p.presence.tsr : p.presence, PAD.code); if (!s) continue;
+    if (PAD.scr && PAD.scr.st !== 'menu' && s.st === 'menu') PAD.br = '';     // back from a game: both phones see all the games
+    PAD.scr = s; PAD.scrAt = now;
+    PAD.me = s.seat.pink[0] === PAD.sid ? 'pink' : s.seat.mint[0] === PAD.sid ? 'mint' : '';
+    if (PAD.me) PAD.want = PAD.me;                                           // if the screen starts again, ask for the same colour
+    const c = TvLink.clockFrom(s.ce[PAD.sid], s.hn, now); if (c && (!PAD.off || c.rtt <= PAD.off.rtt * 1.5 || now - PAD.off.at > 10000)) PAD.off = Object.assign(c, { at: now });
+  }
+}
+function padCmd(what, kind = '', li = -1) { PAD.seq++; PAD.cmd = [PAD.seq, what, kind, li]; }
+function padPress(k) { PAD.c[k] = (PAD.c[k] || 0) + 1; PAD.held.add(k); PAD.t[k] = PAD.off ? Math.round((performance.now() + PAD.off.off) * 10) / 10 : undefined; }
+function padRelease(k) { PAD.held.delete(k); }
+// the phone's frame: say what is pressed, and show what the screen says
+function padFrame(now) {
+  if (PAD.room && now - (PAD.sent || 0) > 33) {
+    PAD.sent = now;
+    const t = {}; for (const k in PAD.t) if (PAD.t[k] != null) t[k] = PAD.t[k];
+    tvSend(PAD.room, PAD.lobby, { app: 'tsr', tv: 'p', v: 1, code: PAD.code, sid: PAD.sid, n: PAD.name, want: PAD.want, j: [Math.round(PAD.j[0] * 100) / 100, Math.round(PAD.j[1] * 100) / 100],
+      h: [...PAD.held].join(','), c: PAD.c, t, cmd: PAD.cmd, br: PAD.br, sk: SK.n + '.' + SK.id, ck: Math.round(now * 10) / 10 });
+  }
+  padRender(false);
+}
+const padEl = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+// a card for each mode, from this phone's own title cards (the pictures and names), with the stars from the screen
+function padModes(box) {
+  box.textContent = '';
+  let grid = null;
+  for (const el of document.querySelectorAll('#sTitle .tabs.modes > *')) {
+    if (el.classList.contains('cat')) { box.appendChild(padEl('p', 'pa-cat', el.querySelector('b').textContent)); grid = box.appendChild(padEl('div', 'pa-modes')); continue; }
+    if (!el.dataset.tab || !grid) continue;
+    const b = padEl('button', 'pa-mode'); b.type = 'button'; b.dataset.kind = el.dataset.tab;
+    const pic = el.querySelector('.pic'); if (pic) b.appendChild(pic.cloneNode(true));
+    const t = b.appendChild(padEl('span', 'tx')); t.appendChild(padEl('b', '', el.querySelector('.nm').textContent)); t.appendChild(padEl('small', 'ms', ''));
+    grid.appendChild(b);
+  }
+}
+function padLevels(box, kind, list) {
+  box.textContent = '';
+  if (!list) { box.appendChild(padEl('p', 'pa-wait', 'กำลังโหลดด่าน…')); return; }
+  const groups = [];
+  for (const a of list) {
+    const ch = kind === 'adv' && ALL[a[0]] ? ALL[a[0]].ch : 0;
+    let g = groups.find(x => x.ch === ch); if (!g) groups.push(g = { ch, items: [] });
+    g.items.push(a);
+  }
+  for (const g of groups) {
+    if (g.ch) box.appendChild(padEl('p', 'pa-cat', `บทที่ ${th(g.ch)} · ${CH_NAME[g.ch] || ''}`));
+    const grid = box.appendChild(padEl('div', 'pa-lvls'));
+    for (const [i, n, nm, hs, locked, done] of g.items) {
+      const b = padEl('button', 'lv pa-lv' + (done ? ' done' : '')); b.type = 'button'; b.dataset.i = i; b.disabled = !!locked;
+      b.appendChild(padEl('span', 'n', n)); b.appendChild(padEl('span', 'nm', nm)); b.appendChild(padEl('span', 'hs', hs));
+      grid.appendChild(b);
+    }
+  }
+}
+// the controls for this mode: a stick and two buttons, arrows and jump, or two (or one) big buttons
+function padControls(spec) {
+  const box = $('#paCtl'); box.textContent = ''; box.className = 'pc pc-' + spec.t;
+  PAD.held.clear(); PAD.j = [0, 0];
+  const btn = (k, label) => { const b = padEl('button', 'pb', label); b.type = 'button'; b.dataset.k = k; return b; };
+  if (spec.t === 'k') {
+    const joy = box.appendChild(padEl('div', 'pc-joy')); joy.appendChild(padEl('span', 'ring')); joy.appendChild(padEl('span', 'knob')); joy.appendChild(padEl('small', 'hint', 'ลากนิ้วตรงนี้'));
+    const col = box.appendChild(padEl('div', 'pc-col'));
+    for (const [k, l] of spec.b) col.appendChild(btn(k, l));
+  } else if (spec.t === 'adv') {
+    const row = box.appendChild(padEl('div', 'pc-row'));
+    row.appendChild(btn('L', '◀')); row.appendChild(btn('R', '▶'));
+    box.appendChild(padEl('div', 'pc-col')).appendChild(btn('J', 'กระโดด'));
+  } else {
+    const row = box.appendChild(padEl('div', 'pc-row big'));
+    for (const [k, l] of spec.b) row.appendChild(btn(k, l));
+  }
+}
+const padHolds = new Map();
+function padCtlDown(e) {
+  const joy = e.target.closest('.pc-joy'), b = e.target.closest('.pb');
+  if (!joy && !b) return;
+  e.preventDefault();
+  try { e.target.setPointerCapture(e.pointerId); } catch (er) {}
+  if (joy) {
+    const r = joy.getBoundingClientRect(), R = Math.min(70, r.width / 3);
+    padHolds.set(e.pointerId, { joy, cx: e.clientX, cy: e.clientY, R });
+    joy.classList.add('live'); joy.style.setProperty('--cx', (e.clientX - r.left) + 'px'); joy.style.setProperty('--cy', (e.clientY - r.top) + 'px'); joy.style.setProperty('--kx', '0px'); joy.style.setProperty('--ky', '0px');
+    return;
+  }
+  padHolds.set(e.pointerId, { b }); b.classList.add('on'); padPress(b.dataset.k);
+}
+function padCtlMove(e) {
+  const h = padHolds.get(e.pointerId); if (!h) return;
+  if (h.joy) {
+    let dx = (e.clientX - h.cx) / h.R, dy = (e.clientY - h.cy) / h.R; const m = Math.hypot(dx, dy);
+    if (m > 1) { h.cx += (e.clientX - h.cx) * (1 - 1 / m) * .5; h.cy += (e.clientY - h.cy) * (1 - 1 / m) * .5; dx /= m; dy /= m; const r = h.joy.getBoundingClientRect(); h.joy.style.setProperty('--cx', (h.cx - r.left) + 'px'); h.joy.style.setProperty('--cy', (h.cy - r.top) + 'px'); }
+    PAD.j = [dx, dy]; h.joy.style.setProperty('--kx', dx * h.R * .6 + 'px'); h.joy.style.setProperty('--ky', dy * h.R * .6 + 'px');
+    return;
+  }
+  // arrows: sliding a thumb from one to the other moves the press (as on the game's own pad)
+  if (h.b && /^[LRJ]$/.test(h.b.dataset.k)) {
+    const el = document.elementFromPoint(e.clientX, e.clientY), b = el && el.closest ? el.closest('.pb') : null;
+    if (b && b !== h.b && /^[LRJ]$/.test(b.dataset.k)) { h.b.classList.remove('on'); padRelease(h.b.dataset.k); h.b = b; b.classList.add('on'); padPress(b.dataset.k); }
+  }
+}
+function padCtlUp(e) {
+  const h = padHolds.get(e.pointerId); if (!h) return;
+  padHolds.delete(e.pointerId);
+  if (h.joy) { PAD.j = [0, 0]; h.joy.classList.remove('live'); return; }
+  if (![...padHolds.values()].some(x => x.b && x.b.dataset.k === h.b.dataset.k)) { padRelease(h.b.dataset.k); h.b.classList.remove('on'); }
+}
+// show what the screen says (only redrawn when something shown has changed)
+function padRender(force) {
+  const s = PAD.scr, now = performance.now(), live = s && now - PAD.scrAt < 4000;
+  const me = PAD.me || '', col = me || PAD.want;
+  const view = !live ? 'wait' : !me ? 'full' : s.st === 'menu' ? (PAD.br ? 'levels' : 'menu') : s.st;
+  const top = `${col}|${me ? S.names[me] || PAD.name : PAD.name}|${live ? 1 : 0}`;
+  if (top !== PAD.top || force) {
+    PAD.top = top;
+    $('#padApp').className = 'padapp ' + col;
+    $('#paMe').textContent = me ? (s.seat[me][1] || PAD.name) : PAD.name;
+    $('#paMeC').textContent = me === 'pink' ? 'ตัวชมพู' : me === 'mint' ? 'ตัวมิ้นต์' : '';
+    $('#paNet').textContent = live ? `จอกลาง ${PAD.code}` : `กำลังหาจอกลาง ${PAD.code}…`;
+    $('#paNet').classList.toggle('wait', !live);
+  }
+  if (view !== PAD.view || force) {
+    PAD.view = view; PAD.sig = '';
+    for (const v of ['Wait', 'Menu', 'Levels', 'Play', 'Pause', 'Clear']) $('#pa' + v).hidden = v.toLowerCase() !== (view === 'full' ? 'wait' : view);
+    $('#paPauseB').hidden = view !== 'play';
+    if (view === 'menu' && !$('#paModes').firstChild) padModes($('#paModes'));
+  }
+  if (view === 'wait' || view === 'full') {
+    const t = view === 'full' ? 'จอกลางมีจอยครบสองเครื่องแล้ว รอให้เครื่องไหนออกก่อนนะ' : s ? `จอกลางรหัส ${PAD.code} เงียบไป ถ้าจอใหญ่ปิดหรือโหลดหน้าใหม่ ให้กดเปิดจอกลางที่จอใหญ่อีกครั้ง จอยนี้จะต่อกลับเอง`
+      : now - (PAD.joinAt || 0) > 8000 ? `ยังไม่เจอจอกลางรหัส ${PAD.code} ลองดูว่าจอใหญ่ยังเปิดหน้าจอกลางอยู่ และรหัสตรงกัน` : `กำลังต่อกับจอกลางรหัส ${PAD.code}…`;
+    if ($('#paWaitT').textContent !== t) $('#paWaitT').textContent = t;
+    return;
+  }
+  if (view === 'menu') {
+    const sig = JSON.stringify(s.ms);
+    if (sig !== PAD.sig) { PAD.sig = sig; document.querySelectorAll('#paModes .pa-mode').forEach(b => { b.querySelector('.ms').textContent = s.ms[b.dataset.kind] || ''; }); }
+    return;
+  }
+  if (view === 'levels') {
+    const list = s.lv[PAD.br], sig = PAD.br + JSON.stringify(list || null);
+    if (sig !== PAD.sig) {
+      PAD.sig = sig;
+      const card = document.querySelector(`#sTitle .tab.mode[data-tab="${PAD.br}"] .nm`);
+      $('#paLvT').textContent = card ? card.textContent : '';
+      padLevels($('#paLvls'), PAD.br, list);
+    }
+    return;
+  }
+  if (view === 'play') {
+    const spec = s.pad[me], ss = JSON.stringify(spec);
+    if (spec && ss !== PAD.spec) { PAD.spec = ss; padControls(spec); }
+    const sig = s.lab + s.nm + (spec ? spec.role : '');
+    if (sig !== PAD.sig) {
+      PAD.sig = sig;
+      $('#paLab').textContent = s.lab; $('#paName').textContent = s.nm; $('#paHint').textContent = s.hint;
+      $('#paRole').textContent = spec && spec.role ? 'คุณ' + spec.role : ''; $('#paRole').hidden = !(spec && spec.role);
+    }
+    const tip = s.tip[me] || '';
+    if ($('#paTip').textContent !== tip) $('#paTip').textContent = tip;
+    return;
+  }
+  if (view === 'pause' && s.pause) {
+    const sig = JSON.stringify(s.pause);
+    if (sig !== PAD.sig) { PAD.sig = sig; $('#paPNo').textContent = s.pause.no; $('#paPHint').textContent = s.pause.hint; $('#paSwap').hidden = !s.pause.swap; $('#paSwap').textContent = s.pause.swap; }
+    return;
+  }
+  if (view === 'clear' && s.clear) {
+    const c = s.clear, sig = JSON.stringify(c);
+    if (sig !== PAD.sig) {
+      PAD.sig = sig;
+      $('#paCH').textContent = c.h; $('#paCN').textContent = c.nm; $('#paCMsg').textContent = c.msg; $('#paCStats').textContent = c.stats;
+      $('#paCStars').hidden = c.s < 0; $('#paCStars').textContent = c.s < 0 ? '' : '★★★'.slice(0, c.s) + '☆☆☆'.slice(0, 3 - c.s);
+      $('#paNext').hidden = !c.next; $('#paNext').textContent = c.next; $('#paAgain').hidden = !c.again; $('#paAgain').textContent = c.again;
+    }
+  }
+}
+// the phone's own stickers: the same eight, sent to the big screen
+(function padInit() {
+  const app2 = $('#padApp'); if (!app2) return;
+  $('#bTv').addEventListener('click', () => { releaseAll(); showScreen('tv'); setMode('menu'); $('#tvPick').hidden = false; $('#tvLobby').hidden = true; tvMsg(inClaude() ? 'ทั้งสามเครื่องเปิดหน้านี้ใน Claude ให้เครื่องที่ต่อกับจอใหญ่เปิดจอกลาง มือถือสองเครื่องเป็นจอย' : 'ให้เครื่องที่ต่อกับจอใหญ่ (ทีวี แท็บเล็ต หรือคอม) เปิดจอกลาง แล้วมือถือสองเครื่องใส่รหัสที่ขึ้นบนจอ'); $('#padName').value = store.get('padName', '') || ''; padWant(store.get('padWant', 'pink')); });
+  $('#tvOpen').addEventListener('click', tvOpen);
+  $('#bFull3').addEventListener('click', e => { e.currentTarget.blur(); toggleFull(); });
+  $('#tvBack').addEventListener('click', () => { if (TV.on) tvClose(); else toTitle(); });
+  $('#padJoin').addEventListener('click', padJoin);
+  $('#padCode').addEventListener('keydown', e => { if (e.key === 'Enter') padJoin(); });
+  const padWant = c => { PAD.want = c === 'mint' ? 'mint' : 'pink'; document.querySelectorAll('#padColor button').forEach(b => b.classList.toggle('on', b.dataset.c === PAD.want)); };
+  $('#padColor').addEventListener('click', e => { const b = e.target.closest('button'); if (b) padWant(b.dataset.c); });
+  $('#paLeave').addEventListener('click', padLeave);
+  $('#paPauseB').addEventListener('click', () => padCmd('pause'));
+  $('#paModes').addEventListener('click', e => { const b = e.target.closest('.pa-mode'); if (b) { PAD.br = b.dataset.kind; padRender(true); } });
+  $('#paBack').addEventListener('click', () => { PAD.br = ''; padRender(true); });
+  $('#paLvls').addEventListener('click', e => { const b = e.target.closest('.pa-lv'); if (b && !b.disabled) padCmd('start', PAD.br, +b.dataset.i); });
+  $('#paResume').addEventListener('click', () => padCmd('resume'));
+  $('#paRestart').addEventListener('click', () => padCmd('restart'));
+  $('#paSwap').addEventListener('click', () => padCmd('swap'));
+  for (const id of ['paMenu1', 'paMenu2']) $('#' + id).addEventListener('click', () => { PAD.br = ''; padCmd('menu'); });
+  $('#paNext').addEventListener('click', () => padCmd('next'));
+  $('#paAgain').addEventListener('click', () => padCmd('again'));
+  const ctl = $('#paCtl');
+  ctl.addEventListener('pointerdown', padCtlDown);
+  window.addEventListener('pointermove', e => { if (padHolds.has(e.pointerId)) padCtlMove(e); }, { passive: true });
+  window.addEventListener('pointerup', padCtlUp); window.addEventListener('pointercancel', padCtlUp);
+  ctl.addEventListener('contextmenu', e => e.preventDefault());
+  // stickers
+  const pop = $('#paStkPop');
+  pop.innerHTML = STK.map((s, i) => `<button type="button" class="stkb" data-i="${i}" style="--c:${s[2]}">${stkSvg(s)}<span>${s[1]}</span></button>`).join('');
+  $('#paStk').addEventListener('click', () => { pop.hidden = !pop.hidden; });
+  pop.addEventListener('click', e => {
+    const b = e.target.closest('.stkb'); if (!b) return;
+    const now = performance.now() / 1000; if (now - SK.last < STK_GAP) return;
+    SK.last = now; SK.n++; SK.id = +b.dataset.i; pop.hidden = true;
+    const f = $('#paSent'); f.textContent = 'ส่ง "' + STK[SK.id][1] + '" ขึ้นจอแล้ว'; f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
+  });
+  // from a link: ?pad=1234 opens the pad screen with the code, ?tv opens the big screen
+  try {
+    const q = new URLSearchParams(location.search);
+    if (q.has('pad')) setTimeout(() => { $('#bTv').click(); $('#padCode').value = (q.get('pad') || '').slice(0, 4); }, 0);
+    else if (q.has('tv')) setTimeout(() => $('#bTv').click(), 0);
+  } catch (e) {}
+})();
+/* ---------- end of the big screen ---------- */
+
 /* ---------- Fullscreen ---------- */
 const isIPhone = /iPhone|iPod/.test(navigator.userAgent);
 const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement || null;
@@ -12634,7 +13149,7 @@ function boot(data) {
   requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
   if (inClaude()) setTimeout(roomApi, 300);
 }
-try { Object.defineProperty(window, '__tsr', { value: { S, KS, DS, RS, TS, MS, WS, LS, BS, VS, IS, O, KK, KT, Twr, Leg, Boat, Mov, Kite, MODES, XK, Cin, Fart, Bed, Win, Trap, Isle, SM, Shop, OM, Fish, YM, Rope, ZM, ZART: { zSlice, zBack, zMarks }, WARD, wardStars, ART: { drawPlayer, roundBody, cuteFace, wardDoll, drawChef }, VOICE: { say, sayBoth, MOODS, VO }, GO: { kit: startKitchen, def: startDefense, drv: startDrive, tak: startTak, mus: startMus, twr: startTwr, leg: startLeg, boat: startBoat, mov: startMov, kite: startKite, adv: startLevel }, BGMX: { TRACKS, bgmStep, mixerFor, stepDur, trackPrep, BGM, soundsInto, sfx } }, configurable: true }); } catch (e) {}
+try { Object.defineProperty(window, '__tsr', { value: { S, KS, DS, RS, TS, MS, WS, LS, BS, VS, IS, O, KK, KT, Twr, Leg, Boat, Mov, Kite, MODES, XK, Cin, Fart, Bed, Win, Trap, Isle, SM, Shop, OM, Fish, YM, Rope, ZM, ZART: { zSlice, zBack, zMarks }, TVX: { TV, PAD, TC, JP, TvLink, padPress, padRelease, padCmd, tvPadSpec, tvLevels, tvPadType }, WARD, wardStars, ART: { drawPlayer, roundBody, cuteFace, wardDoll, drawChef }, VOICE: { say, sayBoth, MOODS, VO }, GO: { kit: startKitchen, def: startDefense, drv: startDrive, tak: startTak, mus: startMus, twr: startTwr, leg: startLeg, boat: startBoat, mov: startMov, kite: startKite, adv: startLevel }, BGMX: { TRACKS, bgmStep, mixerFor, stepDur, trackPrep, BGM, soundsInto, sfx } }, configurable: true }); } catch (e) {}
 try { if (window.claude && window.claude.hot && window.claude.hot.snapshot) window.claude.hot.snapshot(() => ({ names: S.names, li: S.li })); } catch (e) {}
 if (window.claude && window.claude.hot && window.claude.hot.ready) window.claude.hot.ready(boot);
 else boot((window.claude && window.claude.hot && window.claude.hot.data) || {});
