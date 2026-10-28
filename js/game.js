@@ -381,6 +381,7 @@ setInterval(bgmTick, 50);
 function resultsJingle() {
   if (!S.sound) return .8;
   const cs = $('#cStars'), lit = cs && !cs.hidden ? cs.querySelectorAll('span:not(.off)').length : -1;
+  setTimeout(() => { try { sayBoth(lit < 0 || lit === 3 ? 'cheer' : lit > 0 ? 'happy' : 'sad', .25); } catch (e) {} }, lit < 0 ? 600 : 1300);
   if (lit < 0 && S.kind === 'adv') return 1.2;
   if (lit <= 0) { tone(523, .22, 'triangle', .05, 494); tone(440, .25, 'triangle', .05, 415, .22); tone(349, .6, 'triangle', .05, 330, .46); return 2.2; }
   for (let i = 0; i < 3; i++) { if (i < lit) chime([1047, 1319, 1568][i], .5, .06, .3 + i * .2); else tone(262, .12, 'triangle', .03, 0, .3 + i * .2); }
@@ -875,6 +876,7 @@ function renderWard() {
     b.addEventListener('click', () => {
       if (!open) { toast(`ยังล็อกอยู่ ต้องมีดาวรวม <b>${th(it.need)}</b> ดวง (ตอนนี้ ${th(n)}) เล่นโหมดไหนก็ได้ดาวมาเพิ่ม`, 3200); try { tone(220, .12, 'triangle', .03); } catch (e) {} return; }
       WARD.eq[id][WS_UI.slot] = it ? it.id : ''; wardSave(); renderWard();
+      try { say(id, it ? (['happy', 'giggle', 'love'][Math.floor(Math.random() * 3)]) : 'hmm', 0, true); } catch (e) {}
       try { chime(it ? 880 : 523, .25, .035); } catch (e) {}
     });
     grid.appendChild(b);
@@ -936,7 +938,8 @@ const STK = [
   ['go', 'ไปเลย!', '#ff8a5c', '<path d="M20 3c5 4.5 7.5 10 7.5 16.5V27h-15v-7.5C12.5 13 15 7.5 20 3z" fill="#fff4e8" stroke="#ff8a5c" stroke-width="2"/><circle cx="20" cy="16" r="3.4" fill="#7fd0ff" stroke="#ff8a5c" stroke-width="1.6"/><path d="M12.5 21l-5 5v4l5-2.5M27.5 21l5 5v4l-5-2.5" fill="#ff8a5c"/><path d="M16 29q4 9 8 0" fill="#ffcf5a"/><path d="M18 29q2 5 4 0" fill="#ff6f4c"/>'],
   ['help', 'ช่วยด้วย!', '#ff6b6b', '<path d="M8 6h24a4 4 0 0 1 4 4v15a4 4 0 0 1-4 4H19l-7 6v-6H8a4 4 0 0 1-4-4V10a4 4 0 0 1 4-4z" fill="#ff8a8a"/><rect x="18" y="10" width="4.2" height="11" rx="2.1" fill="#fff"/><circle cx="20.1" cy="25" r="2.3" fill="#fff"/>']
 ];
-const STK_GAP = 0.7;                                     // s between two stickers from one phone
+const STK_GAP = 0.7;
+const STK_MOOD = ['love', 'happy', 'oops', 'call', 'giggle', 'hmm', 'go', 'help'];                                     // s between two stickers from one phone
 const SK = { n: 0, id: 0, last: -9, seen: null, sid: '' };
 const stkCode = () => SK.n + '.' + SK.id;
 const stkSvg = s => `<svg viewBox="0 0 40 40" aria-hidden="true">${s[3]}</svg>`;
@@ -957,7 +960,7 @@ function stkSend(i) {
   const now = performance.now() / 1000; if (now - SK.last < STK_GAP) return;
   SK.last = now; SK.n++; SK.id = i;
   stkShow(i, true);
-  try { audio(); tone(700, .06, 'sine', .04, 1100); } catch (e) {}
+  try { audio(); tone(700, .06, 'sine', .04, 1100); say(O.local, STK_MOOD[i], .05, true); } catch (e) {}
   stkPop(false);
 }
 // what the other phone says: show a sticker only when its count goes up (and not the old one on first sight)
@@ -969,6 +972,7 @@ function stkHear(code, sid) {
   if (n === SK.seen) return;
   SK.seen = n;
   stkShow(i, false);
+  try { say(O.local === 'pink' ? 'mint' : 'pink', STK_MOOD[i], .15, true); } catch (e) {}
   try { const f = [988, 1175, 784, 880, 1319, 659, 1047, 523][i] || 880; chime(f, .35, .05); chime(f * 1.5, .4, .035, .1); } catch (e) {}
 }
 // the button in the top bar and the little tray of stickers
@@ -993,6 +997,105 @@ function stkPop(open) {
   setInterval(() => { const b = $('#bStk'); if (!b) return; const on = !!O.role; if (b.hidden === on) { b.hidden = !on; if (!on) stkPop(false); } }, 300);
 })();
 /* ---------- end of the stickers ---------- */
+/* ---------- voices: the two of them mumble in a little language of their own ---------- */
+// a syllable is a buzzy note shaped by two vowel filters; a phrase is a few syllables with a tune for the mood.
+// pink speaks a little higher and brighter, mint a little lower and rounder.
+const VOICE_OF = { pink: { f: 470, vow: 'aiea' }, mint: { f: 350, vow: 'aouo' } };
+const VOWEL = { a: [820, 1250], e: [520, 1850], i: [330, 2350], o: [520, 900], u: [360, 820], m: [270, 1100] };
+// each mood: syllables of [start pitch, end pitch (times the voice's), length s, vowel ('' = the voice's own), gap after, loudness, wobble]
+const MOODS = {
+  cheer: [[1.1, 1.25, .085, 'e', .02, 1], [1.35, 1.8, .24, 'a', 0, 1.1]],
+  happy: [[1, 1.08, .08, '', .025, .9], [1.15, 1.2, .075, '', .025, .95], [1.3, 1.45, .14, '', 0, 1]],
+  giggle: [[1.55, 1.5, .055, 'i', .035, 1.1], [1.4, 1.35, .055, 'i', .035, 1.1], [1.55, 1.5, .055, 'i', .035, 1.1], [1.4, 1.3, .05, 'i', .035, 1], [1.6, 1.7, .08, 'i', 0, 1.1]],
+  wow: [[1, 1.45, .13, 'o', .02, 1], [1.5, 1.15, .26, 'o', 0, 1, 1]],
+  surprise: [[1.3, 2.05, .15, 'a', .03, 1.25], [1.9, 1.7, .07, 'i', 0, .8]],
+  oops: [[1.25, 1.05, .1, 'o', .03, .9], [1.05, .82, .2, 'u', 0, .85]],
+  sad: [[1.05, .92, .17, 'u', .05, .8], [.95, .74, .32, 'u', 0, .75, 1]],
+  call: [[1.25, 1.36, .14, 'e', .07, 1.05], [1.18, 1, .28, 'o', 0, 1, 1]],
+  help: [[1.4, 1.55, .11, 'e', .04, 1.1], [1.5, 1.62, .11, 'e', .04, 1.1], [1.45, 1.2, .26, 'a', 0, 1.1, 1]],
+  effort: [[.82, .72, .16, 'u', 0, 1]],
+  love: [[1.05, 1.3, .16, 'u', .03, .85, 1], [1.3, 1.02, .34, 'a', 0, .9, 1]],
+  hmm: [[.95, 1.06, .34, 'm', 0, 1.8, 1]],
+  go: [[1.2, 1.22, .08, 'a', .03, .95], [1.4, 1.42, .08, 'a', .03, 1], [1.6, 1.85, .18, 'i', 0, 1.05]]
+};
+const VO = { on: store.get('voice', true) !== false, last: { pink: -9, mint: -9 }, log: [] };
+function vSyl(a, M, t, f0, f1, d, vw, v, wob) {
+  const o = a.createOscillator(), env = a.createGain(), [F1, F2] = VOWEL[vw] || VOWEL.a;
+  o.type = 'sawtooth'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + d);
+  if (wob) { const l = a.createOscillator(), lg = a.createGain(); l.frequency.value = 7.5; lg.gain.value = f0 * .035; l.connect(lg); lg.connect(o.frequency); l.start(t); l.stop(t + d + .05); }
+  // a soft body (the buzz rounded off), then the vowel: two raised bands where that vowel rings
+  const lp = a.createBiquadFilter(), p1 = a.createBiquadFilter(), p2 = a.createBiquadFilter();
+  lp.type = 'lowpass'; lp.frequency.value = vw === 'm' ? 700 : Math.min(4200, Math.max(f0, f1) * 5); lp.Q.value = .6;
+  p1.type = 'peaking'; p1.frequency.value = F1; p1.Q.value = 2.2; p1.gain.value = vw === 'm' ? 0 : 11;
+  p2.type = 'peaking'; p2.frequency.value = F2; p2.Q.value = 3; p2.gain.value = vw === 'm' ? 0 : 8;
+  o.connect(lp); lp.connect(p1); p1.connect(p2); p2.connect(env);
+  env.gain.setValueAtTime(.0001, t); env.gain.exponentialRampToValueAtTime(v, t + .014); env.gain.setValueAtTime(v, t + d * .6); env.gain.exponentialRampToValueAtTime(.0001, t + d);
+  env.connect(M.fx); env.connect(M.send);
+  o.start(t); o.stop(t + d + .04);
+}
+// id says something in a mood; force: even if they spoke a moment ago
+function say(id, mood, delay = 0, force = false) {
+  if (!VO.on || (id !== 'pink' && id !== 'mint')) return;
+  VO.log.push(id + ':' + mood); if (VO.log.length > 80) VO.log.shift();               // what was said (for the tests)
+  const P = MOODS[mood], a = audio(); if (!P || !a) return;
+  const now = a.currentTime; if (!force && now + delay - VO.last[id] < .55) return;
+  VO.last[id] = now + delay;
+  try {
+    const M = mixer(a), Vc = VOICE_OF[id], f = Vc.f * (.96 + Math.random() * .08), vol = .032;
+    let t = now + delay + .01, k = Math.floor(Math.random() * 4);
+    for (const [p0, p1, d, vw, gap, loud, wob] of P) {
+      const vowel = vw || Vc.vow[k++ % Vc.vow.length];
+      vSyl(a, M, t, f * p0, f * p1, d * (.95 + Math.random() * .1), vowel, vol * (loud || 1), wob);
+      t += d + (gap || 0);
+    }
+  } catch (e) {}
+}
+const vOther = id => (id === 'pink' ? 'mint' : 'pink');
+const vRand = () => (Math.random() < .5 ? 'pink' : 'mint');
+function sayBoth(mood, gap = .18) { const f = vRand(); say(f, mood, 0, true); say(vOther(f), mood, gap, true); }
+// the newer modes' events: [mood, who] where who is 'a' (the id in the event), 'both', 'rand' or 'other' (the one who did not)
+const VEV = {
+  cin: { kiss: ['love', 'rand'], combo: ['giggle', 'rand'], caught: ['surprise', 'both'], hug: ['love', 'both'], kicked: ['oops', 'rand'] },
+  fart: { 'strike': ['oops', 'rand'], ruined: ['sad', 'both'] },
+  bed: { kick: ['oops', 'a'], fall: ['surprise', 'a'], wake: ['surprise', 'a'], bite: ['oops', 'a'], slap: ['effort', 'a'], morning: ['cheer', 'both'], failed: ['sad', 'both'] },
+  win: { caught: ['surprise', 'both'], seen: ['surprise', 'rand'], fall: ['oops', 'rand'], in: ['cheer', 'both'], bark: ['surprise', 'rand'] },
+  trap: { down: ['help', 'a'], revive: ['happy', 'a'], hurt: ['oops', 'a'], gem: ['happy', 'a'], heart: ['giggle', 'a'], check: ['cheer', 'both'], out: ['sad', 'both'] },
+  isle: { catch: ['happy', 'a'], bonk: ['oops', 'a'], salty: ['oops', 'a'], fish: ['happy', 'a'], lit: ['cheer', 'both'], singe: ['surprise', 'a'], sick: ['sad', 'a'], sulk: ['hmm', 'a'], makeup: ['love', 'both'], love: ['love', 'a'], flower: ['love', 'a'], monkey: ['surprise', 'rand'], pinch: ['surprise', 'a'], ship: ['call', 'both'], rescued: ['cheer', 'both'], down: ['help', 'a'], revive: ['happy', 'a'] },
+  shop: { boo: ['surprise', 'a'], caught: ['cheer', 'a'], kidcaught: ['giggle', 'a'], escaped: ['sad', 'rand'], tangle: ['oops', 'rand'], duo: ['love', 'both'], alarm: ['help', 'rand'], sewn: ['happy', 'rand'] },
+  fish: { hook: ['wow', 'a'], land: ['happy', 'a'], netted: ['happy', 'a'], snap: ['sad', 'a'], escape: ['oops', 'a'], surface: ['call', 'a'], giant: ['wow', 'rand'], stolen: ['surprise', 'rand'], shoo: ['effort', 'a'], flood: ['surprise', 'both'], tangle: ['oops', 'both'], untangled: ['giggle', 'rand'] }
+};
+function voiceEv(kind, ev) {
+  const T = VEV[kind]; if (!T || !VO.on) return;
+  for (const e of ev) {
+    const [k, a, b] = String(e).split(':'), m = T[k]; if (!m) continue;
+    if (kind === 'fish' && k === 'netted' && b != null && YF.SP[+b] && YF.SP[+b].sz === 'g') { sayBoth('cheer'); continue; }
+    if (kind === 'fish' && k === 'hook' && b != null && YF.SP[+b] && YF.SP[+b].sz === 'g') { say(a, 'help'); continue; }
+    const who = m[1] === 'both' ? 'both' : m[1] === 'rand' ? vRand() : m[1] === 'other' ? vOther(a) : (a === 'pink' || a === 'mint' ? a : vRand());
+    if (who === 'both') sayBoth(m[0]); else say(who, m[0]);
+    if (m[0] === 'help' && (a === 'pink' || a === 'mint')) say(vOther(a), 'call', .7);
+  }
+}
+// the older modes speak through their sound effects (who it was is not known there: one of them, at random)
+const VSFX = {
+  serve: 'happy', burnt: 'oops', fire: 'surprise', expire: 'sad', reject: 'oops',
+  down: 'help', revive: 'happy', houseHit: 'surprise', boss: 'surprise', lost: 'sad',
+  crash: 'surprise', cash: 'happy', cluck: 'giggle',
+  tgoal: 'cheer', tdrop: 'oops',
+  wperf: 'happy', wfall: 'surprise', wmiss: 'oops', wtop: 'cheer',
+  lwrong: 'oops', lfall: 'surprise', ltangle: 'oops',
+  bbump: 'surprise', bcrack: 'surprise', bkrathong: 'happy',
+  vlift: 'effort', vdeliver: 'happy', vbroken: 'sad', vbump: 'oops', vgrab: 'call',
+  isnap: 'surprise', icrash: 'oops',
+  heart: 'giggle'
+};
+setTimeout(() => {
+  for (const [name, mood] of Object.entries(VSFX)) {
+    const f = sfx[name]; if (typeof f !== 'function' || f.voiced) continue;
+    const w = function () { const r = f.apply(this, arguments); try { if (mood === 'cheer' || mood === 'sad') sayBoth(mood); else say(vRand(), mood); } catch (e) {} return r; };
+    w.voiced = true; sfx[name] = w;
+  }
+}, 0);
+/* ---------- end of the voices ---------- */
 // a HUD box: a soft shadow, a dusky gradient and a fine light rim
 // (each size is drawn once and stamped; the rim is left as the current path for callers that outline it)
 function panel(g, x, y, w, h, r, a = .85) {
@@ -1750,7 +1853,9 @@ function stepParts(dt) {
 
 /* ---------- Game flow ---------- */
 function setMode(m) {
+  const was = S.mode;
   S.mode = m;
+  if (m === 'play' && was !== 'paused' && was !== 'play' && was !== 'dying' && !MODES[S.kind]) try { sayBoth('go'); } catch (e) {}
   app.classList.toggle('menu', m === 'menu');
   app.classList.toggle('playing', m === 'play' || m === 'dying' || m === 'won');
 }
@@ -1821,7 +1926,7 @@ function pause() {
 function resume() { if (S.mode !== 'paused') return; showScreen(null); setMode('play'); }
 function toTitle() { if (O.role) leaveOnline(); releaseAll(); releaseK(); showScreen('title'); setMode('menu'); setTab(S.tab); }
 function die(id) {
-  setMode('dying'); S.deadId = id; S.deathT = 1; S.flash = 1; S.shake = 1; sfx.die();
+  setMode('dying'); S.deadId = id; S.deathT = 1; S.flash = 1; S.shake = 1; sfx.die(); say(id, 'surprise', 0, true); say(id === 'pink' ? 'mint' : 'pink', 'call', .45, true);
   if (O.role === 'guest') O.dead++;
   const p = S.W[id];
   burst(p.x + p.w / 2, p.y + p.h / 2, 22, id === 'pink' ? C.pink : C.mint, { speed: 180, up: 120, life: .8, size: 4 });
@@ -2058,6 +2163,8 @@ $('#bAgain').addEventListener('click', () => { if (O.role === 'host') openOnline
 [nPink, nMint].forEach(i => i.addEventListener('input', readNames));
 snd.addEventListener('change', () => { S.sound = snd.checked; store.set('sound', S.sound); });
 bgmOn.addEventListener('change', () => { S.music = bgmOn.checked; store.set('music', S.music); if (S.music) audioCtx(); });
+$('#voiceOn').checked = VO.on;
+$('#voiceOn').addEventListener('change', () => { VO.on = $('#voiceOn').checked; store.set('voice', VO.on); if (VO.on) { audio(); sayBoth('happy'); } });
 
 
 /* ---------- Online (two phones, one character each) ---------- */
@@ -8019,7 +8126,7 @@ function xMode(m) {
     // count down with little bells: three, two, one, go
     if (S.mode === 'play' && G) {
       const n = G.st === 'count' ? Math.ceil(m.Eng.START - G.t) : 0;
-      if (n !== st.cd) { if (n > 0 && n <= 3) chime(660, .2, .05); else if (n === 0 && st.cd > 0) { chime(1047, .5, .06); chime(1568, .5, .04, .03); } st.cd = n; }
+      if (n !== st.cd) { if (n > 0 && n <= 3) chime(660, .2, .05); else if (n === 0 && st.cd > 0) { chime(1047, .5, .06); chime(1568, .5, .04, .03); sayBoth('go'); } st.cd = n; }
     }
     S.flash = Math.max(0, S.flash - dt * 2.2); S.shake = Math.max(0, S.shake - dt * 3);
     stepParts(dt);
@@ -8068,6 +8175,7 @@ function xMode(m) {
   $('#' + m.list).addEventListener('click', e => { const b = e.target.closest(`[data-${m.dk}]`); if (b && !b.disabled) m.start(+b.dataset[m.dk]); });
   $('#' + m.olist).addEventListener('click', e => { const b = e.target.closest(`[data-${m.dk}]`); if (b && !b.disabled) m.onlineStart(+b.dataset[m.dk]); });
   MODES[m.kind] = m;
+  const ev0 = m.events; m.events = ev => { ev0(ev); try { voiceEv(m.kind, ev); } catch (e) {} };
   return m;
 }
 function xHud(m) {
@@ -11981,7 +12089,7 @@ function boot(data) {
   requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
   if (inClaude()) setTimeout(roomApi, 300);
 }
-try { Object.defineProperty(window, '__tsr', { value: { S, KS, DS, RS, TS, MS, WS, LS, BS, VS, IS, O, KK, KT, Twr, Leg, Boat, Mov, Kite, MODES, XK, Cin, Fart, Bed, Win, Trap, Isle, SM, Shop, OM, Fish, YM, WARD, wardStars, ART: { drawPlayer, roundBody, cuteFace, wardDoll, drawChef }, GO: { kit: startKitchen, def: startDefense, drv: startDrive, tak: startTak, mus: startMus, twr: startTwr, leg: startLeg, boat: startBoat, mov: startMov, kite: startKite, adv: startLevel }, BGMX: { TRACKS, bgmStep, mixerFor, stepDur, trackPrep, BGM, soundsInto, sfx } }, configurable: true }); } catch (e) {}
+try { Object.defineProperty(window, '__tsr', { value: { S, KS, DS, RS, TS, MS, WS, LS, BS, VS, IS, O, KK, KT, Twr, Leg, Boat, Mov, Kite, MODES, XK, Cin, Fart, Bed, Win, Trap, Isle, SM, Shop, OM, Fish, YM, WARD, wardStars, ART: { drawPlayer, roundBody, cuteFace, wardDoll, drawChef }, VOICE: { say, sayBoth, MOODS, VO }, GO: { kit: startKitchen, def: startDefense, drv: startDrive, tak: startTak, mus: startMus, twr: startTwr, leg: startLeg, boat: startBoat, mov: startMov, kite: startKite, adv: startLevel }, BGMX: { TRACKS, bgmStep, mixerFor, stepDur, trackPrep, BGM, soundsInto, sfx } }, configurable: true }); } catch (e) {}
 try { if (window.claude && window.claude.hot && window.claude.hot.snapshot) window.claude.hot.snapshot(() => ({ names: S.names, li: S.li })); } catch (e) {}
 if (window.claude && window.claude.hot && window.claude.hot.ready) window.claude.hot.ready(boot);
 else boot((window.claude && window.claude.hot && window.claude.hot.data) || {});
