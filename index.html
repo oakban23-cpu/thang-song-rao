@@ -304,6 +304,39 @@ kbd{font:600 12px/1 var(--f-ui);padding:2px 6px;border:1px solid var(--line);bor
 .witem .new{position:absolute;top:-8px;left:-4px;margin:0;padding:0 7px;font-size:10px;line-height:1.7}
 .wnote{margin-top:10px}
 @media (max-width:440px){#wardCv{height:140px}.wgrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+/* ---------- stickers (online) ---------- */
+.stkbtn{display:inline-flex;align-items:center;gap:6px;border-color:rgba(255,111,156,.55);color:#ffb8cf;background:rgba(255,111,156,.1)}
+.stkbtn svg{width:15px;height:15px}
+.stkbtn[aria-expanded="true"]{background:rgba(255,111,156,.25);border-color:var(--pink)}
+@media (max-width:640px){.stkbtn span{display:none}.stkbtn{padding:7px 9px}}
+.stkpop{position:fixed;z-index:30;width:min(320px,calc(100vw - 16px));display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:10px;border-radius:18px;background:linear-gradient(180deg,#2e2660,#221c47);border:1px solid #4a3f8c;box-shadow:0 18px 40px rgba(0,0,0,.5);animation:stkIn .16s ease-out}
+.stkpop[hidden]{display:none}
+.stkb{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 2px 6px;border-radius:12px;border:1.5px solid transparent;background:rgba(255,255,255,.05);color:var(--paper);font:600 11px/1.2 var(--f-ui);cursor:pointer;transition:transform .12s,border-color .12s,background .12s}
+.stkb:hover,.stkb:focus-visible{transform:translateY(-2px) scale(1.05);border-color:var(--c);background:rgba(255,255,255,.1);outline:none}
+.stkb:active{transform:scale(.94)}
+.stkb svg{width:34px;height:34px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.25))}
+.stkb kbd{position:absolute;top:3px;right:5px;font:600 9px/1 var(--f-ui);color:var(--muted);background:none;border:0;padding:0}
+.app.touch .stkb kbd{display:none}
+.stkhint{grid-column:1/-1;margin:2px 0 0;text-align:center;font-size:11px;color:var(--muted)}
+.app.touch .stkhint{display:none}
+@keyframes stkIn{from{opacity:0;transform:translateY(-6px) scale(.96)}}
+.stklayer{position:absolute;inset:0;z-index:8;pointer-events:none;overflow:hidden}
+.stk{position:absolute;left:50%;top:22%;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 16px 8px;border-radius:22px;background:#fff7fb;color:#3a2440;box-shadow:0 10px 28px rgba(0,0,0,.35),0 0 0 3px var(--sc);transform:translate(calc(-50% + var(--x)),0);animation:stkFly 3.1s cubic-bezier(.2,.9,.3,1) forwards;--sc:var(--pink)}
+.stk.m{--sc:var(--mint)}
+.stk svg{width:58px;height:58px;animation:stkWig .5s ease-in-out 2}
+.stk .w{font:400 20px/1.3 var(--f-display);white-space:nowrap}
+.stk .by{font:600 11px/1.2 var(--f-ui);color:#8a7a9a;white-space:nowrap}
+.stk::after{content:"";position:absolute;bottom:-9px;left:50%;margin-left:-9px;border:9px solid transparent;border-bottom:0;border-top-color:#fff7fb}
+.stk.mine{top:auto;bottom:16%;padding:6px 12px 5px;border-radius:16px;flex-direction:row;gap:8px;animation:stkMine 1.6s ease-out forwards}
+.stk.mine svg{width:30px;height:30px;animation:none}
+.stk.mine .w{font-size:15px}
+.stk.mine::after{display:none}
+.stk i{position:absolute;left:50%;top:40%;width:14px;height:14px;margin:-7px;background:var(--pink);clip-path:path("M7 13C2.6 9.8.5 7.4.5 4.9.5 2.9 2 1.5 3.9 1.5c1.2 0 2.3.6 3.1 1.6.8-1 1.9-1.6 3.1-1.6 1.9 0 3.4 1.4 3.4 3.4 0 2.5-2.1 4.9-6.5 8.1z");animation:stkHeart 1.4s ease-out forwards}
+@keyframes stkFly{0%{opacity:0;transform:translate(calc(-50% + var(--x)),30px) scale(.3)}10%{opacity:1;transform:translate(calc(-50% + var(--x)),0) scale(1.12)}16%{transform:translate(calc(-50% + var(--x)),0) scale(1)}78%{opacity:1;transform:translate(calc(-50% + var(--x)),-14px) scale(1)}100%{opacity:0;transform:translate(calc(-50% + var(--x)),-60px) scale(.9)}}
+@keyframes stkMine{0%{opacity:0;transform:translate(-50%,16px) scale(.6)}15%{opacity:1;transform:translate(-50%,0) scale(1)}75%{opacity:1}100%{opacity:0;transform:translate(-50%,-26px)}}
+@keyframes stkWig{50%{transform:rotate(-10deg) scale(1.1)}}
+@keyframes stkHeart{0%{opacity:0;transform:translate(0,0) scale(.4)}20%{opacity:1}100%{opacity:0;transform:translate(var(--d),-110px) scale(1.3) rotate(20deg)}}
+@media (prefers-reduced-motion:reduce){.stk,.stk svg{animation:none!important}.stk i{display:none}}
 /* ---------- the art pass: softer light, cute details, a little bounce ---------- */
 body{background:radial-gradient(90% 60% at 50% 0%, #221b46, var(--night) 70%)}
 #cv{box-shadow:0 0 0 1px var(--line), 0 18px 44px rgba(0,0,0,.5), 0 0 70px rgba(130,100,230,.12)}
@@ -393,6 +426,7 @@ body{background:radial-gradient(90% 60% at 50% 0%, #221b46, var(--night) 70%)}
     <p class="hint" id="hHint"></p>
     <span class="netbadge" id="hNet" hidden></span>
     <span class="hearts" id="hHearts" aria-label="หัวใจที่เก็บได้"></span>
+    <button class="hbtn stkbtn" id="bStk" type="button" hidden aria-haspopup="true" aria-expanded="false" aria-label="ส่งสติกเกอร์ให้แฟน" title="ส่งสติกเกอร์ (กดเลข ๑-๘)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5C5.8 16 3 12.6 3 8.9 3 6.1 5.2 4 7.9 4c1.7 0 3.2.9 4.1 2.4C12.9 4.9 14.4 4 16.1 4 18.8 4 21 6.1 21 8.9c0 3.7-2.8 7.1-9 11.6z" fill="currentColor"/></svg><span>สติกเกอร์</span></button>
     <button class="hbtn" id="bRestart" type="button">เริ่มด่านใหม่</button>
     <button class="hbtn" id="bMenu" type="button">พัก</button>
     <button class="hbtn icon" id="bFull" type="button" data-full aria-label="เต็มจอ" title="เต็มจอ (F)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
@@ -400,6 +434,7 @@ body{background:radial-gradient(90% 60% at 50% 0%, #221b46, var(--night) 70%)}
 
   <main class="stage" id="stage">
     <canvas id="cv" aria-label="ฉากเกม"></canvas>
+    <div class="stklayer" id="stkLayer" aria-live="polite"></div>
 
     <section class="screen" id="sTitle">
       <div class="panel">
@@ -710,6 +745,7 @@ body{background:radial-gradient(90% 60% at 50% 0%, #221b46, var(--night) 70%)}
     </section>
 
     <div class="toast" id="toast" role="status" hidden></div>
+    <div class="stkpop" id="stkPop" role="menu" aria-label="สติกเกอร์" hidden></div>
 
     <div class="pad" id="pad">
       <div class="cluster pink">

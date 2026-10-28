@@ -924,6 +924,75 @@ function randomMode() {
 }
 $('#bRand').addEventListener('click', randomMode);
 /* ---------- end of the wardrobe ---------- */
+/* ---------- stickers: playing online on two phones, send each other a little picture with a word ---------- */
+// each sticker: [id, word, colour, svg]; sent in the presence message as "count.id" (a new count is a new sticker)
+const STK = [
+  ['love', 'รักนะ', '#ff6f9c', '<path d="M20 34C9 26 4 20 4 13.5 4 8.6 7.8 5 12.4 5c3.1 0 5.7 1.7 7.6 4.3C21.9 6.7 24.5 5 27.6 5 32.2 5 36 8.6 36 13.5 36 20 31 26 20 34z" fill="#ff6f9c"/><path d="M11 10.5c-2.4.6-3.8 2.6-3.8 4.9" stroke="#fff" stroke-width="2.6" stroke-linecap="round" fill="none" opacity=".7"/>'],
+  ['great', 'เก่งมาก!', '#ffb83a', '<path d="M20 3.5l4.9 10 11 1.6-8 7.8 1.9 11-9.8-5.2-9.8 5.2 1.9-11-8-7.8 11-1.6z" fill="#ffcf5a" stroke="#e8a020" stroke-width="1.5" stroke-linejoin="round"/><circle cx="16.4" cy="18.5" r="1.6" fill="#5a3a10"/><circle cx="23.6" cy="18.5" r="1.6" fill="#5a3a10"/><path d="M16.5 22.6q3.5 3.2 7 0" stroke="#5a3a10" stroke-width="1.6" fill="none" stroke-linecap="round"/>'],
+  ['sorry', 'ขอโทษนะ', '#7fb6ff', '<circle cx="20" cy="21" r="14" fill="#9fc8ff"/><path d="M13 19.5q2.4-1.6 4.4 0M22.6 19.5q2.4-1.6 4.4 0" stroke="#2a3a5a" stroke-width="1.7" fill="none" stroke-linecap="round"/><path d="M16.5 27.5q3.5-2.4 7 0" stroke="#2a3a5a" stroke-width="1.7" fill="none" stroke-linecap="round"/><path d="M31 6c2.6 3.6 3.6 5.6 3.6 7.2a3.6 3.6 0 0 1-7.2 0c0-1.6 1-3.6 3.6-7.2z" fill="#7fd0ff"/><ellipse cx="11.5" cy="24" rx="2.4" ry="1.4" fill="#ff9ab5" opacity=".7"/><ellipse cx="28.5" cy="24" rx="2.4" ry="1.4" fill="#ff9ab5" opacity=".7"/>'],
+  ['turn', 'ตาเธอแล้ว', '#4fe0bf', '<circle cx="20" cy="20" r="15" fill="#bff6e8"/><path d="M9 20h16" stroke="#2fb898" stroke-width="5" stroke-linecap="round"/><path d="M21 12.5l8.5 7.5-8.5 7.5" fill="none" stroke="#2fb898" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>'],
+  ['haha', 'ฮ่าๆๆ', '#ffcf5a', '<circle cx="20" cy="20" r="15" fill="#ffe27a"/><path d="M12 16.5l4 2-4 2M28 16.5l-4 2 4 2" stroke="#5a3a10" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.5 24.5h15q-1.5 7-7.5 7t-7.5-7z" fill="#5a3a10"/><path d="M15.5 28.4q4.5 2.6 9 0" fill="#ff8a9a"/><path d="M6.5 15.5q-2.5 3.5-.5 6" stroke="#7fd0ff" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M33.5 15.5q2.5 3.5.5 6" stroke="#7fd0ff" stroke-width="2.6" fill="none" stroke-linecap="round"/>'],
+  ['wait', 'รอแป๊บนะ', '#c9a0ff', '<circle cx="20" cy="21" r="14" fill="#e6d6ff" stroke="#9a72e0" stroke-width="2.4"/><path d="M20 13v8l5 3.5" stroke="#6a48b0" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 6.5l-4 3.5M29 6.5l4 3.5" stroke="#9a72e0" stroke-width="2.6" stroke-linecap="round"/>'],
+  ['go', 'ไปเลย!', '#ff8a5c', '<path d="M20 3c5 4.5 7.5 10 7.5 16.5V27h-15v-7.5C12.5 13 15 7.5 20 3z" fill="#fff4e8" stroke="#ff8a5c" stroke-width="2"/><circle cx="20" cy="16" r="3.4" fill="#7fd0ff" stroke="#ff8a5c" stroke-width="1.6"/><path d="M12.5 21l-5 5v4l5-2.5M27.5 21l5 5v4l-5-2.5" fill="#ff8a5c"/><path d="M16 29q4 9 8 0" fill="#ffcf5a"/><path d="M18 29q2 5 4 0" fill="#ff6f4c"/>'],
+  ['help', 'ช่วยด้วย!', '#ff6b6b', '<path d="M8 6h24a4 4 0 0 1 4 4v15a4 4 0 0 1-4 4H19l-7 6v-6H8a4 4 0 0 1-4-4V10a4 4 0 0 1 4-4z" fill="#ff8a8a"/><rect x="18" y="10" width="4.2" height="11" rx="2.1" fill="#fff"/><circle cx="20.1" cy="25" r="2.3" fill="#fff"/>']
+];
+const STK_GAP = 0.7;                                     // s between two stickers from one phone
+const SK = { n: 0, id: 0, last: -9, seen: null, sid: '' };
+const stkCode = () => SK.n + '.' + SK.id;
+const stkSvg = s => `<svg viewBox="0 0 40 40" aria-hidden="true">${s[3]}</svg>`;
+function stkShow(i, mine) {
+  const s = STK[i], layer = $('#stkLayer'); if (!s || !layer) return;
+  const el = document.createElement('div');
+  const id = mine ? O.local : (O.local === 'pink' ? 'mint' : 'pink'), who = (S.names[id] || '').slice(0, 14);
+  el.className = 'stk ' + (mine ? 'mine ' : 'theirs ') + (id === 'mint' ? 'm' : 'p');
+  el.style.setProperty('--x', (mine ? 0 : (Math.random() * 20 - 10)) + '%'); if (!mine) el.style.left = (id === 'pink' ? 30 : 70) + '%';
+  el.innerHTML = `${stkSvg(s)}<span class="w">${s[1]}</span><span class="by">${mine ? 'ส่งให้' + (O.partnerName || 'แฟน') : 'จาก' + who}</span>`;
+  if (!mine && s[0] === 'love') for (let k = 0; k < 6; k++) { const h = document.createElement('i'); h.style.setProperty('--d', (k * 60 - 150) + 'px'); h.style.animationDelay = (k * .05) + 's'; el.appendChild(h); }
+  layer.appendChild(el);
+  setTimeout(() => el.remove(), mine ? 1700 : 3200);
+  while (layer.children.length > 5) layer.firstChild.remove();
+}
+function stkSend(i) {
+  if (!O.role || !STK[i]) return;
+  const now = performance.now() / 1000; if (now - SK.last < STK_GAP) return;
+  SK.last = now; SK.n++; SK.id = i;
+  stkShow(i, true);
+  try { audio(); tone(700, .06, 'sine', .04, 1100); } catch (e) {}
+  stkPop(false);
+}
+// what the other phone says: show a sticker only when its count goes up (and not the old one on first sight)
+function stkHear(code, sid) {
+  if (typeof code !== 'string') return;
+  const m = /^(\d{1,6})\.(\d{1,2})$/.exec(code); if (!m) return;
+  const n = +m[1], i = +m[2];
+  if (SK.seen == null || sid !== SK.sid || n < SK.seen) { SK.seen = n; SK.sid = sid; return; }
+  if (n === SK.seen) return;
+  SK.seen = n;
+  stkShow(i, false);
+  try { const f = [988, 1175, 784, 880, 1319, 659, 1047, 523][i] || 880; chime(f, .35, .05); chime(f * 1.5, .4, .035, .1); } catch (e) {}
+}
+// the button in the top bar and the little tray of stickers
+function stkPop(open) {
+  const p = $('#stkPop'), b = $('#bStk'); if (!p || !b) return;
+  if (open == null) open = p.hidden;
+  p.hidden = !open; b.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (open) { const r = b.getBoundingClientRect(), w = p.offsetWidth || 300; p.style.top = Math.round(r.bottom + 8) + 'px'; p.style.left = Math.round(Math.max(8, Math.min(window.innerWidth - w - 8, r.right - w))) + 'px'; }
+}
+(function stkInit() {
+  const p = $('#stkPop'); if (!p) return;
+  p.innerHTML = STK.map((s, i) => `<button type="button" class="stkb" data-i="${i}" style="--c:${s[2]}">${stkSvg(s)}<span>${s[1]}</span><kbd>${th(i + 1)}</kbd></button>`).join('') + '<p class="stkhint">บนคีย์บอร์ดกดเลข ๑ ถึง ๘ ได้เลย</p>';
+  p.addEventListener('click', e => { const b = e.target.closest('.stkb'); if (b) stkSend(+b.dataset.i); });
+  $('#bStk').addEventListener('click', e => { e.stopPropagation(); stkPop(); });
+  document.addEventListener('pointerdown', e => { if (!p.hidden && !e.target.closest('#stkPop, #bStk')) stkPop(false); }, true);
+  document.addEventListener('keydown', e => {
+    if (!O.role || e.repeat || (e.target && e.target.tagName === 'INPUT')) return;
+    const m = /^(Digit|Numpad)([1-8])$/.exec(e.code); if (!m) return;
+    e.preventDefault(); stkSend(+m[2] - 1);
+  });
+  // the button shows only while playing online
+  setInterval(() => { const b = $('#bStk'); if (!b) return; const on = !!O.role; if (b.hidden === on) { b.hidden = !on; if (!on) stkPop(false); } }, 300);
+})();
+/* ---------- end of the stickers ---------- */
 // a HUD box: a soft shadow, a dusky gradient and a fine light rim
 // (each size is drawn once and stamped; the rim is left as the current path for callers that outline it)
 function panel(g, x, y, w, h, r, a = .85) {
@@ -2262,6 +2331,7 @@ function onPeers(change) {
   O.partner = best.pr; O.partnerPeer = best.peer; O.partnerAt = performance.now();
   O.partnerName = cleanName(best.pr.n) || (O.role === 'host' ? 'ตัวเอง' : 'เค้า');
   O.partnerWear = wardParse(best.pr.wd);
+  stkHear(best.pr.sk, best.pr.sid);
   S.names[O.local === 'pink' ? 'mint' : 'pink'] = O.partnerName;
   if (!was) renderOnlineRoom();
   if (O.role === 'host') hostHears(best.pr); else guestHears(best.pr);
@@ -2354,7 +2424,7 @@ function clockSample(pr) {
 }
 function pumpOnline(now) {
   const room = O.room; if (!room) return;
-  const o = { app: 'tsr', v: 1, code: O.code, r: O.role === 'host' ? 'h' : 'g', n: S.names[O.local] || '', ep: O.ep, lv: O.lv, md: O.md, sid: O.sid, wd: wardCode(O.local) };
+  const o = { app: 'tsr', v: 1, code: O.code, r: O.role === 'host' ? 'h' : 'g', n: S.names[O.local] || '', ep: O.ep, lv: O.lv, md: O.md, sid: O.sid, wd: wardCode(O.local), sk: stkCode() };
   if (O.role === 'host') { o.st = O.st; o.fs = O.freshEp; } else { o.dead = O.dead; o.rq = O.rq; }
   // clock sync: the guest sends its clock, the host echoes it back with how long it held it and its own clock
   const pnow = performance.now();
