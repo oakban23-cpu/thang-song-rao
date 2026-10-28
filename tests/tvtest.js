@@ -7,7 +7,7 @@ vm.runInContext(fs.readFileSync(path.join(JS, 'tvlink.js'), 'utf8') + ';this.TvL
 const { TvLink: L } = ctx;
 let fails = 0;
 const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fails++; };
-const pad = extra => Object.assign({ app: 'tsr', tv: 'p', code: '1234', sid: 'abcd1234', n: 'ฝ้าย', want: 'mint', j: [0.5, -2], h: 'A,U,zz', c: { A: 3, U: 1, Q: 9 }, t: { A: 1500 }, cmd: [2, 'start', 'climb', 1], br: 'climb', sk: '3.1', ck: 1000 }, extra);
+const pad = extra => Object.assign({ app: 'tsr', tv: 'p', code: '1234', sid: 'abcd1234', n: 'ฝ้าย', want: 'mint', j: [0.5, -2], h: 'A,U,zz', c: { A: 3, U: 1, Q: 9 }, t: { A: 1500 }, cmd: [2, 'start', 'climb', 1], br: 'climb', sk: '3.1', ck: 1000, wr: [3, '2|crown.....|sky.spots.star.cat.heart.antenna'] }, extra);
 { // a phone's words
   const p = L.readPad(pad(), '1234');
   ok(p && p.sid === 'abcd1234' && p.n === 'ฝ้าย' && p.want === 'mint', 'a phone: who and which colour it would like');
@@ -18,16 +18,19 @@ const pad = extra => Object.assign({ app: 'tsr', tv: 'p', code: '1234', sid: 'ab
   const q = L.readPad(pad({ n: '<script>เอ', j: 'x', h: 5, c: { A: -1, U: 1.5 }, cmd: [0, 'start'], br: '../x', sk: 'z' }), '1234');
   ok(q && q.n === 'scriptเอ' && q.j[0] === 0 && q.h.size === 0 && !('A' in q.c) && !('U' in q.c) && !q.cmd && q.br === '' && q.sk === '', 'nonsense in a pad message is cleaned away');
   ok(!L.readPad(pad({ cmd: [5, 'format'] }), '1234').cmd, 'an unknown command is dropped');
+  ok(p.wr[0] === 3 && p.wr[1].startsWith('2|crown') && !L.readPad(pad({ wr: [0, 'x'] }), '1234').wr && !L.readPad(pad({ wr: [2, 'y'.repeat(300)] }), '1234').wr, 'a wardrobe change: its number and its code (nonsense dropped)');
 }
 { // the screen's words
   const m = { app: 'tsr', tv: 's', code: '1234', sid: 'scr0001', seat: { pink: ['abcd1234', 'ฝ้าย'], mint: ['<bad>', 'x'] }, st: 'play', kind: 'climb', li: 2, lab: 'ผาที่ ๓', nm: 'น้ำตก', hint: 'ระวังแพะ',
     pad: { pink: { t: 'k', role: '', b: [['A', 'เชือก'], ['U', 'เกาะ<br>ค้าง'], ['Z', 'x']] }, mint: { t: 'nope' } }, tip: { pink: 'กดค้าง!' }, ms: { climb: '★ ๓ / ๑๕', '<x>': 'y' },
-    lv: { climb: [[0, '๑', 'ผาริมทะเล', '★★★', 0, 1], [1, '๒', 'ถ้ำ', 'ยังล็อกอยู่', 1, 0], ['x']] }, clear: { h: 'ถึงยอดแล้ว', s: 7, next: 'ผาถัดไป' }, pause: { no: 'ผาที่ ๓', swap: '' }, ce: { abcd1234: [10, 2] }, hn: 5000 };
+    lv: { climb: [[0, '๑', 'ผาริมทะเล', '★★★', 0, 1], [1, '๒', 'ถ้ำ', 'ยังล็อกอยู่', 1, 0], ['x']] }, clear: { h: 'ถึงยอดแล้ว', s: 7, next: 'ผาถัดไป' }, pause: { no: 'ผาที่ ๓', swap: '' }, ce: { abcd1234: [10, 2] }, hn: 5000,
+    wr: { pink: '2|tux.....|pink.none.shiny.smile.rosy.bow', mint: 7 }, ws: 42 };
   const s = L.readScreen(m, '1234');
   ok(s && s.st === 'play' && s.kind === 'climb' && s.li === 2 && s.seat.pink[0] === 'abcd1234' && s.seat.mint[0] === '', 'the screen: what is on, who sits where');
   ok(s.pad.pink.t === 'k' && s.pad.pink.b.length === 2 && s.pad.pink.b[1][1] === 'เกาะ\nค้าง' && s.pad.mint === null, "each one's buttons and their words (tags made plain)");
   ok(s.ms.climb && !s.ms['<x>'] && s.lv.climb.length === 2 && s.lv.climb[1][4] === 1, 'the stars per mode and a level list');
   ok(s.clear.s === 3 && s.clear.next === 'ผาถัดไป' && s.pause.no === 'ผาที่ ๓' && s.ce.abcd1234[0] === 10, 'results, the pause, the clock echo');
+  ok(s.wr.pink.startsWith('2|tux') && s.wr.mint === '' && s.ws === 42 && Number.isNaN(L.readScreen(Object.assign({}, m, { ws: -3 }), '1234').ws), "how each one looks on the screen, and the screen's stars");
   ok(!L.readScreen(Object.assign({}, m, { code: '1' }), '1234') && !L.readScreen(Object.assign({}, m, { tv: 'p' }), '1234'), 'another screen: ignored');
   const z = L.readScreen({ app: 'tsr', tv: 's', code: '1234', sid: 'scr0001', st: 'hack', li: 'x', hint: 5, pad: 7, lv: { climb: 'x' } }, '1234');
   ok(z && z.st === 'menu' && z.li === -1 && z.hint === '' && z.pad.pink === null && !z.lv.climb, 'nonsense from the screen is cleaned away');

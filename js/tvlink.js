@@ -2,11 +2,12 @@
    which presses and which commands are new. No page needed (the tests use it as it is).
    A phone says: { app: 'tsr', tv: 'p', code, sid, n (name), want ('pink'/'mint'), j: [x, y] (the stick), h: 'A,U' (the
    buttons held), c: { A: 3, ... } (presses so far, per button), t: { A: ms } (when the last press was, on the screen's
-   clock), cmd: [seq, what, kind, level], br (the mode it is looking at), sk (stickers: 'count.id'), ck (its clock) }.
+   clock), cmd: [seq, what, kind, level], br (the mode it is looking at), sk (stickers: 'count.id'), ck (its clock),
+   wr: [seq, look code] (what it changed in the wardrobe) }.
    The screen says: { app: 'tsr', tv: 's', code, sid, seat: { pink: [sid, name], mint }, st ('menu', 'play', 'pause',
    'clear'), kind, li, lab, nm, hint, pad: { pink: { t, b: [[key, label]], role }, mint }, tip: { pink, mint }, ms: { kind:
    stars }, lv: { kind: [[i, no, name, note, locked, done]] }, clear: { h, nm, s, msg, stats, next, again }, pause: { no,
-   hint, swap }, ce: { sid: [their clock, held ms] }, hn (its clock), wait }. */
+   hint, swap }, ce: { sid: [their clock, held ms] }, hn (its clock), wait, wr: { pink: look code, mint }, ws (its stars) }. */
 const TvLink = (() => {
   'use strict';
   // the buttons of each kind of pad: adv left/right/jump; k stick with act and use; x two buttons; m low/high (music);
@@ -36,7 +37,8 @@ const TvLink = (() => {
     let cmd = null;
     if (Array.isArray(m.cmd) && Number.isInteger(m.cmd[0]) && m.cmd[0] > 0 && CMDS.includes(m.cmd[1])) cmd = [m.cmd[0], m.cmd[1], isKind(m.cmd[2]) ? m.cmd[2] : '', Number.isInteger(m.cmd[3]) && m.cmd[3] >= 0 && m.cmd[3] < 1000 ? m.cmd[3] : -1];
     return { sid: m.sid, n: name(m.n), want: m.want === 'pink' || m.want === 'mint' ? m.want : '', j, h, c, t, cmd, br: isKind(m.br) ? m.br : '',
-      sk: typeof m.sk === 'string' && /^\d{1,6}\.\d{1,2}$/.test(m.sk) ? m.sk : '', ck: num(m.ck, NaN) };
+      sk: typeof m.sk === 'string' && /^\d{1,6}\.\d{1,2}$/.test(m.sk) ? m.sk : '', ck: num(m.ck, NaN),
+      wr: Array.isArray(m.wr) && Number.isInteger(m.wr[0]) && m.wr[0] > 0 && typeof m.wr[1] === 'string' && m.wr[1].length <= 160 ? [m.wr[0], m.wr[1]] : null };
   }
   // what the screen said, made safe (null: not this screen)
   function readScreen(m, code) {
@@ -61,7 +63,8 @@ const TvLink = (() => {
       lab: str(m.lab, 40), nm: str(m.nm, 60), hint: str(m.hint, 400), pad, tip, ms, lv,
       clear: c ? { h: str(c.h, 60), nm: str(c.nm, 60), s: Number.isInteger(c.s) ? clamp(c.s, -1, 3) : -1, msg: str(c.msg, 300), stats: str(c.stats, 400), next: str(c.next, 30), again: str(c.again, 30) } : null,
       pause: p ? { no: str(p.no, 80), hint: str(p.hint, 400), swap: str(p.swap, 80) } : null,
-      ce, hn: num(m.hn, NaN), wait: str(m.wait, 80)
+      ce, hn: num(m.hn, NaN), wait: str(m.wait, 80),
+      wr: { pink: m.wr ? str(m.wr.pink, 160) : '', mint: m.wr ? str(m.wr.mint, 160) : '' }, ws: Number.isInteger(m.ws) && m.ws >= 0 && m.ws < 10000 ? m.ws : NaN
     };
   }
   /* who plays which colour. slots { pink: sid, mint: sid }; pads Map sid -> { at (ms), want, first (ms) }. Keeps whoever
