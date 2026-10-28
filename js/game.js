@@ -49,7 +49,7 @@ app.classList.toggle('touch', isTouch);
 
 /* ---------- State ---------- */
 // every kind of screen; the one showing is a class on #app
-const KINDS = ['kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov', 'kite', 'cin', 'fart', 'bed', 'win', 'trap', 'isle', 'shop', 'fish'];
+const KINDS = ['kit', 'def', 'drv', 'tak', 'mus', 'twr', 'leg', 'boat', 'mov', 'kite', 'cin', 'fart', 'bed', 'win', 'trap', 'isle', 'shop', 'fish', 'climb'];
 function setKind(k) { S.kind = k; for (const x of KINDS) app.classList.toggle(x, x === k); }
 const MODES = {};
 const S = { mode: 'menu', li: 0, W: null, deathT: 0, winT: 0, flash: 0, banner: 0, deaths: 0, elapsed: 0, parts: [], time: 0, deadId: null, shake: 0, gates: [], names: { pink: 'เค้า', mint: 'ตัวเอง' }, sound: true, music: true };
@@ -253,7 +253,12 @@ const TRACKS = {
   shop: { bpm: 108, beats: 4, div: 2, vol: 0.8, chords: ['Fmaj7', 'Em7', 'Dm7', 'G7', 'Cmaj7', 'Am7', 'Dm7', 'G7'],
     mel: [{ i: 'ep', v: .05, n: 'A5 . G5 A5 - . E5 . | G5 . F5 G5 - . D5 . | F5 . E5 F5 - . A4 . | B4 - D5 - G5 - - . | E5 . D5 E5 - . G5 . | C6 - B5 A5 - . E5 . | F5 . A5 - D5 . F5 . | E5 - D5 - B4 - - .' }],
     arp: { i: 'pluck', v: .018, p: '0 . 2 1 . 2 1 .' }, bass: { i: 'bass', v: .06, p: '0 . . 2 . 1 2 .' },
-    drums: { block: ['. . x . . x . .', .14], shaker: ['x x x x x x x x', .22], kick: ['x . . . x . . .', .25] } }
+    drums: { block: ['. . x . . x . .', .14], shaker: ['x x x x x x x x', .22], kick: ['x . . . x . . .', .25] } },
+  // climbing the cliff: a hopeful mountain flute over a plucked climb, a bouncing bass and toms like footsteps
+  climb: { bpm: 104, beats: 4, div: 2, vol: 0.7, chords: ['D', 'A', 'Bm', 'G', 'D', 'G', 'A', 'D'],
+    mel: [{ i: 'flute', v: .05, n: 'A4 . D5 . F#5 - E5 D5 | E5 . C#5 . A4 - - - | B4 . D5 . F#5 - E5 D5 | D5 - B4 - G4 - - - | F#5 . A5 . D6 - C#6 B5 | B5 . G5 . D5 - E5 F#5 | E5 . C#5 . A4 . E5 . | D5 - F#5 - D5 - - -' }],
+    arp: { i: 'pluck', v: .02, p: '0 2 1 2 0 2 1 2' }, bass: { i: 'bass', v: .058, p: '0 . 0 . 2 . 0 .' }, pad: .01,
+    drums: { tom: ['x . . . x . x .', .2], shaker: ['. x . x . x . x', .25], block: ['. . . . . . . x', .1] } }
 };
 
 // turn the written parts into steps once
@@ -349,7 +354,7 @@ function drum(a, out, k, at, v) {
 
 /* the conductor: which track (or none) fits what is on screen, faded in and out, muffled while paused */
 const BGM = { name: undefined, tr: null, step: 0, next: 0, fadeIn: false, hold: 0, prevMode: '', banner: 0, amb: {}, ambKind: null };
-const MODE_TRACK = { adv: 'adv', kit: 'kit', def: 'def', drv: 'drv', tak: 'tak', twr: 'twr', leg: 'leg', boat: 'boat', mov: 'mov', kite: 'kite', cin: 'cin', fart: 'fart', bed: 'bed', win: 'win', trap: 'trap', isle: 'isle', shop: 'shop', fish: 'fish' };
+const MODE_TRACK = { adv: 'adv', kit: 'kit', def: 'def', drv: 'drv', tak: 'tak', twr: 'twr', leg: 'leg', boat: 'boat', mov: 'mov', kite: 'kite', cin: 'cin', fart: 'fart', bed: 'bed', win: 'win', trap: 'trap', isle: 'isle', shop: 'shop', fish: 'fish', climb: 'climb' };
 function bgmWanted() {
   if (!S.music || document.hidden) return null;
   if (S.mode === 'menu' || S.mode === 'clear' || !scr.title.hidden || !scr.online.hidden) return 'title';
@@ -392,7 +397,7 @@ function resultsJingle() {
 }
 
 /* the sound of each place: crickets at night, birds by day, the jungle, wind, water, a crowd, the air conditioner, the projector */
-const AMB_OF = { adv: ['night'], def: ['night', 'wind'], drv: ['birds'], tak: ['birds'], twr: ['wind', 'birds'], leg: ['crowd', 'birds'], boat: ['water', 'crowd'], mov: ['birds'], kite: ['wind', 'birds'], cin: ['projector'], fart: ['crowd'], bed: ['hum', 'night'], win: ['night'], trap: ['birds', 'jungle'], isle: ['sea'], shop: ['crowd'], fish: ['water', 'birds'] };
+const AMB_OF = { adv: ['night'], def: ['night', 'wind'], drv: ['birds'], tak: ['birds'], twr: ['wind', 'birds'], leg: ['crowd', 'birds'], boat: ['water', 'crowd'], mov: ['birds'], kite: ['wind', 'birds'], cin: ['projector'], fart: ['crowd'], bed: ['hum', 'night'], win: ['night'], trap: ['birds', 'jungle'], isle: ['sea'], shop: ['crowd'], fish: ['water', 'birds'], climb: ['wind', 'birds'] };
 function ambLayer(a, M, kind) {
   const s = a.createBufferSource(); s.buffer = noiseBuf(a); s.loop = true;
   const f = a.createBiquadFilter(), g = a.createGain(), lfo = a.createOscillator(), lg = a.createGain();
@@ -1062,6 +1067,7 @@ const VEV = {
   trap: { down: ['help', 'a'], revive: ['happy', 'a'], hurt: ['oops', 'a'], gem: ['happy', 'a'], heart: ['giggle', 'a'], check: ['cheer', 'both'], out: ['sad', 'both'] },
   isle: { catch: ['happy', 'a'], bonk: ['oops', 'a'], salty: ['oops', 'a'], fish: ['happy', 'a'], lit: ['cheer', 'both'], singe: ['surprise', 'a'], sick: ['sad', 'a'], sulk: ['hmm', 'a'], makeup: ['love', 'both'], love: ['love', 'a'], flower: ['love', 'a'], monkey: ['surprise', 'rand'], pinch: ['surprise', 'a'], ship: ['call', 'both'], rescued: ['cheer', 'both'], down: ['help', 'a'], revive: ['happy', 'a'] },
   shop: { boo: ['surprise', 'a'], caught: ['cheer', 'a'], kidcaught: ['giggle', 'a'], escaped: ['sad', 'rand'], tangle: ['oops', 'rand'], duo: ['love', 'both'], alarm: ['help', 'rand'], sewn: ['happy', 'rand'] },
+  climb: { catch: ['oops', 'a'], slip: ['surprise', 'a'], tired: ['help', 'a'], pulled: ['surprise', 'a'], peck: ['surprise', 'a'], crumble: ['surprise', 'a'], butt: ['oops', 'a'], gem: ['happy', 'a'], check: ['cheer', 'both'], summit: ['cheer', 'both'], fall: ['surprise', 'both'], boost: ['effort', 'a'], haul: ['effort', 'a'], shoo: ['effort', 'a'], timeup: ['sad', 'both'], respawn: ['hmm', 'rand'] },
   fish: { hook: ['wow', 'a'], land: ['happy', 'a'], netted: ['happy', 'a'], snap: ['sad', 'a'], escape: ['oops', 'a'], surface: ['call', 'a'], giant: ['wow', 'rand'], stolen: ['surprise', 'rand'], shoo: ['effort', 'a'], flood: ['surprise', 'both'], tangle: ['oops', 'both'], untangled: ['giggle', 'rand'] }
 };
 function voiceEv(kind, ev) {
@@ -1069,6 +1075,7 @@ function voiceEv(kind, ev) {
   for (const e of ev) {
     const [k, a, b] = String(e).split(':'), m = T[k]; if (!m) continue;
     if (kind === 'fish' && k === 'netted' && b != null && YF.SP[+b] && YF.SP[+b].sz === 'g') { sayBoth('cheer'); continue; }
+    if (kind === 'climb' && k === 'catch' && (a === 'pink' || a === 'mint')) { say(a, 'oops'); say(vOther(a), 'effort', .25); continue; }
     if (kind === 'fish' && k === 'hook' && b != null && YF.SP[+b] && YF.SP[+b].sz === 'g') { say(a, 'help'); continue; }
     const who = m[1] === 'both' ? 'both' : m[1] === 'rand' ? vRand() : m[1] === 'other' ? vOther(a) : (a === 'pink' || a === 'mint' ? a : vRand());
     if (who === 'both') sayBoth(m[0]); else say(who, m[0]);
@@ -1727,7 +1734,7 @@ function drawPlayer(g, p, t) {
   cuteFace(g, p.face * 2.5, -h + 12.5, p.face, t, pink, p.mood || (p.sq < -.15 ? 'o' : ''), 1, 0, p.id);
   if (pink) cuteBow(g, w / 2 - 6, -h + 1.5); else cuteSprout(g, 0, -h + 1, 1, t);
   g.restore();
-  nameTag(g, S.names[p.id], cx, p.y - 13 - wardLift(p.id), col);
+  if (!p.noTag) nameTag(g, S.names[p.id], cx, p.y - 13 - wardLift(p.id), col);
 }
 // fireflies drifting about in the open (not in the walls), and a few stars that twinkle
 function drawFireflies(g, L, t) {
@@ -12025,6 +12032,544 @@ function fishHud(g, G, t) {
   }
 }
 
+/* ---------- Climbing tied together (ปีนผาผูกเชือก) ---------- */
+Object.assign(sfx, {
+  zjump() { noise(.16, 900, .035, 'bandpass', .9, 1900); },
+  zgrab() { noise(.05, 2400, .05, 'bandpass', 2.2); tone(260 + Math.random() * 60, .06, 'triangle', .04, 170); },
+  zland() { noise(.1, 500, .06, 'lowpass', 1); tone(150, .08, 'sine', .05, 90); },
+  zthud() { tone(110, .22, 'sine', .09, 55); noise(.2, 380, .07, 'lowpass', 1); },
+  ztip() { for (let i = 0; i < 3; i++) noise(.03, 3200 + i * 400, .025, 'bandpass', 3, 0, i * .05); },
+  zslip() { tone(900, .3, 'triangle', .04, 300); noise(.25, 2600, .03, 'bandpass', 1.5, 900); },
+  zcatch() { tone(140, .32, 'sawtooth', .04, 92); tone(70, .3, 'sine', .07, 55); noise(.08, 1800, .03, 'bandpass', 2); },
+  zrope() { noise(.12, 1300, .03, 'bandpass', 2, 800); },
+  zcreak() { tone(180 + Math.random() * 40, .07, 'triangle', .035, 140); noise(.05, 1500, .02, 'bandpass', 3); },
+  zboost() { tone(330, .16, 'sine', .06, 660); chime(988, .2, .03, .08); },
+  zcrumble() { noise(.5, 700, .08, 'lowpass', .8, 200); for (let i = 0; i < 4; i++) tone(300 - i * 40, .05, 'triangle', .03, 0, .05 + i * .07); },
+  zpeck() { tone(1500, .07, 'sawtooth', .025, 1900); tone(1500, .07, 'sawtooth', .025, 1900, .1); noise(.05, 3000, .04, 'highpass', 1, 0, .12); },
+  zcheep() { tone(2300, .05, 'sine', .02, 2700); tone(2500, .05, 'sine', .018, 2900, .08); },
+  zbleat() { const a = audio(); if (!a) return; tone(380, .45, 'sawtooth', .025, 330); tone(388, .45, 'sawtooth', .02, 340); },
+  zbonk() { tone(200, .12, 'sine', .07, 110); noise(.08, 900, .04, 'lowpass', 1); },
+  zshoo() { noise(.18, 2600, .05, 'bandpass', 1, 900); tone(520, .08, 'square', .02, 900); },
+  zgem() { [784, 988, 1175, 1568].forEach((f, i) => chime(f, .32, .035, i * .06)); },
+  zcheck() { [523, 659, 784, 1047].forEach((f, i) => chime(f, .45, .045, i * .09)); },
+  zfall() { tone(1300, 1.1, 'sine', .04, 260); noise(.9, 600, .03, 'lowpass', .7, 200, .15); },
+  zrespawn() { chime(659, .3, .035); chime(988, .4, .03, .12); },
+  zwarn() { noise(1.2, 400, .04, 'lowpass', .6, 1400); },
+  zgust() { noise(2.2, 900, .07, 'bandpass', .5, 300); },
+  zsummit() { [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => chime(f, .7, .05, i * .1)); tone(262, 1.2, 'triangle', .04, 0, .5); },
+  zregrow() { noise(.08, 1200, .015, 'bandpass', 2); }
+});
+const ZE = Rope, ZARM = Rope.ARM, ZCH = 544;
+const zOther = id => (id === 'pink' ? 'mint' : 'pink');
+// words in the world (they move with the cliff) and on the screen
+function zFloat(text, x, y, col, size = 16, life = 1.4) { const st = ZM.st; if (st.wf.some(f => f.text === text && f.max - f.life < .6)) return; st.wf.push({ text, x, y, col, size, life, max: life }); }
+function zSay(text, col, size = 18, life = 1.8) { if (ZM.st.floats.some(f => f.text === text && f.max - f.life < .8)) return; xFloat(ZM, text, VW / 2, 132, col, size, life); }
+// the stick, read without using up a press (for the aim on the screen)
+function zPeek(id) { const a = KK[id], t = KT[id]; return { mx: Math.max(-1, Math.min(1, (a.r - a.l) + t.x)), my: Math.max(-1, Math.min(1, (a.d - a.u) + t.y)) }; }
+const ZM = xMode({
+  kind: 'climb', md: 'z', pres: 'zw', dk: 'z', L: ZLEVELS, pk: 'z', Eng: Rope, pad: 'k', list: 'zlevels', olist: 'oLevelsZ', starsAll: 'zStarsAll',
+  label: i => 'ผาที่ ' + th(i + 1), word: 'ปีน', goWord: 'เริ่มปีน', fresh: 'ยังไม่เคยปีน', nextWord: 'ผาถัดไป', againWord: 'ปีนผานี้อีกรอบ',
+  score: G => G.score,
+  kWords: () => ({ act: 'เชือก', use: 'เกาะ<br>ค้าง' }),
+  onLoad() {
+    const st = ZM.st, G = st.G;
+    Object.assign(st, { cam: Math.max(0, G.geo.HT - VH), wf: [], disp: { pink: { x: G.p.pink.x, y: G.p.pink.y }, mint: { x: G.p.mint.x, y: G.p.mint.y } }, walk: { pink: 0, mint: 0 },
+      flakes: [], mist: [], wasUse: false, joy: { pink: 0, mint: 0 }, peckFx: [], sun: 0 });
+    st.n.r = 0;
+  },
+  snap: G => ({ st: G.st, over: G.over, won: G.won, s: Object.assign({}, G.stats), cp: G.cp, wd: G.wind ? G.wind.st + G.wind.dir : '',
+    p: ['pink', 'mint'].map(id => { const p = G.p[id]; return [p.st, p.st === 'hold' ? p.h : p.st === 'ledge' ? p.li : -1, p.firm ? 1 : 0, p.taut ? 1 : 0]; }) }),
+  changes(p, n) {
+    const ev = [], ids = ['pink', 'mint'];
+    if (p.st === 'count' && n.st === 'run') ev.push('go');
+    if (p.st === 'fall' && n.st === 'run') ev.push('respawn');
+    const off = [];
+    ids.forEach((id, i) => {
+      const [a, ai, af, at] = p.p[i], [b, bi, bf, bt] = n.p[i];
+      if (b === 'air' && a !== 'air') { ev.push('jump:' + id); off.push(id); }
+      if (b === 'hold' && (a !== 'hold' || ai !== bi)) ev.push('grab:' + id + ':' + bi + (bf ? '' : ':tip'));
+      if (b === 'ledge' && (a !== 'ledge' || ai !== bi)) ev.push('land:' + id + ':' + bi);
+      if (bt && !at && b === 'air') off.push(id);
+    });
+    const d = k => n.s[k] - p.s[k], who = () => off[0] || 'x';
+    if (d('catches') > 0) { const id = ids.find((x, i) => n.p[i][3] && !p.p[i][3]) || who(); ev.push('catch:' + id + ':400'); }
+    for (const [k, e] of [['slips', 'slip'], ['tired', 'tired'], ['pecks', 'peck'], ['crumbles', 'crumble'], ['butts', 'butt']]) if (d(k) > 0) ev.push(e + ':' + who());
+    if (d('gems') > 0) ev.push('gem:x'); if (d('boosts') > 0) ev.push('boost:' + who()); if (d('hauls') > 0) ev.push('haul:x'); if (d('climbs') > 0) ev.push('climb:x'); if (d('shoos') > 0) ev.push('shoo:x');
+    if (d('falls') > 0) ev.push('fall'); if (d('checks') > 0) ev.push('check:' + n.cp); if (d('thuds') > 0) ev.push('thud');
+    if (n.wd !== p.wd) { if (n.wd.startsWith('warn')) ev.push('windwarn:' + n.wd.slice(4)); else if (n.wd.startsWith('gust')) ev.push('gust:' + n.wd.slice(4)); else ev.push('calm'); }
+    if (n.over && !p.over) ev.push(n.won ? 'summit' : 'timeup');
+    return ev;
+  },
+  events(ev) {
+    const st = ZM.st, G = st.G;
+    for (const e of ev) {
+      const [k, a, b, c] = e.split(':'), p = G.p[a], mine = !O.role || a === O.local;
+      const at = p ? { x: st.disp[a].x, y: st.disp[a].y } : null;
+      if (k === 'go') sfx.ilaunch();
+      else if (k === 'jump') { sfx.zjump(); if (p && st.disp[a]) burst(at.x, at.y + ZARM, 4, 'rgba(230,210,180,.8)', { speed: 50, up: 10, life: .4, g: 200, size: 2 }); }
+      else if (k === 'grab') {
+        sfx.zgrab(); const h = G.geo.holds[+b]; if (h) burst(h.x, h.y + 4, 3, 'rgba(220,200,170,.8)', { speed: 40, up: 0, life: .35, g: 300, size: 1.8 });
+        if (c === 'tip') { sfx.ztip(); if (p && mine) zFloat('กดค้าง!', h ? h.x : at.x, (h ? h.y : at.y) - 26, C.gold, 18, .7); }
+      } else if (k === 'firm') {}
+      else if (k === 'land') { if (c === 'hard') { sfx.zthud(); S.shake = Math.max(S.shake, .35); if (at) zFloat('โอ๊ย!', at.x, at.y - 20, '#ffb38a', 16); } else sfx.zland(); }
+      else if (k === 'thud') { sfx.zthud(); S.shake = Math.max(S.shake, .3); }
+      else if (k === 'slip') { sfx.zslip(); if (at) zFloat('มือหลุด!', at.x, at.y - 24, '#ff8a8a', 17); }
+      else if (k === 'tired') { sfx.zslip(); if (at) zFloat('มือล้าหมดแรง!', at.x, at.y - 24, '#ff8a8a', 17); }
+      else if (k === 'pulled') { sfx.zslip(); if (at) zFloat('โดนเชือกกระชากหลุด!', at.x, at.y - 24, '#ff8a8a', 16); }
+      else if (k === 'catch') {
+        sfx.zcatch(); S.shake = Math.max(S.shake, .25);
+        const o = p ? G.p[zOther(a)] : null; if (o) zFloat(o.st === 'ledge' ? 'เชือกรับไว้!' : 'เชือกรับไว้! (มือล้าขึ้น)', st.disp[zOther(a)].x, st.disp[zOther(a)].y - 30, o.st === 'ledge' ? C.gold : '#ffd27a', 15);
+      }
+      else if (k === 'hang') sfx.zrope();
+      else if (k === 'climb' || k === 'haul') sfx.zcreak();
+      else if (k === 'boost') { sfx.zboost(); if (at) zFloat('เหยียบไหล่!', at.x, at.y - 10, C.gold, 17); }
+      else if (k === 'crumble') {
+        sfx.zcrumble(); const h = G.geo.holds[+b];
+        if (h) { burst(h.x, h.y, 12, '#b89474', { speed: 70, up: 20, life: 1.1, g: 600, size: 3 }); zFloat('หินร่วง!', h.x, h.y - 26, '#ffb38a', 16); }
+      }
+      else if (k === 'regrow') sfx.zregrow();
+      else if (k === 'peck') { sfx.zpeck(); if (at) { zFloat('โดนนกจิก!', at.x, at.y - 24, '#ff8a8a', 17); burst(at.x, at.y - 6, 8, '#f4ead8', { speed: 70, up: 30, life: .9, g: 90, size: 2.4 }); } }
+      else if (k === 'goat') { sfx.zbleat(); if (at && mine) zFloat('แพะจะขวิด! ไล่มันเลย', at.x, at.y - 30, '#ffd27a', 15, 1); }
+      else if (k === 'butt') { sfx.zbleat(); sfx.zbonk(); S.shake = Math.max(S.shake, .3); if (at) zFloat('แพะขวิด!', at.x, at.y - 20, '#ffb38a', 17); }
+      else if (k === 'shoo') { sfx.zshoo(); setTimeout(() => sfx.zbleat(), 160); if (at) zFloat('ชู่ว! ไปไป', at.x, at.y - 24, C.gold, 15); }
+      else if (k === 'gem') {
+        sfx.zgem(); const g0 = G.geo.gems[+b], x = g0 ? g0.x : at ? at.x : VW / 2, y = g0 ? g0.y : at ? at.y : 200;
+        zFloat('ดอกไม้ +' + th(ZE.GEM), x, y - 24, '#ffc2dc', 16); burst(x + 10, y - 8, 10, '#ff9ec8', { type: 'heart', speed: 60, up: 50, life: .9, g: 80, size: 4 });
+      }
+      else if (k === 'check') { sfx.zcheck(); zSay('จุดพัก! ร่วงลงไปจะกลับมาเริ่มที่นี่', C.gold, 17); const l = G.geo.ledges[+a]; if (l) burst((l.x0 + l.x1) / 2, l.y - 30, 14, C.gold, { type: 'star', speed: 90, up: 60, life: .9, g: 120, size: 3 }); }
+      else if (k === 'fall') { sfx.zfall(); S.shake = Math.max(S.shake, .5); zSay('ร่วงทั้งคู่! กลับไปที่จุดพัก', '#ff8a8a', 20, 1.8); }
+      else if (k === 'respawn') sfx.zrespawn();
+      else if (k === 'windwarn') { sfx.zwarn(); zSay(`ลมกำลังมาทาง${+a < 0 ? 'ซ้าย' : 'ขวา'}! เกาะให้แน่น`, '#bfe6ff', 17, 1.6); }
+      else if (k === 'gust') sfx.zgust();
+      else if (k === 'calm') {}
+      else if (k === 'last20') { sfx.ftick(); zSay('อีก ๒๐ วินาที!', '#ffd27a', 18); }
+      else if (k === 'summit') {
+        sfx.zsummit(); zSay('ถึงยอดแล้ว!!', C.gold, 26, 2.4); S.flash = Math.max(S.flash, .4);
+        const l = G.geo.ledges[G.geo.top]; for (let i = 0; i < 4; i++) burst((l.x0 + l.x1) / 2 + (i - 1.5) * 90, l.y - 60, 14, i % 2 ? C.pink : C.gold, { type: i % 2 ? 'heart' : 'star', speed: 140, up: 120, life: 1.4, g: 160, size: 4 });
+      }
+      else if (k === 'timeup') { sfx.fgone(); zSay('หมดเวลา...', '#ffb38a', 22, 2); }
+    }
+  },
+  tick() {
+    const st = ZM.st, G = st.G, q = id => { const k = kInput(id); return { mx: k.mx, my: k.my, act: k.act, use: k.use }; };
+    if (!O.role) { ZM.events(Rope.step(G, { pink: q('pink'), mint: q('mint') })); st.prev = ZM.snap(G); return; }
+    const li = q(O.local), rid = zOther(O.local);
+    st.lastInp = li;
+    if (O.role === 'host') {
+      const rq = st.remote;
+      ZM.events(Rope.step(G, { [O.local]: li, [rid]: rq }));
+      rq.act = false; rq.rel = false; st.prev = ZM.snap(G);
+    } else {
+      if (li.act) st.n.a++;
+      if (st.wasUse && !li.use) st.n.r++;
+      st.wasUse = li.use;
+      Rope.step(G, { [O.local]: li, [rid]: { still: true } }, true);
+    }
+  },
+  frameExtra(dt) {
+    const st = ZM.st, G = st.G, A = G.p.pink, B = G.p.mint, t = S.time;
+    for (const id of ['pink', 'mint']) {
+      const p = G.p[id], d = st.disp[id], far = Math.hypot(p.x - d.x, p.y - d.y);
+      if (!O.role || O.role === 'host' || far > 160) { d.x = p.x; d.y = p.y; } else { const k = Math.min(1, dt * 16); d.x += (p.x - d.x) * k; d.y += (p.y - d.y) * k; }
+      if (p.mv) st.walk[id] += dt * 12;
+      if (st.joy[id] > 0) st.joy[id] -= dt;
+    }
+    // the camera: the two of them a little below the middle, the higher one never off the top
+    const top = Math.min(st.disp.pink.y, st.disp.mint.y), mid = (st.disp.pink.y + st.disp.mint.y) / 2;
+    let want = Math.min(mid - VH * .55, top - 120);
+    want = Math.max(0, Math.min(G.geo.HT - VH, want));
+    st.cam += (want - st.cam) * Math.min(1, dt * (G.st === 'fall' ? 2 : 4));
+    for (const f of st.wf) { f.life -= dt; f.y -= dt * 20; }
+    st.wf = st.wf.filter(f => f.life > 0);
+    const def = G.def;
+    if (def.look === 'snow' && Math.random() < .6) st.flakes.push({ x: Math.random() * (VW + 200) - 100, y: -10, v: 40 + Math.random() * 50, r: .8 + Math.random() * 1.6, w: Math.random() * 6 });
+    const wind = G.wind && G.wind.st === 'gust' ? G.wind.dir * 380 : 0;
+    for (const f of st.flakes) { f.y += f.v * dt; f.x += (Math.sin(t + f.w) * 14 + wind) * dt; }
+    st.flakes = st.flakes.filter(f => f.y < VH + 10 && f.x > -120 && f.x < VW + 120);
+    for (const z of G.geo.zones) if (Math.random() < dt * 14) st.mist.push({ x: z.x0 + Math.random() * (z.x1 - z.x0), y: z.y1 - 6, vx: (Math.random() - .5) * 40, vy: -20 - Math.random() * 30, life: 1.4, r: 6 + Math.random() * 10 });
+    for (const m of st.mist) { m.life -= dt; m.x += m.vx * dt; m.y += m.vy * dt; m.r += dt * 8; }
+    st.mist = st.mist.filter(m => m.life > 0);
+    if (G.over && G.won) st.sun = Math.min(1, st.sun + dt * .5);
+    void A; void B;
+  },
+  result(G, s) {
+    const x = G.stats, won = G.won, nG = G.geo.gems.length;
+    const msg = s === 3 ? 'ปีนเร็วมาก เก็บดอกไม้มาด้วย เป็นคู่ปีนผาตัวจริง'
+      : s === 2 ? 'ถึงยอดแล้ว! ปีนให้เร็วขึ้นอีกนิด เก็บดอกไม้เพิ่ม จะได้สามดาว'
+      : s === 1 ? 'ถึงยอดได้แล้ว ผาถัดไปเปิดแล้ว ปีนสลับกันทีละคนจะร่วงน้อยลง'
+      : won ? 'ถึงยอดแล้ว แต่ร่วงบ่อยไปหน่อย ให้คนหนึ่งเกาะไว้ก่อน อีกคนค่อยกระโดด'
+      : 'ยังไปไม่ถึงยอด ปีนสลับกันทีละคน คนหนึ่งเกาะ อีกคนกระโดด เชือกจะรับไว้ตอนพลาด มือล้าให้ไปพักบนชะง่อนหิน';
+    return { head: won ? 'ถึงยอดแล้ว' : 'หมดเวลา', msg,
+      stats: `<span>แต้ม <b>${th(G.score)}</b> ปีนได้ <b>${th(Math.round(G.best * 100))}%</b> ดอกไม้ <b>${th(G.gemN)}/${th(nG)}</b>${won ? ` เวลาเหลือ <b>${th(Math.floor(Math.max(0, Rope.timeLeft(G))))}</b> วิ` : ''}</span><span>ร่วงทั้งคู่ <b>${th(x.falls)}</b> เชือกรับไว้ <b>${th(x.catches)}</b> มือหลุด <b>${th(x.slips + x.tired)}</b> เหยียบไหล่ <b>${th(x.boosts)}</b> ดึงเชือก <b>${th(x.hauls + x.climbs)}</b> แกว่งไปคว้า <b>${th(x.swings)}</b></span><span>หินร่วง <b>${th(x.crumbles)}</b> นกจิก <b>${th(x.pecks)}</b> แพะขวิด <b>${th(x.butts)}</b> ไล่แพะ <b>${th(x.shoos)}</b></span>` };
+  },
+  encode() { const st = ZM.st; return O.role === 'host' ? Rope.encode(st.G) : Rope.guestMsg(st.G, O.local, st.lastInp, st.n.r, st.n.a); },
+  hostHears(m) { Rope.hostHears(ZM.st.G, zOther(O.local), m, ZM.st.remote); },
+  guestHears(m) { Rope.apply(ZM.st.G, m); },
+  fresher: () => ({ seen: -1, seenR: -1, mx: 0, my: 0, act: false, use: false, rel: false }),
+  render: climbRender
+});
+
+/* ---------- drawing ---------- */
+// how each cliff looks
+const ZLOOK = {
+  sea: { wall: '#c88f63', wall2: '#a9744f', rim: '#7d4f34', lite: '#efc196', top: '#7cc35b', topD: '#4f9a3f', hold: ['#f3d6ae', '#e8c08e', '#ddb07e'], holdD: '#8a5a3c', far: '#9fc6dc' },
+  cave: { wall: '#4b3d5e', wall2: '#3a2f4c', rim: '#2a2038', lite: '#6c5a86', top: '#7a6f9a', topD: '#564a78', hold: ['#a99bc4', '#9787b6', '#b9acd2'], holdD: '#3c3054', far: '#1d1630' },
+  falls: { wall: '#6f7d68', wall2: '#5c6957', rim: '#3d4a3c', lite: '#93a38a', top: '#6fbf5c', topD: '#468f3c', hold: ['#cfd6c4', '#bcc6b0', '#dbe0d0'], holdD: '#4f5a49', far: '#5f9a6a' },
+  snow: { wall: '#7f8aa2', wall2: '#6b7690', rim: '#4a5270', lite: '#a9b3c9', top: '#f4f8ff', topD: '#c9d6ea', hold: ['#c9b39c', '#b9a38a', '#d6c2ab'], holdD: '#5a4a44', far: '#c3d2ea' },
+  dawn: { wall: '#7d6478', wall2: '#684f66', rim: '#3e2c40', lite: '#c99aa8', top: '#e9a6b8', topD: '#b9768c', hold: ['#f1cdd5', '#e2b6c4', '#f8dde2'], holdD: '#5e4258', far: '#4a3a66' }
+};
+const zLook = def => ZLOOK[def.look] || ZLOOK.sea;
+// the outline of the rock face (it fills the width in the cave)
+function zEdge(def, y, s) {
+  if (def.look === 'cave') return s < 0 ? -20 : VW + 20;
+  const w = 26 + 14 * Math.sin(y / 97 + (s < 0 ? 0 : 2.3)) + 8 * Math.sin(y / 39 + (s < 0 ? 1 : 4));
+  return s < 0 ? w : VW - w;
+}
+// the marks on the rock for the whole cliff (made once, drawn into each slice so nothing is cut at the seams)
+function zMarks(def) {
+  if (def._marks) return def._marks;
+  const R = rng(def.seed * 97 + 5), HT = def.map.length * 40, m = { blobs: [], strata: [], cracks: [], pebbles: [], tufts: [], deco: [] };
+  for (let i = 0; i < HT / 26; i++) m.blobs.push([R() * VW, R() * HT, 30 + R() * 70, 14 + R() * 30, R() < .5 ? 1 : -1]);
+  for (let y = 30; y < HT; y += 26 + R() * 40) m.strata.push([y, R() * 6, 4 + R() * 6, R()]);
+  for (let i = 0; i < HT / 22; i++) { const x = 40 + R() * (VW - 80), y = R() * HT, pts = [[x, y]]; let a = Math.PI / 2 + (R() - .5); for (let k = 0; k < 4; k++) { a += (R() - .5) * .9; const l = 8 + R() * 14; pts.push([pts[k][0] + Math.cos(a) * l, pts[k][1] + Math.sin(a) * l]); } m.cracks.push(pts); }
+  for (let i = 0; i < HT / 4; i++) m.pebbles.push([R() * VW, R() * HT, 1 + R() * 3.2, R()]);
+  for (let i = 0; i < HT / 30; i++) m.tufts.push([40 + R() * (VW - 80), R() * HT, R()]);
+  for (let i = 0; i < HT / 60; i++) m.deco.push([60 + R() * (VW - 120), R() * HT, R(), R()]);
+  Object.defineProperty(def, '_marks', { value: m, enumerable: false, configurable: true });
+  return m;
+}
+// one slice of the cliff, ZCH tall, from y0 down
+function zSlice(g, def, y0) {
+  const L = zLook(def), geo = Rope.parse(def), m = zMarks(def), y1 = y0 + ZCH, cave = def.look === 'cave';
+  g.save(); g.translate(0, -y0);
+  // the face
+  const face = new Path2D();
+  face.moveTo(zEdge(def, y0 - 10, -1), y0 - 10);
+  for (let y = y0 - 10; y <= y1 + 10; y += 8) face.lineTo(zEdge(def, y, -1), y);
+  for (let y = y1 + 10; y >= y0 - 10; y -= 8) face.lineTo(zEdge(def, y, 1), y);
+  face.closePath();
+  g.fillStyle = L.wall; g.fill(face);
+  g.save(); g.clip(face);
+  for (const [x, y, w, h, s] of m.blobs) { if (y + h < y0 - 20 || y - h > y1 + 20) continue; g.fillStyle = s > 0 ? hexA(L.lite, .22) : hexA(L.wall2, .5); g.beginPath(); g.ellipse(x, y, w, h, 0, 0, Math.PI * 2); g.fill(); }
+  g.lineWidth = 2; g.strokeStyle = hexA(L.wall2, .7);
+  for (const [y, a, f, ph] of m.strata) { if (y < y0 - 30 || y > y1 + 30) continue; g.beginPath(); for (let x = -10; x <= VW + 10; x += 20) g.lineTo(x, y + Math.sin(x / (40 + f * 10) + ph * 6) * a); g.stroke(); }
+  g.strokeStyle = hexA(L.lite, .25); g.lineWidth = 1;
+  for (const [y, a, f, ph] of m.strata) { if (y < y0 - 30 || y > y1 + 30) continue; g.beginPath(); for (let x = -10; x <= VW + 10; x += 20) g.lineTo(x, y + 2 + Math.sin(x / (40 + f * 10) + ph * 6) * a); g.stroke(); }
+  g.strokeStyle = hexA(L.rim, .55); g.lineWidth = 1.4; g.lineCap = 'round';
+  for (const c of m.cracks) { if (c[0][1] < y0 - 60 || c[0][1] > y1 + 20) continue; g.beginPath(); g.moveTo(c[0][0], c[0][1]); for (const p of c) g.lineTo(p[0], p[1]); g.stroke(); }
+  for (const [x, y, r, k] of m.pebbles) { if (y < y0 - 6 || y > y1 + 6) continue; g.fillStyle = k < .5 ? hexA(L.wall2, .8) : hexA(L.lite, .45); g.beginPath(); g.ellipse(x, y, r, r * .7, k * 3, 0, Math.PI * 2); g.fill(); }
+  if (!cave) for (const [x, y, k] of m.tufts) { if (y < y0 - 10 || y > y1 + 10) continue; g.fillStyle = def.look === 'snow' ? 'rgba(235,242,255,.4)' : k < .5 ? L.topD : L.top; if (def.look === 'snow') { g.beginPath(); g.ellipse(x, y, 8 + k * 8, 2.6, 0, 0, Math.PI * 2); g.fill(); } else for (let i = 0; i < 5; i++) { g.beginPath(); g.moveTo(x + i * 3, y); g.lineTo(x + i * 3 + 1.5, y - 5 - (i % 2) * 4); g.lineTo(x + i * 3 + 3, y); g.fill(); } }
+  // in the cave: glowing crystals here and there
+  if (cave) for (const [x, y, a, b] of m.deco) { if (y < y0 - 20 || y > y1 + 20) continue; if (a < .5) { g.fillStyle = b < .5 ? 'rgba(140,220,255,.85)' : 'rgba(200,150,255,.85)'; for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(x + i * 6 - 6, y); g.lineTo(x + i * 6 - 3, y - 10 - i * 3 - b * 6); g.lineTo(x + i * 6, y); g.fill(); } } }
+  g.restore();
+  // the edge of the face
+  if (!cave) { g.strokeStyle = L.rim; g.lineWidth = 3; g.stroke(face); g.strokeStyle = hexA(L.lite, .5); g.lineWidth = 1.2; g.beginPath(); for (let y = y0 - 10; y <= y1 + 10; y += 8) g.lineTo(zEdge(def, y, -1) + 3, y); g.stroke(); g.beginPath(); for (let y = y0 - 10; y <= y1 + 10; y += 8) g.lineTo(zEdge(def, y, 1) - 3, y); g.stroke(); }
+  // the ledges: shelves of rock with grass (moss, snow) on top
+  geo.ledges.forEach((l, i) => {
+    if (l.y < y0 - 60 || l.y > y1 + 60) return;
+    const ground = i === geo.ground, x0 = l.x0 - 6, x1 = l.x1 + 6, depth = ground ? 200 : 18;
+    g.fillStyle = 'rgba(20,10,30,.22)'; g.beginPath(); g.ellipse((x0 + x1) / 2, l.y + depth + 4, (x1 - x0) / 2, 8, 0, 0, Math.PI * 2); g.fill();
+    const sh = new Path2D(); sh.moveTo(x0, l.y); sh.lineTo(x1, l.y);
+    if (ground) { sh.lineTo(x1, l.y + depth); sh.lineTo(x0, l.y + depth); }
+    else { sh.quadraticCurveTo(x1 + 2, l.y + depth * .7, x1 - 16, l.y + depth); sh.lineTo(x0 + 16, l.y + depth); sh.quadraticCurveTo(x0 - 2, l.y + depth * .7, x0, l.y); }
+    sh.closePath();
+    const gr = g.createLinearGradient(0, l.y, 0, l.y + depth); gr.addColorStop(0, L.lite); gr.addColorStop(1, L.wall2);
+    g.fillStyle = gr; g.fill(sh); g.strokeStyle = L.rim; g.lineWidth = 2; g.stroke(sh);
+    const R = rng(i * 31 + 7);
+    g.fillStyle = L.topD; rr(g, x0 - 2, l.y - 4, x1 - x0 + 4, 8, 4); g.fill();
+    g.fillStyle = L.top; rr(g, x0, l.y - 5, x1 - x0, 6, 3); g.fill();
+    if (def.look !== 'snow' && !cave) for (let x = x0 + 4; x < x1 - 4; x += 5 + R() * 6) { const h = 3 + R() * 5; g.fillStyle = R() < .5 ? L.topD : L.top; g.beginPath(); g.moveTo(x, l.y - 3); g.lineTo(x + 1.5, l.y - 3 - h); g.lineTo(x + 3, l.y - 3); g.fill(); if (R() < .07) { g.fillStyle = ['#ffd1e8', '#fff3b0', '#fff'][Math.floor(R() * 3)]; g.beginPath(); g.arc(x + 1.5, l.y - 4 - h, 2, 0, Math.PI * 2); g.fill(); } }
+    if (cave) { g.fillStyle = L.wall2; for (let x = x0 + 10; x < x1 - 10; x += 16 + R() * 20) { const h = 8 + R() * 16; g.beginPath(); g.moveTo(x - 4, l.y + depth - 2); g.lineTo(x, l.y + depth + h); g.lineTo(x + 4, l.y + depth - 2); g.fill(); } }
+    if (def.look === 'snow') { g.fillStyle = '#ffffff'; for (let x = x0; x < x1; x += 14) { g.beginPath(); g.arc(x + 7, l.y - 4, 6 + R() * 2, Math.PI, 0); g.fill(); } }
+  });
+  g.restore();
+}
+function zCliff(g, G, cam) {
+  const def = G.def, k0 = Math.max(0, Math.floor(cam / ZCH)), k1 = Math.floor((cam + VH) / ZCH);
+  for (let k = k0; k <= k1; k++) stamp(g, 'zslice' + (k % 3), def.name + ':' + k, 0, k * ZCH, VW, ZCH, q => zSlice(q, def, k * ZCH));
+}
+// the sky and what is far away (moves a little as you climb)
+function zBack(g, G, cam) {
+  const def = G.def, L = zLook(def), HT = G.geo.HT, up = 1 - cam / Math.max(1, HT - VH), t = S.time;
+  if (def.look === 'cave') {
+    stamp(g, 'zcave', '', 0, 0, VW, VH, q => { const gr = q.createLinearGradient(0, 0, 0, VH); gr.addColorStop(0, '#120c20'); gr.addColorStop(1, '#231736'); q.fillStyle = gr; q.fillRect(0, 0, VW, VH); }, true);
+    return;
+  }
+  let c0, c1, c2;
+  if (def.look === 'dawn') { const k = Math.min(1, up * 1.15); c0 = yMix('#0d0f2e', '#3a3b8a', k); c1 = yMix('#1e1f52', '#c06a9a', k); c2 = yMix('#2c2a66', '#ffb27a', k); }
+  else if (def.look === 'snow') { c0 = '#8fb1dc'; c1 = '#c4d8f0'; c2 = '#eef4fb'; }
+  else if (def.look === 'falls') { c0 = '#69b8e8'; c1 = '#a8daf2'; c2 = '#e4f5ea'; }
+  else { c0 = '#5fb4ec'; c1 = '#a7d9f5'; c2 = '#f4f1dc'; }
+  const gr = g.createLinearGradient(0, 0, 0, VH); gr.addColorStop(0, c0); gr.addColorStop(.6, c1); gr.addColorStop(1, c2);
+  g.fillStyle = gr; g.fillRect(0, 0, VW, VH);
+  if (def.look === 'dawn' && up < .7) { const a = 1 - up / .7; for (let i = 0; i < 50; i++) { g.fillStyle = `rgba(255,255,240,${a * (.3 + (i * 37 % 10) / 14)})`; g.fillRect((i * 197) % VW, (i * 89) % (VH * .7), 1.5, 1.5); } }
+  const hz = VH * .62 + up * VH * .25;
+  // far hills or the sea, sinking as you climb
+  if (def.look === 'sea') {
+    g.fillStyle = '#9cc8e0'; g.beginPath(); g.moveTo(0, hz); for (let x = 0; x <= VW; x += 30) g.lineTo(x, hz - 14 - Math.sin(x / 120) * 10 - (x > 600 && x < 800 ? 24 * Math.sin((x - 600) / 200 * Math.PI) : 0)); g.lineTo(VW, hz); g.fill();
+    const sg = g.createLinearGradient(0, hz, 0, VH); sg.addColorStop(0, '#5cb6d8'); sg.addColorStop(1, '#2a7fa8'); g.fillStyle = sg; g.fillRect(0, hz, VW, VH - hz);
+    g.strokeStyle = 'rgba(255,255,255,.45)'; g.lineWidth = 1.2; for (let i = 0; i < 14; i++) { const y = hz + 8 + i * 12, x = ((i * 137 + t * (8 + i)) % (VW + 100)) - 50; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 18 + i, y); g.stroke(); }
+  } else {
+    const hills = def.look === 'snow' ? ['#a9bad6', '#8a9cc0'] : def.look === 'falls' ? ['#7fb98a', '#5a9a68'] : ['#3a3466', '#2a2550'];
+    hills.forEach((col, j) => { g.fillStyle = col; g.beginPath(); g.moveTo(0, VH); for (let x = 0; x <= VW; x += 20) { const p = def.look === 'snow' || def.look === 'dawn' ? Math.abs(((x + j * 170) % 340) - 170) / 170 : .5 + Math.sin(x / 110 + j * 2) * .5; g.lineTo(x, hz - 40 + j * 30 - p * (90 - j * 30)); } g.lineTo(VW, VH); g.fill(); });
+    if (def.look === 'snow') { g.fillStyle = 'rgba(255,255,255,.85)'; for (let x = 0; x <= VW; x += 340) { g.beginPath(); g.moveTo(x + 170 - 34, hz - 40 - 72); g.lineTo(x + 170, hz - 40 - 90); g.lineTo(x + 170 + 34, hz - 40 - 72); g.fill(); } }
+  }
+  if (def.look === 'dawn') { const sy = hz - 30 - ZM.st.sun * 60, a = .3 + up * .5 + ZM.st.sun * .3; glow(g, '255,170,110', VW * .5, sy, 160, a); g.fillStyle = `rgba(255,210,150,${Math.min(1, up * 1.3)})`; g.beginPath(); g.arc(VW * .5, sy + 10, 34, Math.PI, 0); g.fill(); }
+  else if (def.look !== 'snow') { glow(g, '255,240,190', 150, 70, 70, .6); g.fillStyle = '#fff6cf'; g.beginPath(); g.arc(150, 70, 20, 0, Math.PI * 2); g.fill(); }
+  for (let i = 0; i < 4; i++) { const x = ((i * 260 + t * (5 + i * 2)) % (VW + 240)) - 120, y = 40 + i * 34 + up * 30; fluffyCloud(g, x, y, 70 + i * 12, def.look === 'dawn' ? .35 : .7, def.look === 'dawn' ? '255,200,220' : '255,255,255'); }
+  if (def.look === 'sea' || def.look === 'falls') drawBirds(g, t, 60, 200, 3);
+}
+// the waterfall: water pouring down a strip of the cliff, foam at the foot, mist
+function zFalls(g, G, t) {
+  for (const z of G.geo.zones) {
+    const w = z.x1 - z.x0, gr = g.createLinearGradient(z.x0, 0, z.x1, 0);
+    gr.addColorStop(0, 'rgba(190,230,250,.25)'); gr.addColorStop(.2, 'rgba(210,240,255,.55)'); gr.addColorStop(.8, 'rgba(210,240,255,.55)'); gr.addColorStop(1, 'rgba(190,230,250,.25)');
+    g.fillStyle = gr; g.fillRect(z.x0, z.y0 - 20, w, z.y1 - z.y0 + 20);
+    g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 2; g.lineCap = 'round';
+    for (let i = 0; i < w / 9; i++) { const x = z.x0 + 5 + i * 9 + Math.sin(i * 7) * 3, sp = 260 + (i * 53) % 120, len = 26 + (i * 31) % 30; for (let k = 0; k < (z.y1 - z.y0) / 90 + 1; k++) { const y = z.y0 + ((t * sp + i * 41 + k * 90) % (z.y1 - z.y0 + 40)) - 20; g.beginPath(); g.moveTo(x, y); g.lineTo(x, Math.min(z.y1, y + len)); g.stroke(); } }
+    g.fillStyle = 'rgba(255,255,255,.75)'; for (let i = 0; i < w / 10; i++) { g.beginPath(); g.arc(z.x0 + i * 10 + 5, z.y1 - 2 + Math.sin(t * 6 + i) * 2, 7 + Math.sin(t * 4 + i * 2) * 2, 0, Math.PI * 2); g.fill(); }
+  }
+  for (const m of ZM.st.mist) { g.fillStyle = `rgba(240,250,255,${m.life * .25})`; g.beginPath(); g.arc(m.x, m.y, m.r, 0, Math.PI * 2); g.fill(); }
+}
+// a rock to hold: a rounded lump with a shine (crumbly ones crack, wet ones shine and drip, flowers beside some)
+function zHold(g, G, i, t, glowCol) {
+  const h = G.geo.holds[i], s = G.hs[i], L = zLook(G.def);
+  let a = 1; if (s.gone > 0) { if (s.gone > .6) return; a = 1 - s.gone / .6; }
+  const shake = h.cr && s.ct > Rope.CRUMBLE_T * .45 ? Math.sin(t * 50 + i) * 1.2 : 0, x = h.x + shake, y = h.y;
+  g.globalAlpha = a;
+  if (glowCol) { g.strokeStyle = glowCol; g.lineWidth = 3; g.beginPath(); g.arc(x, y, 15 + Math.sin(t * 8) * 1.5, 0, Math.PI * 2); g.stroke(); }
+  g.fillStyle = 'rgba(20,10,30,.28)'; g.beginPath(); g.ellipse(x + 2, y + 6, 11, 5, 0, 0, Math.PI * 2); g.fill();
+  const col = h.cr ? '#d8b98e' : h.wet ? '#a9c6d8' : L.hold[(i * 7) % 3], r = 10.5 + ((i * 13) % 3);
+  g.fillStyle = h.cr ? '#9a7b58' : L.holdD; g.beginPath(); g.ellipse(x, y + 1.5, r + 1.5, r * .8 + 1.5, (i % 5) * .3, 0, Math.PI * 2); g.fill();
+  g.fillStyle = col; g.beginPath(); g.ellipse(x, y, r, r * .78, (i % 5) * .3, 0, Math.PI * 2); g.fill(); g.strokeStyle = hexA(h.cr ? '#6b4e33' : L.holdD, .9); g.lineWidth = 1.4; g.stroke();
+  if (G.def.look === 'snow' && !h.cr) { g.fillStyle = '#f6f9ff'; g.beginPath(); g.ellipse(x - 1, y - r * .55, r * .8, r * .32, (i % 5) * .3, Math.PI, 0); g.fill(); }
+  g.fillStyle = 'rgba(255,255,255,.45)'; g.beginPath(); g.ellipse(x - r * .35, y - r * .32, r * .38, r * .2, -.4, 0, Math.PI * 2); g.fill();
+  if (h.cr) {
+    const k = Math.min(1, s.ct / Rope.CRUMBLE_T); g.strokeStyle = '#6b4e33'; g.lineWidth = 1.2; g.beginPath();
+    g.moveTo(x - 6, y - 3); g.lineTo(x - 1, y + 1); g.lineTo(x + 3, y - 2); if (k > .3) { g.moveTo(x - 1, y + 1); g.lineTo(x - 2, y + 7); } if (k > .6) { g.moveTo(x + 3, y - 2); g.lineTo(x + 8, y + 3); g.moveTo(x - 6, y - 3); g.lineTo(x - 9, y + 4); } g.stroke();
+    if (k > .5 && Math.random() < .3) { g.fillStyle = '#b89474'; g.fillRect(x - 4 + Math.random() * 8, y + 8 + Math.random() * 6, 2, 2); }
+  }
+  if (h.wet) { g.fillStyle = 'rgba(255,255,255,.75)'; g.beginPath(); g.arc(x + r * .3, y - r * .3, 1.8, 0, Math.PI * 2); g.fill(); const dk = (t * 1.3 + i * .37) % 1; g.fillStyle = `rgba(170,220,255,${1 - dk})`; g.beginPath(); g.ellipse(x + 2, y + r * .7 + dk * 14, 1.6, 2.4, 0, 0, Math.PI * 2); g.fill(); }
+  g.globalAlpha = 1;
+}
+function zFlower(g, x, y, t, k = 1) {
+  g.save(); g.translate(x, y); g.scale(k, k); g.rotate(Math.sin(t * 2 + x) * .12);
+  g.strokeStyle = '#4f9a3f'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(0, 8); g.quadraticCurveTo(2, 2, 0, -4); g.stroke();
+  g.fillStyle = '#ff8fc0'; for (let i = 0; i < 5; i++) { const a = i * 1.2566 + t * .5; g.beginPath(); g.ellipse(Math.cos(a) * 4, -6 + Math.sin(a) * 4, 3.3, 2.4, a, 0, Math.PI * 2); g.fill(); }
+  g.fillStyle = '#ffe27a'; g.beginPath(); g.arc(0, -6, 2.4, 0, Math.PI * 2); g.fill();
+  g.restore();
+}
+// a bird's nest with eggs, and mother bird, cross when someone hangs beside it
+function zNest(g, n, anger, t) {
+  const x = n.x, y = n.y;
+  g.fillStyle = '#8a5d3a'; g.beginPath(); g.ellipse(x, y + 4, 16, 7, 0, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = '#b07a4a'; g.lineWidth = 1.2; for (let i = 0; i < 7; i++) { g.beginPath(); g.moveTo(x - 15 + i * 4, y + 1); g.lineTo(x - 12 + i * 4 + 6, y + 8); g.stroke(); }
+  g.fillStyle = '#eef4ff'; for (const dx of [-5, 1, 6]) { g.beginPath(); g.ellipse(x + dx, y, 3.2, 4, 0, 0, Math.PI * 2); g.fill(); }
+  const cross = anger > .05, hop = cross ? Math.abs(Math.sin(t * (anger > 1 ? 30 : 12))) * 4 : 0, by = y - 10 - hop;
+  g.fillStyle = cross ? '#7a6a8a' : '#6d7f9a'; g.beginPath(); g.ellipse(x - 2, by, 9, 7, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#f2ece0'; g.beginPath(); g.ellipse(x - 1, by + 2, 5.5, 4, 0, 0, Math.PI * 2); g.fill();
+  const flap = cross ? Math.sin(t * 26) * .8 : 0; g.fillStyle = '#4f5f78'; g.save(); g.translate(x - 7, by - 1); g.rotate(-.4 - flap); g.beginPath(); g.ellipse(-4, 0, 7, 3, 0, 0, Math.PI * 2); g.fill(); g.restore();
+  g.fillStyle = '#ffb347'; g.beginPath(); g.moveTo(x + 6, by - 2); g.lineTo(x + 12, by); g.lineTo(x + 6, by + 1); g.fill();
+  g.fillStyle = C.ink; g.beginPath(); g.arc(x + 3, by - 3, 1.3, 0, Math.PI * 2); g.fill();
+  if (cross) { g.strokeStyle = C.ink; g.lineWidth = 1.2; g.beginPath(); g.moveTo(x + 1, by - 6.5); g.lineTo(x + 5, by - 5); g.stroke(); g.fillStyle = '#ff7a7a'; g.globalAlpha = Math.min(1, anger); g.font = `700 12px ${FONT}`; g.textAlign = 'center'; g.fillText(anger > 1 ? '!!' : '!', x + 4, by - 12); g.globalAlpha = 1; }
+}
+// a goat on a ledge: white and woolly, little horns, a beard
+function zGoat(g, gt, l, t) {
+  const x = gt.x, y = l.y, d = gt.dir, walk = gt.wait > 0 || gt.aim > 0 ? 0 : t * 9, butt = gt.butt > 0 ? Math.sin(gt.butt / .6 * Math.PI) : gt.aim > 0 ? .5 + Math.sin(t * 20) * .15 : 0;
+  g.save(); g.translate(x, y); g.scale(d, 1);
+  g.fillStyle = 'rgba(20,10,30,.25)'; g.beginPath(); g.ellipse(0, 1, 18, 3, 0, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = '#5a4a40'; g.lineWidth = 3; g.lineCap = 'round';
+  for (const [lx, ph] of [[-10, 0], [-5, Math.PI], [6, Math.PI], [11, 0]]) { g.beginPath(); g.moveTo(lx, -10); g.lineTo(lx + Math.sin(walk + ph) * 2.5, 0); g.stroke(); }
+  g.fillStyle = '#f6f2ea'; for (const [cx, cy, r] of [[-8, -16, 8], [0, -17, 9], [8, -15, 8], [-2, -11, 8], [6, -11, 7]]) { g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fill(); }
+  g.save(); g.translate(14 + butt * 6, -20 + butt * 3); g.rotate(.3 + butt * .4);
+  g.fillStyle = '#f6f2ea'; g.beginPath(); g.ellipse(0, 0, 7, 6, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#e8ddd0'; g.beginPath(); g.ellipse(5, 2, 4, 3.4, 0, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = '#8a7a6a'; g.lineWidth = 2.2; g.beginPath(); g.moveTo(-2, -5); g.quadraticCurveTo(-6, -11, -10, -8); g.stroke();
+  g.fillStyle = '#d8cfc2'; g.beginPath(); g.ellipse(-6, -2, 4, 2, -.4, 0, Math.PI * 2); g.fill();
+  g.fillStyle = C.ink; g.beginPath(); g.arc(2, -1, 1.3, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#e0d6ca'; g.beginPath(); g.moveTo(3, 5); g.lineTo(5, 11); g.lineTo(7, 5); g.fill();
+  g.restore();
+  g.restore();
+}
+// the rope between them: slack it hangs in a loop, taut it is straight
+function zRope(g, G, a, b) {
+  const d = Math.hypot(a.x - b.x, a.y - b.y), taut = G.p.pink.taut || G.p.mint.taut, L = G.ropeL;
+  const sag = taut ? 0 : Math.min(120, Math.sqrt(Math.max(0, L * L - d * d)) * .42);
+  const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2 + sag;
+  const path = () => { g.beginPath(); g.moveTo(a.x, a.y); g.quadraticCurveTo(mx, my, b.x, b.y); };
+  g.lineCap = 'round'; path(); g.strokeStyle = '#7a2f1e'; g.lineWidth = 4.6; g.stroke();
+  path(); g.strokeStyle = taut ? '#ff9a4a' : '#ff7a3d'; g.lineWidth = 3; g.stroke();
+  g.setLineDash([3, 7]); path(); g.strokeStyle = 'rgba(255,240,220,.85)'; g.lineWidth = 1.3; g.stroke(); g.setLineDash([]);
+  for (const p of [a, b]) { g.strokeStyle = '#c7c9d6'; g.lineWidth = 1.8; g.beginPath(); g.arc(p.x, p.y, 3, 0, Math.PI * 2); g.stroke(); }
+}
+// the body's tilt hanging on the rope (toward the other)
+function zTilt(G, id) {
+  const p = G.p[id], d = ZM.st.disp[id], o = ZM.st.disp[zOther(id)];
+  if (p.st !== 'air') return 0;
+  return p.taut ? Math.max(-.7, Math.min(.7, Math.atan2(o.x - d.x, d.y - o.y) * .6)) : Math.max(-.35, Math.min(.35, p.vx / 900));
+}
+// where the rope ties on: the waist (hanging on it: the hands, holding the rope)
+function zWaist(G, id) {
+  const p = G.p[id], d = ZM.st.disp[id];
+  if (p.st === 'ledge') return { x: d.x, y: d.y + ZARM - 15 };
+  if (p.st === 'hold') return { x: d.x, y: d.y + 30 };
+  if (p.taut) { const r = zTilt(G, id), py = d.y + ZARM - 4 - 18; return { x: d.x + Math.sin(r) * 40, y: py - Math.cos(r) * 40 }; }
+  return { x: d.x, y: d.y + 24 };
+}
+// one of them, hanging from a rock, standing on a ledge, or in the air
+function zClimber(g, G, id, t) {
+  const st = ZM.st, p = G.p[id], d = st.disp[id], col = id === 'pink' ? C.pink : C.mint, dark = id === 'pink' ? C.pinkD : C.mintD, k = 1.2;
+  const tiredShake = p.st === 'hold' && p.stam < 25 ? Math.sin(t * 46) * 1.1 : 0, x = d.x + tiredShake, y = d.y;
+  let feet = y + ZARM, rot = 0, mood = '', noArms = false, sq = 0, walk = 0, air = false;
+  if (p.st === 'hold') { noArms = true; mood = !p.firm ? 'o' : p.stam < 25 ? 'sad' : ''; }
+  else if (p.st === 'ledge') { sq = p.crouch ? .16 : 0; walk = p.mv ? st.walk[id] : 0; }
+  else { air = true; feet = y + ZARM - 4; rot = zTilt(G, id); noArms = p.taut; mood = 'o'; }
+  if (st.joy[id] > 0) mood = 'happy';
+  if (G.over && G.won) mood = 'happy';
+  g.save(); g.translate(x, feet - 18); g.rotate(rot); g.translate(-x, -(feet - 18));
+  g.save(); g.translate(x, feet); g.scale(k, k); g.translate(-x, -feet);
+  drawPlayer(g, { id, x: x - 12, y: feet - 29, w: 24, h: 29, face: p.face, walk, sq, mood, noArms, noTag: true, vy: air && !noArms ? 1 : undefined, ground: !air }, t);
+  g.restore();
+  // arms reaching up to the rock (or to the rope above), in front
+  if (noArms) {
+    const hx = x, hy = p.st === 'air' ? feet - 18 - 40 : y + 1;
+    for (const s of [-1, 1]) {
+      if (p.st === 'hold' && !p.firm && s > 0) continue;
+      const sx = x + s * 11, sy = feet - 22, ex = hx + s * (p.st === 'hold' ? 5 : 2.5), ey = hy + (p.st === 'hold' && !p.firm ? 4 : p.st === 'air' ? (s > 0 ? 6 : 0) : 0);
+      g.lineCap = 'round'; g.strokeStyle = dark; g.lineWidth = 7; g.beginPath(); g.moveTo(sx, sy); g.quadraticCurveTo(sx + s * 4, (sy + ey) / 2, ex, ey); g.stroke();
+      g.strokeStyle = col; g.lineWidth = 4.8; g.beginPath(); g.moveTo(sx, sy); g.quadraticCurveTo(sx + s * 4, (sy + ey) / 2, ex, ey); g.stroke();
+      g.fillStyle = col; g.beginPath(); g.arc(ex, ey, 4, 0, Math.PI * 2); g.fill(); g.strokeStyle = dark; g.lineWidth = 1.2; g.stroke();
+      g.fillStyle = 'rgba(255,255,255,.5)'; g.beginPath(); g.arc(ex - 1.2, ey - 1.2, 1.3, 0, Math.PI * 2); g.fill();
+    }
+  }
+  g.restore();
+  // the name: under the feet when hanging, over the head standing (pushed apart when they stand close)
+  const tagY = p.st === 'ledge' ? feet - 29 * k - 15 - wardLift(id) : feet + 18, od = st.disp[zOther(id)];
+  const near = Math.abs(od.x - d.x) < 56 && Math.abs(od.y - d.y) < 30, tagX = near ? x + (d.x < od.x || (d.x === od.x && id === 'pink') ? -18 : 18) : x;
+  nameTag(g, S.names[id], tagX, tagY, col);
+  // sweat when the hands are tiring
+  if (p.st === 'hold' && p.stam < 35) { const ph = (t * 1.6 + (id === 'pink' ? 0 : .5)) % 1; g.fillStyle = `rgba(150,210,255,${1 - ph})`; g.beginPath(); g.ellipse(x + 12, feet - 40 + ph * 10, 2, 3, 0, 0, Math.PI * 2); g.fill(); }
+}
+// the grip left, as a little bar beside each of them
+function zGrip(g, G, id) {
+  const p = G.p[id], d = ZM.st.disp[id], o = ZM.st.disp[zOther(id)];
+  if (p.stam > 99 && p.st !== 'hold') return;
+  const side = d.x <= o.x ? -1 : 1, x = d.x + side * 22, y = d.y + 4, h = 30, k = p.stam / 100;
+  rr(g, x - 3.5, y, 7, h, 3.5); g.fillStyle = 'rgba(21,17,46,.7)'; g.fill();
+  rr(g, x - 2, y + 1.5 + (h - 3) * (1 - k), 4, (h - 3) * k, 2); g.fillStyle = k > .55 ? '#8be07a' : k > .28 ? '#ffcf5a' : (Math.sin(S.time * 14) > 0 ? '#ff5a5a' : '#ff9a7a'); g.fill();
+}
+// where a leap would go: a dotted arc to the rock (ring round it), or an arrow if nothing is that way
+function zAim(g, G, id, t) {
+  if (O.role && id !== O.local) return;
+  const p = G.p[id]; if (!((p.st === 'hold' && p.firm) || (p.st === 'ledge' && p.crouch))) return;
+  const k = zPeek(id), tg = Rope.aimTarget(G, id, k.mx, k.my), col = id === 'pink' ? C.pink : C.mint, d = ZM.st.disp[id];
+  if (tg) {
+    const tf = .24 + tg.d / 1000, vx = (tg.x - p.x) / tf, vy = (tg.y - p.y) / tf - .5 * Rope.GRAV * tf;
+    g.fillStyle = hexA(col, .9);
+    for (let i = 1; i < 10; i++) { const s = tf * i / 10, x = d.x + vx * s, y = d.y + vy * s + .5 * Rope.GRAV * s * s; g.beginPath(); g.arc(x, y, 2.4 - i * .1, 0, Math.PI * 2); g.fill(); }
+    g.strokeStyle = col; g.lineWidth = 2.6; g.setLineDash([5, 4]); g.lineDashOffset = -t * 20;
+    if (tg.k === 'h') { g.beginPath(); g.arc(tg.x, tg.y, 16, 0, Math.PI * 2); g.stroke(); }
+    else { rr(g, tg.x - 16, tg.y + ZARM - 10, 32, 14, 6); g.stroke(); }
+    g.setLineDash([]);
+    if (tg.boost) { g.font = `600 11px ${FONT}`; g.textAlign = 'center'; g.lineWidth = 3; g.strokeStyle = 'rgba(21,18,43,.8)'; g.strokeText('เหยียบไหล่', tg.x, tg.y - 22); g.fillStyle = C.gold; g.fillText('เหยียบไหล่', tg.x, tg.y - 22); }
+  } else if (Math.hypot(k.mx, k.my) > .35) {
+    const m = Math.hypot(k.mx, k.my), ax = k.mx / m, ay = k.my / m;
+    g.strokeStyle = hexA(col, .7); g.lineWidth = 2.4; g.setLineDash([4, 5]); g.beginPath(); g.moveTo(d.x + ax * 14, d.y + ay * 14); g.lineTo(d.x + ax * 52, d.y + ay * 52); g.stroke(); g.setLineDash([]);
+    g.fillStyle = hexA(col, .7); g.beginPath(); g.moveTo(d.x + ax * 60, d.y + ay * 60); g.lineTo(d.x + ax * 48 - ay * 6, d.y + ay * 48 + ax * 6); g.lineTo(d.x + ax * 48 + ay * 6, d.y + ay * 48 - ax * 6); g.fill();
+  }
+}
+function climbRender() {
+  const g = ctx, st = ZM.st, G = st.G, def = G.def, t = S.time, geo = G.geo, cam = Math.round(st.cam);
+  g.setTransform(scale, 0, 0, scale, 0, 0); g.textBaseline = 'alphabetic';
+  let ox = 0, oy = 0; if (S.shake > 0) { ox = (Math.random() - .5) * 6 * S.shake; oy = (Math.random() - .5) * 4 * S.shake; }
+  g.save(); g.translate(ox, oy);
+  zBack(g, G, cam);
+  g.save(); g.translate(0, -cam);
+  // the sea at the foot of the first cliff
+  if (def.look === 'sea') { const y = geo.HT - 40; if (y < cam + VH) { g.fillStyle = '#3f9cc4'; g.fillRect(0, y, VW, 200); g.strokeStyle = 'rgba(255,255,255,.6)'; g.lineWidth = 2; g.beginPath(); for (let x = 0; x <= VW; x += 12) g.lineTo(x, y + Math.sin(t * 2 + x * .05) * 3); g.stroke(); } }
+  zCliff(g, G, cam);
+  zFalls(g, G, t);
+  const vis = y => y > cam - 60 && y < cam + VH + 60;
+  // the flags: on the ledges you start again from, and at the top
+  geo.ledges.forEach((l, i) => {
+    if (!(l.cp || l.top) || i === geo.ground || !vis(l.y)) return;
+    const x = l.x1 - 14, got = l.top ? G.won : l.y >= geo.ledges[G.cp].y, wave = Math.sin(t * 4 + i) * 3;
+    g.strokeStyle = '#6a5040'; g.lineWidth = 2.4; g.beginPath(); g.moveTo(x, l.y - 2); g.lineTo(x, l.y - (l.top ? 58 : 40)); g.stroke();
+    const fy = l.y - (l.top ? 58 : 40); g.fillStyle = l.top ? C.gold : got ? '#ffcf5a' : 'rgba(255,255,255,.75)';
+    g.beginPath(); g.moveTo(x, fy); g.quadraticCurveTo(x - 12, fy + 4 + wave, x - (l.top ? 30 : 22), fy + 7 + wave); g.lineTo(x, fy + (l.top ? 20 : 14)); g.fill();
+    if (got || l.top) { g.fillStyle = C.pink; heartPath(g, x - (l.top ? 13 : 10), fy + 8, l.top ? 4.5 : 3.5); g.fill(); }
+  });
+  // nests, rocks, flowers
+  geo.nests.forEach((n, i) => { if (vis(n.y)) zNest(g, n, G.nb[i], t); });
+  const aimed = {};
+  for (const id of ['pink', 'mint']) { if (O.role && id !== O.local) continue; const p = G.p[id]; if ((p.st === 'hold' && p.firm) || (p.st === 'ledge' && p.crouch)) { const k = zPeek(id), tg = Rope.aimTarget(G, id, k.mx, k.my); if (tg && tg.k === 'h') aimed[tg.i] = id === 'pink' ? C.pink : C.mint; } }
+  for (let i = 0; i < geo.holds.length; i++) if (vis(geo.holds[i].y)) zHold(g, G, i, t, aimed[i]);
+  geo.gems.forEach((gm, i) => { if (!G.gem[i] && vis(gm.y)) zFlower(g, gm.x + 13, gm.y - 4, t); });
+  G.goats.forEach(gt => { const l = geo.ledges[gt.li]; if (vis(l.y)) zGoat(g, gt, l, t); });
+  // the two of them and the rope
+  zRope(g, G, zWaist(G, 'pink'), zWaist(G, 'mint'));
+  for (const id of ['mint', 'pink']) zClimber(g, G, id, t);
+  for (const id of ['pink', 'mint']) zGrip(g, G, id);
+  if (S.mode === 'play' && G.st === 'run') for (const id of ['pink', 'mint']) zAim(g, G, id, t);
+  drawParts(g);
+  for (const f of st.wf) { g.globalAlpha = Math.min(1, f.life * 2.5); g.textAlign = 'center'; g.font = `400 ${f.size}px ${FONT_D}`; g.lineWidth = 4; g.strokeStyle = 'rgba(21,18,43,.85)'; g.strokeText(f.text, f.x, f.y); g.fillStyle = f.col; g.fillText(f.text, f.x, f.y); g.globalAlpha = 1; }
+  g.restore();
+  // weather: snow, wind
+  if (st.flakes.length) { g.fillStyle = 'rgba(255,255,255,.7)'; for (const f of st.flakes) { g.beginPath(); g.arc(f.x, f.y, f.r, 0, Math.PI * 2); g.fill(); } }
+  if (G.wind) {
+    const w = G.wind, gust = w.st === 'gust';
+    if (gust) { g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 2; g.lineCap = 'round'; for (let i = 0; i < 16; i++) { const y = (i * 61) % VH + Math.sin(t * 3 + i) * 10, x = ((w.dir > 0 ? t * 900 : -t * 900) + i * 233) % (VW + 300); const xx = w.dir > 0 ? x - 150 : VW + 150 - (-x); g.beginPath(); g.moveTo(xx, y); g.quadraticCurveTo(xx + w.dir * 40, y - 6, xx + w.dir * 90, y); g.stroke(); } }
+    else { const a = .5 + .5 * Math.sin(t * 10), x = w.dir > 0 ? 30 : VW - 30; g.fillStyle = `rgba(191,230,255,${a})`; for (let k = 0; k < 3; k++) { const yy = VH / 2 - 40 + k * 40; g.beginPath(); g.moveTo(x + w.dir * 26, yy); g.lineTo(x - w.dir * 4, yy - 14); g.lineTo(x - w.dir * 4, yy + 14); g.fill(); } }
+  }
+  if (def.look === 'cave') stamp(g, 'zcavevig', '', 0, 0, VW, VH, q => { const vg = q.createRadialGradient(VW / 2, VH / 2, VH * .35, VW / 2, VH / 2, VW * .7); vg.addColorStop(0, 'rgba(8,4,20,0)'); vg.addColorStop(1, 'rgba(8,4,20,.55)'); q.fillStyle = vg; q.fillRect(0, 0, VW, VH); });
+  if (G.st === 'fall') { g.fillStyle = `rgba(20,10,40,${Math.min(.45, (Rope.RESPAWN - G.fallT) * .5)})`; g.fillRect(0, 0, VW, VH); }
+  g.restore();
+  zHud(g, G, t);
+  xDrawFloats(g, ZM);
+  xCountdown(g, G, Rope.START);
+  xBannerDraw(g, G, Rope.START, def.name, 'กดปุ่มเกาะค้าง โยกจอยเล็ง ปล่อยปุ่ม = กระโดด แล้วกดค้างอีกทีตอนถึงหิน');
+  if (S.flash > 0) { g.fillStyle = `rgba(255,255,255,${S.flash * .4})`; g.fillRect(0, 0, VW, VH); }
+  if (O.role && S.mode !== 'menu') drawNetNote(g);
+}
+function zHud(g, G, t) {
+  const st = ZM.st, c = Rope.clock(G), def = G.def, geo = G.geo;
+  xScoreBox(g, G.st === 'count' ? c.len : c.left, G.score, def.stars, 'แต้ม');
+  // how high: a bar on the right with the flags and the two of them
+  const x = VW - 26, y0 = 92, y1 = VH - 70, H = y1 - y0, yOf = wy => y0 + H * Math.max(0, Math.min(1, (wy - G.y1) / (G.y0 - G.y1)));
+  panel(g, x - 13, y0 - 22, 26, H + 40, 12, .78);
+  rr(g, x - 3, y0, 6, H, 3); g.fillStyle = 'rgba(255,255,255,.14)'; g.fill();
+  const by = yOf(G.y0 - G.best * (G.y0 - G.y1)); rr(g, x - 3, by, 6, y1 - by, 3); g.fillStyle = hexA(C.gold, .7); g.fill();
+  geo.ledges.forEach((l, i) => { if (!l.cp || i === geo.ground) return; const yy = yOf(l.y - ZARM); g.fillStyle = l.y >= geo.ledges[G.cp].y ? C.gold : 'rgba(255,255,255,.5)'; g.fillRect(x - 7, yy - 1, 14, 2); });
+  g.fillStyle = C.gold; g.beginPath(); g.moveTo(x - 1, y0 - 16); g.lineTo(x - 1, y0 - 4); g.lineTo(x + 1, y0 - 4); g.lineTo(x + 1, y0 - 16); g.fill(); g.beginPath(); g.moveTo(x + 1, y0 - 16); g.lineTo(x + 10, y0 - 13); g.lineTo(x + 1, y0 - 10); g.fill();
+  for (const id of ['pink', 'mint']) { const yy = yOf(G.p[id].y); g.fillStyle = id === 'pink' ? C.pink : C.mint; g.beginPath(); g.arc(x + (id === 'pink' ? -4 : 4), yy, 5, 0, Math.PI * 2); g.fill(); g.strokeStyle = 'rgba(21,17,46,.8)'; g.lineWidth = 1.2; g.stroke(); }
+  // flowers picked
+  const n = geo.gems.length;
+  if (n) { const w = 112, xx = VW - 48 - w; panel(g, xx, 8, w, 30, 12, .85); zFlower(g, xx + 18, 30, t, .9); g.font = `600 12px ${FONT}`; g.textAlign = 'left'; g.fillStyle = C.paper; g.fillText(`ดอกไม้ ${th(G.gemN)}/${th(n)}`, xx + 32, 28); }
+  if (S.mode !== 'play' || G.over || G.st !== 'run') return;
+  // a word for whoever needs one (your own only, online)
+  const tips = [];
+  for (const id of ['pink', 'mint']) {
+    if (O.role && id !== O.local) continue;
+    const p = G.p[id], o = G.p[zOther(id)], tg = Rope.target(G, id), d = st.disp[id], sx = d.x, sy = d.y - st.cam - 42;
+    let tip = '';
+    if (tg === 'catch') tip = 'กดค้าง!';
+    else if (tg === 'tired') tip = 'มือล้า! ไปพักบนชะง่อน';
+    else if (tg === 'shoo') tip = 'กดปุ่มเชือก ไล่แพะ!';
+    else if (tg === 'haul') tip = 'กดปุ่มเชือกรัวๆ ดึงขึ้นมา!';
+    else if (tg === 'hang') tip = 'โยกซ้ายขวาแกว่ง · ปุ่มเชือกปีนขึ้น · กดค้างคว้าหิน';
+    else if (tg === 'fly' && !p.held) tip = 'กดค้าง!';
+    else if (tg === 'boost' && p.crouch) tip = 'ยืนชิดกัน เหยียบไหล่โดดได้สูงขึ้น';
+    else if (p.st === 'hold' && p.peckT > .3) tip = 'นกโกรธแล้ว รีบไป!';
+    else if (p.st === 'hold' && geo.holds[p.h].cr && G.hs[p.h].ct > .4) tip = 'หินจะร่วง! รีบไป';
+    else if (G.rt < 10 && p.st === 'ledge' && !p.crouch) tip = 'กดค้าง เล็ง แล้วปล่อย = กระโดด';
+    else if (G.rt < 14 && p.st === 'hold' && o.st !== 'air') tip = 'ปล่อย = โดดไปที่วง';
+    if (tip) tips.push([id, tip, Math.max(80, Math.min(VW - 120, sx)), Math.max(26, sy)]);
+  }
+  // two words close together: one goes a little higher
+  if (tips.length === 2 && Math.abs(tips[0][2] - tips[1][2]) < 220 && Math.abs(tips[0][3] - tips[1][3]) < 26) { const hi = tips[0][3] <= tips[1][3] ? 0 : 1; tips[hi][3] = Math.max(26, tips[1 - hi][3] - 26); if (tips[hi][3] === tips[1 - hi][3]) tips[1 - hi][3] += 26; }
+  for (const [id, tip, x, y] of tips) xTip(g, id, tip, x, y);
+}
+
 /* ---------- Fullscreen ---------- */
 const isIPhone = /iPhone|iPod/.test(navigator.userAgent);
 const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement || null;
@@ -12089,7 +12634,7 @@ function boot(data) {
   requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
   if (inClaude()) setTimeout(roomApi, 300);
 }
-try { Object.defineProperty(window, '__tsr', { value: { S, KS, DS, RS, TS, MS, WS, LS, BS, VS, IS, O, KK, KT, Twr, Leg, Boat, Mov, Kite, MODES, XK, Cin, Fart, Bed, Win, Trap, Isle, SM, Shop, OM, Fish, YM, WARD, wardStars, ART: { drawPlayer, roundBody, cuteFace, wardDoll, drawChef }, VOICE: { say, sayBoth, MOODS, VO }, GO: { kit: startKitchen, def: startDefense, drv: startDrive, tak: startTak, mus: startMus, twr: startTwr, leg: startLeg, boat: startBoat, mov: startMov, kite: startKite, adv: startLevel }, BGMX: { TRACKS, bgmStep, mixerFor, stepDur, trackPrep, BGM, soundsInto, sfx } }, configurable: true }); } catch (e) {}
+try { Object.defineProperty(window, '__tsr', { value: { S, KS, DS, RS, TS, MS, WS, LS, BS, VS, IS, O, KK, KT, Twr, Leg, Boat, Mov, Kite, MODES, XK, Cin, Fart, Bed, Win, Trap, Isle, SM, Shop, OM, Fish, YM, Rope, ZM, ZART: { zSlice, zBack, zMarks }, WARD, wardStars, ART: { drawPlayer, roundBody, cuteFace, wardDoll, drawChef }, VOICE: { say, sayBoth, MOODS, VO }, GO: { kit: startKitchen, def: startDefense, drv: startDrive, tak: startTak, mus: startMus, twr: startTwr, leg: startLeg, boat: startBoat, mov: startMov, kite: startKite, adv: startLevel }, BGMX: { TRACKS, bgmStep, mixerFor, stepDur, trackPrep, BGM, soundsInto, sfx } }, configurable: true }); } catch (e) {}
 try { if (window.claude && window.claude.hot && window.claude.hot.snapshot) window.claude.hot.snapshot(() => ({ names: S.names, li: S.li })); } catch (e) {}
 if (window.claude && window.claude.hot && window.claude.hot.ready) window.claude.hot.ready(boot);
 else boot((window.claude && window.claude.hot && window.claude.hot.data) || {});
